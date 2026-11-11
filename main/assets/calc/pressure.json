@@ -1,0 +1,10 @@
+{
+  "title": "Коррекция давления",
+  "inputs": [
+    {"n":"press","label":"Давление","min":950,"max":1050,"def":1013,"unit":"гПа"}
+  ],
+  "outputs": [
+    {"n":"boil","label":"T кипения воды","formula":"100+(press-1013)*0.028","unit":"°C"},
+    {"n":"delta","label":"Поправка","formula":"(press-1013)*0.028","unit":"°C"}
+  ]
+}

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Automatika v2.9</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.json">
+</head>
+<body>
+<header><h1>⚗ Automatika v2.9</h1></header>
+<main>
+  <div class="cards">
+    <div class="card"><div class="label">Куб</div><div class="value" id="cube">—</div></div>
+    <div class="card"><div class="label">Царга</div><div class="value" id="col">—</div></div>
+    <div class="card"><div class="label">Мощность</div><div class="value" id="pwr">—</div></div>
+    <div class="card"><div class="label">Этап</div><div class="value" id="stg">—</div></div>
+  </div>
+  <div class="controls">
+    <button onclick="api('/api/start')">▶ Старт</button>
+    <button onclick="api('/api/pause')">⏸ Пауза</button>
+    <button onclick="api('/api/stop')">⏹ Стоп</button>
+  </div>
+  <canvas id="chart"></canvas>
+</main>
+<script src="/app.js"></script>
+<script src="/charts.js"></script>
+<script src="/api.js"></script>
+<script src="/ws.js"></script>
+</body>
+</html>

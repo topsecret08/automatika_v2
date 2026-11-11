@@ -1,0 +1,10 @@
+dependencies:
+  idf: ">=5.1"
+  lvgl/lvgl: "^8.3.11"
+  espressif/esp_lcd_st7796: "^1.0.0"
+  espressif/esp_lcd_touch: "^1.1.2"
+  espressif/esp_lcd_touch_ft5x06: "^1.0.6"
+  espressif/sqlite3: "^1.0.0"
+  espressif/esp_tinyusb: "^1.4.0"
+  espressif/esp_tinyusb_msc: "^1.0.0"
+  espressif/esp_https_ota: "^1.0.0"

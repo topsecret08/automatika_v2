@@ -1,0 +1,13 @@
+{
+  "title": "Сахарная брага",
+  "inputs": [
+    {"n":"vol","label":"Объём","min":5,"max":100,"def":20,"unit":"л"}
+  ],
+  "outputs": [
+    {"n":"sugar","label":"Сахар","formula":"vol*0.375","unit":"кг"},
+    {"n":"yeast","label":"Дрожжи","formula":"vol*0.0075","unit":"кг"},
+    {"n":"water","label":"Вода","formula":"vol","unit":"л"},
+    {"n":"abv","label":"Крепость","formula":"20","unit":"%"},
+    {"n":"out","label":"Выход","formula":"vol*0.375*0.6","unit":"л"}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "title": "ABV / IBU / SRM",
+  "inputs": [
+    {"n":"og","label":"OG","min":1.020,"max":1.100,"def":1.050,"unit":""},
+    {"n":"fg","label":"FG","min":1.000,"max":1.030,"def":1.010,"unit":""}
+  ],
+  "outputs": [
+    {"n":"abv","label":"ABV","formula":"(og-fg)*131.25","unit":"%"},
+    {"n":"att","label":"Аттенюация","formula":"(og-fg)/(og-1)*100","unit":"%"}
+  ]
+}

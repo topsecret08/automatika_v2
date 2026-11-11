@@ -1,0 +1,10 @@
+{
+  "app_title": "Automatika v2.9",
+  "menu": {
+    "modes": "Режимы работы",
+    "monitoring": "Мониторинг",
+    "recipes": "Рецепты",
+    "calcs": "Калькуляторы",
+    "settings": "Настройки"
+  }
+}

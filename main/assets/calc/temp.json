@@ -1,0 +1,10 @@
+{
+  "title": "Крепость по T",
+  "inputs": [
+    {"n":"temp","label":"T кипения","min":78,"max":100,"def":85,"unit":"°C"}
+  ],
+  "outputs": [
+    {"n":"abv","label":"Крепость","formula":"table_temp_abv(temp)","unit":"%"}
+  ],
+  "note": "Таблица: 78.3°C=96%, 85°C=65%, 90°C=43%, 95°C=22%, 100°C=0%"
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Разбавление спирта",
+  "inputs": [
+    {"n":"vol","label":"Объём","min":0.1,"max":50,"def":1,"unit":"л"},
+    {"n":"a1","label":"Исходная","min":20,"max":96,"def":96,"unit":"%"},
+    {"n":"a2","label":"Целевая","min":5,"max":90,"def":40,"unit":"%"}
+  ],
+  "outputs": [
+    {"n":"water","label":"Вода","formula":"vol*(a1/a2-1)","unit":"л"},
+    {"n":"total","label":"Итого","formula":"vol*(a1/a2)","unit":"л"}
+  ]
+}

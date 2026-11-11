@@ -1,0 +1,170 @@
+{
+  "app_title": "Automatika v2.9",
+  "app_subtitle": "Universal control system",
+
+  "menu": {
+    "modes": "Operation modes",
+    "monitoring": "Monitoring",
+    "recipes": "Recipes",
+    "calcs": "Calculators",
+    "fermentation": "Fermentation",
+    "settings": "Settings",
+    "diagnostics": "Diagnostics",
+    "learning": "Learning",
+    "demo": "Demo",
+    "help": "Help",
+    "roles": "Roles",
+    "valves": "Valves",
+    "alcohol": "Alcohol balance",
+    "time": "Time forecast",
+    "export": "Export",
+    "ai": "AI & Learning",
+    "qr": "QR codes",
+    "watchdog": "Watchdog",
+    "tinyml": "TinyML",
+    "db": "Database",
+    "usb": "USB-OTG",
+    "fota": "Firmware",
+    "scale": "HX711 Scale",
+    "autolearn": "AutoLearn",
+    "ui": "Interface"
+  },
+
+  "modes": {
+    "distill": "Distillation",
+    "rectify": "Rectification",
+    "beer": "Brewery",
+    "pvk": "Steam boiler",
+    "nbk": "Continuous column",
+    "vacuum": "Vacuum",
+    "double": "Double distillation",
+    "ferment": "Fermentation"
+  },
+
+  "process": {
+    "cube": "Cube",
+    "column": "Column",
+    "power": "Power",
+    "valve": "Valve",
+    "temp": "Temperature",
+    "pressure": "Pressure",
+    "vacuum": "Vacuum",
+    "flow": "Flow",
+    "elapsed": "Elapsed",
+    "remaining": "Remaining",
+    "progress": "Progress",
+    "start": "START",
+    "pause": "PAUSE",
+    "stop": "STOP",
+    "resume": "RESUME"
+  },
+
+  "stages": {
+    "idle": "Idle",
+    "heatup": "Heat up",
+    "stabilize": "Stabilizing",
+    "heads": "Heads",
+    "body": "Body",
+    "tails": "Tails",
+    "cooldown": "Cooling",
+    "done": "Done",
+    "error": "Error"
+  },
+
+  "roles": {
+    "guest": "Guest",
+    "operator": "Operator",
+    "engineer": "Engineer",
+    "admin": "Admin",
+    "login": "Login",
+    "logout": "Logout"
+  },
+
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "yes": "Yes",
+    "no": "No",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info",
+    "loading": "Loading...",
+    "no_data": "No data"
+  },
+
+  "settings": {
+    "wifi": "Wi-Fi",
+    "mqtt": "MQTT",
+    "ntp": "NTP",
+    "theme": "Theme",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_auto": "Auto",
+    "sound": "Sound",
+    "language": "Language",
+    "calibration": "Calibration",
+    "sensors": "Sensors",
+    "valves": "Valves",
+    "scale": "Scale",
+    "export": "Export settings",
+    "import": "Import settings",
+    "reset": "Full reset",
+    "restore": "Restore process"
+  },
+
+  "ai": {
+    "predictor": "Page predictor",
+    "action": "Action predictor",
+    "anomaly": "Anomaly detector",
+    "tinyml": "TinyML",
+    "cache": "AI cache",
+    "train": "Train now",
+    "reset": "Reset AI",
+    "accuracy": "Accuracy",
+    "samples": "Samples",
+    "cache_hit": "Cache hit rate"
+  },
+
+  "alerts": {
+    "overheat_cube": "Cube overheat!",
+    "overheat_column": "Column overheat!",
+    "overpressure": "Overpressure!",
+    "spill": "Spill detected!",
+    "sensor_fail": "Sensor failure!",
+    "no_flow": "No flow!",
+    "anomaly": "Process anomaly",
+    "emergency": "EMERGENCY STOP"
+  },
+
+  "help": {
+    "basics": "Basics",
+    "equipment": "Equipment",
+    "safety": "Safety",
+    "recipes": "Recipes",
+    "schemes": "Connection schemes",
+    "troubleshooting": "Troubleshooting",
+    "faq": "FAQ",
+    "whatsnew": "What's new"
+  },
+
+  "units": {
+    "celsius": "°C",
+    "percent": "%",
+    "liters": "L",
+    "ml": "ml",
+    "kg": "kg",
+    "g": "g",
+    "bar": "bar",
+    "mbar": "mbar",
+    "lpm": "L/min",
+    "hpa": "hPa",
+    "min": "min",
+    "sec": "s",
+    "hour": "h"
+  }
+}

@@ -1,0 +1,364 @@
+{
+  "app_title": "Automatika v2.9",
+  "app_subtitle": "Universelles Steuerungssystem",
+  "app_version": "2.9.0",
+
+  "menu": {
+    "modes": "Betriebsmodi",
+    "monitoring": "Überwachung",
+    "recipes": "Rezepte",
+    "calcs": "Rechner",
+    "fermentation": "Gärung",
+    "settings": "Einstellungen",
+    "diagnostics": "Diagnose",
+    "learning": "Lernen",
+    "demo": "Demo",
+    "help": "Hilfe",
+    "roles": "Rollen",
+    "valves": "Ventile",
+    "alcohol": "Alkoholbilanz",
+    "time": "Zeitprognose",
+    "export": "Export",
+    "ai": "KI & Lernen",
+    "qr": "QR-Codes",
+    "watchdog": "Watchdog",
+    "tinyml": "TinyML",
+    "db": "Datenbank",
+    "usb": "USB-OTG",
+    "fota": "Firmware",
+    "scale": "HX711 Waage",
+    "autolearn": "AutoLearn",
+    "ui": "Oberfläche"
+  },
+
+  "modes": {
+    "distill": "Destillation",
+    "rectify": "Rektifikation",
+    "beer": "Brauerei",
+    "pvk": "Dampfkessel",
+    "nbk": "Kontinuierliche Kolonne",
+    "vacuum": "Vakuumdestillation",
+    "double": "Doppelte Destillation",
+    "ferment": "Gärung"
+  },
+
+  "process": {
+    "cube": "Würzepfanne",
+    "column": "Kolonne",
+    "power": "Leistung",
+    "valve": "Ventil",
+    "temp": "Temperatur",
+    "pressure": "Druck",
+    "vacuum": "Vakuum",
+    "flow": "Durchfluss",
+    "elapsed": "Verstrichen",
+    "remaining": "Verbleibend",
+    "progress": "Fortschritt",
+    "start": "START",
+    "pause": "PAUSE",
+    "stop": "STOP",
+    "resume": "FORTSETZEN"
+  },
+
+  "stages": {
+    "idle": "Leerlauf",
+    "heatup": "Aufheizen",
+    "stabilize": "Stabilisierung",
+    "heads": "Vorlauf",
+    "body": "Mittellauf",
+    "tails": "Nachlauf",
+    "cooldown": "Abkühlen",
+    "done": "Fertig",
+    "error": "Fehler"
+  },
+
+  "roles": {
+    "guest": "Gast",
+    "operator": "Bediener",
+    "engineer": "Ingenieur",
+    "admin": "Administrator",
+    "login": "Anmelden",
+    "logout": "Abmelden"
+  },
+
+  "common": {
+    "ok": "OK",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "back": "Zurück",
+    "next": "Weiter",
+    "yes": "Ja",
+    "no": "Nein",
+    "error": "Fehler",
+    "warning": "Warnung",
+    "info": "Info",
+    "loading": "Lädt...",
+    "no_data": "Keine Daten",
+    "confirm": "Bestätigen",
+    "close": "Schließen",
+    "apply": "Anwenden",
+    "reset": "Zurücksetzen"
+  },
+
+  "settings": {
+    "wifi": "WLAN",
+    "mqtt": "MQTT",
+    "ntp": "NTP",
+    "theme": "Design",
+    "theme_light": "Hell",
+    "theme_dark": "Dunkel",
+    "theme_auto": "Automatisch",
+    "sound": "Ton",
+    "language": "Sprache",
+    "calibration": "Kalibrierung",
+    "sensors": "Sensoren",
+    "valves": "Ventile",
+    "scale": "Waage",
+    "export": "Einstellungen exportieren",
+    "import": "Einstellungen importieren",
+    "reset": "Vollständiger Reset",
+    "restore": "Prozess wiederherstellen",
+    "brightness": "Helligkeit",
+    "timeout": "Bildschirm-Timeout"
+  },
+
+  "ai": {
+    "predictor": "Seitenvorhersage",
+    "action": "Aktionsvorhersage",
+    "anomaly": "Anomalieerkennung",
+    "tinyml": "TinyML",
+    "cache": "KI-Cache",
+    "train": "Jetzt trainieren",
+    "reset": "KI zurücksetzen",
+    "accuracy": "Genauigkeit",
+    "samples": "Beispiele",
+    "cache_hit": "Cache-Trefferquote",
+    "threshold": "Anomalie-Schwelle"
+  },
+
+  "alerts": {
+    "overheat_cube": "Würzepfanne überhitzt!",
+    "overheat_column": "Kolonne überhitzt!",
+    "overpressure": "Überdruck!",
+    "spill": "Leckage erkannt!",
+    "sensor_fail": "Sensorausfall!",
+    "no_flow": "Kein Durchfluss!",
+    "anomaly": "Prozessanomalie",
+    "emergency": "NOT-AUS"
+  },
+
+  "help": {
+    "basics": "Grundlagen",
+    "equipment": "Ausrüstung",
+    "safety": "Sicherheit",
+    "recipes": "Rezepte",
+    "schemes": "Anschlussschemata",
+    "troubleshooting": "Fehlerbehebung",
+    "faq": "Häufige Fragen",
+    "whatsnew": "Was ist neu"
+  },
+
+  "units": {
+    "celsius": "°C",
+    "percent": "%",
+    "liters": "L",
+    "ml": "ml",
+    "kg": "kg",
+    "g": "g",
+    "bar": "bar",
+    "mbar": "mbar",
+    "lpm": "L/min",
+    "hpa": "hPa",
+    "min": "min",
+    "sec": "s",
+    "hour": "h"
+  },
+
+  "brew": {
+    "mash": "Maischen",
+    "boil": "Kochen",
+    "hop": "Hopfen",
+    "chill": "Kühlen",
+    "transfer": "Umpumpen",
+    "fermentation": "Gärung",
+    "bottling": "Abfüllen",
+    "og": "Stammwürze (OG)",
+    "fg": "Endvergärungsgrad (FG)",
+    "abv": "Alkoholgehalt (ABV)",
+    "ibu": "Bitterkeit (IBU)",
+    "srm": "Farbe (SRM)",
+    "batch_size": "Sudgröße",
+    "efficiency": "Effizienz"
+  },
+
+  "distill": {
+    "heads": "Vorlauf",
+    "body": "Mittellauf",
+    "tails": "Nachlauf",
+    "abv": "Alkoholgehalt",
+    "volume": "Volumen",
+    "collection": "Sammlung",
+    "rate": "Sammelrate",
+    "predecrement": "Vorabnahme",
+    "auto92": "Auto-92+ Formel"
+  },
+
+  "valves": {
+    "heads": "Vorlauf",
+    "body": "Mittellauf",
+    "tails": "Nachlauf",
+    "normally_closed": "NC (stromlos geschlossen)",
+    "normally_open": "NO (stromlos offen)",
+    "servo": "Servo",
+    "pulse": "Impuls",
+    "calibration": "Kalibrierung",
+    "ml_per_hour": "ml/Stunde"
+  },
+
+  "scale": {
+    "weight": "Gewicht",
+    "flow": "Durchfluss",
+    "total": "Gesamt",
+    "tare": "Tarieren",
+    "calibrate": "Kalibrieren",
+    "density": "Dichte",
+    "stable": "STABIL",
+    "unstable": "INSTABIL",
+    "reset_session": "Sitzung zurücksetzen"
+  },
+
+  "time": {
+    "eta": "Voraussichtliche Fertigstellung",
+    "remaining": "Verbleibende Zeit",
+    "elapsed": "Verstrichene Zeit",
+    "predict": "Prognose",
+    "rate": "Geschwindigkeit"
+  },
+
+  "db": {
+    "statistics": "Datenbankstatistik",
+    "history": "Prozessverlauf",
+    "export_json": "Nach JSON exportieren",
+    "backup": "Backup erstellen",
+    "vacuum": "Aufräumen (VACUUM)",
+    "clear": "Verlauf löschen",
+    "processes": "Prozesse",
+    "events": "Ereignisse",
+    "size": "Größe"
+  },
+
+  "usb": {
+    "mode": "USB-Modus",
+    "off": "Aus",
+    "msc": "Massenspeicher (MSC)",
+    "cdc": "Virtueller COM (CDC)",
+    "both": "Beide",
+    "status": "Status",
+    "mounted": "USB verbunden",
+    "not_mounted": "USB getrennt"
+  },
+
+  "fota": {
+    "update": "Aktualisierung",
+    "from_sd": "Von SD-Karte",
+    "from_url": "Von URL",
+    "from_qr": "Über QR-Code",
+    "version": "Version",
+    "rollback": "Zurückrollen",
+    "progress": "Fortschritt",
+    "current": "Aktuelle Version",
+    "reboot": "Neustart zum Aktualisieren"
+  },
+
+  "watchdog": {
+    "status": "Aufgabenstatus",
+    "critical": "KRITISCH",
+    "timeout": "Timeout",
+    "restarts": "Neustarts",
+    "max_stale": "Max. Verzögerung"
+  },
+
+  "errors": {
+    "no_sd": "SD-Karte nicht gefunden",
+    "no_wifi": "WLAN nicht konfiguriert",
+    "no_db": "Datenbank nicht verfügbar",
+    "no_sensor": "Sensor nicht gefunden",
+    "overheat": "Überhitzung erkannt",
+    "overpressure": "Überdruck erkannt",
+    "spill": "Leckage erkannt",
+    "sensor_fail": "Sensorausfall",
+    "auth_denied": "Zugriff verweigert",
+    "wrong_pin": "Falsche PIN"
+  },
+
+  "buttons": {
+    "start": "Starten",
+    "pause": "Pausieren",
+    "stop": "Stoppen",
+    "resume": "Fortsetzen",
+    "restart": "Neu starten",
+    "delete": "Löschen",
+    "save": "Speichern",
+    "load": "Laden",
+    "test": "Testen",
+    "apply": "Anwenden",
+    "back": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertigstellen",
+    "skip": "Überspringen"
+  },
+
+  "wizard": {
+    "language": "Sprache wählen",
+    "welcome": "Willkommen!",
+    "hello": "Was möchten Sie heute tun?",
+    "check": "Systemprüfung...",
+    "pin": "Administrator-PIN",
+    "wifi": "WLAN einrichten",
+    "done": "Fertig!",
+    "start_work": "Arbeit beginnen",
+    "default_pin": "Standard: 3333",
+    "change_later": "Kann später geändert werden",
+    "skip_wifi": "Überspringen",
+    "save": "Speichern",
+    "system_ready": "System bereit"
+  },
+
+  "checks": {
+    "i2c": "I2C-Bus",
+    "ds18b20": "DS18B20-Sensoren",
+    "sd": "SD-Karte",
+    "display": "Display",
+    "relay": "Relais",
+    "scale": "Waage",
+    "ok": "OK",
+    "fail": "FEHLER"
+  },
+
+  "yes_no": {
+    "yes": "Ja",
+    "no": "Nein"
+  },
+
+  "days": {
+    "mon": "Mo",
+    "tue": "Di",
+    "wed": "Mi",
+    "thu": "Do",
+    "fri": "Fr",
+    "sat": "Sa",
+    "sun": "So"
+  },
+
+  "roles_matrix": {
+    "view": "Anzeigen",
+    "run": "Starten",
+    "stop": "Stoppen",
+    "settings": "Einstellungen",
+    "calibration": "Kalibrierung",
+    "firmware": "Firmware",
+    "admin": "Administration"
+  }
+}

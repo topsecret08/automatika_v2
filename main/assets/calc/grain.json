@@ -1,0 +1,14 @@
+{
+  "title": "Зерновая брага",
+  "inputs": [
+    {"n":"kg","label":"Зерно","min":1,"max":50,"def":5,"unit":"кг"},
+    {"n":"hm","label":"Гидромодуль","min":2,"max":6,"def":4,"unit":""}
+  ],
+  "outputs": [
+    {"n":"water","label":"Вода","formula":"kg*hm","unit":"л"},
+    {"n":"ferma","label":"Ферменты А","formula":"kg*3","unit":"г"},
+    {"n":"fermg","label":"Ферменты Г","formula":"kg*2","unit":"г"},
+    {"n":"yeast","label":"Дрожжи","formula":"kg*4","unit":"г"},
+    {"n":"out","label":"Выход","formula":"kg*0.45","unit":"л"}
+  ]
+}
