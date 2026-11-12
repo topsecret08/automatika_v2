@@ -4,12 +4,79 @@
 #include "control/ctrl_sensor_calib.h"
 #include "hal/hal_1wire.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 extern lv_obj_t* ui_make_page(const char *title);
 extern void ui_toast(const char *msg);
 
 static lv_obj_t *s_calib_cont = NULL;
 static lv_timer_t *s_calib_timer = NULL;
+static lv_obj_t *s_ref_ta = NULL;
+
+void ui_sensor_calib_main(void);
+void ui_sensor_calib_list(void);
+void ui_sensor_calib_manual(void);
+void ui_sensor_calib_results(void);
+
+static void cb_sc_start(void *c) {
+    (void)c;
+    sensor_calib_start(40.0f, 80.0f);
+    ui_toast("Окунайте датчики, ждём стабилизации");
+    ui_sensor_calib_main();
+}
+
+static void cb_sc_list(void *c) {
+    (void)c;
+    ui_sensor_calib_list();
+}
+
+static void cb_sc_abort(void *c) {
+    (void)c;
+    sensor_calib_abort();
+    ui_sensor_calib_main();
+}
+
+static void cb_sc_apply(void *c) {
+    (void)c;
+    if (sensor_calib_apply_and_save())
+        ui_toast("✓ Калибровка применена");
+    else
+        ui_toast("Ошибка");
+}
+
+static void cb_sc_manual(void *c) {
+    (void)c;
+    ui_sensor_calib_manual();
+}
+
+static void cb_sc_reinit(void *c) {
+    (void)c;
+    sensor_calib_init();
+    ui_sensor_calib_main();
+}
+
+static void cb_sc_save_ref(void *c) {
+    (void)c;
+    float v = (float)atof(lv_textarea_get_text(s_ref_ta));
+    sensor_calib_set_manual_reference(v);
+    ui_toast("Эталон обновлён");
+    ui_sensor_calib_results();
+}
+
+static void cb_sc_timer(lv_timer_t *t) {
+    int n = hal_1wire_count();
+    lv_obj_t *cont = (lv_obj_t*)t->user_data;
+    for (int i = 0; i < n; i++) {
+        lv_obj_t *row = lv_obj_get_child(cont, i);
+        if (!row) continue;
+        lv_obj_t *val = lv_obj_get_child(row, 1);
+        if (!val) continue;
+        float tv = hal_1wire_read(i);
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%.4f °C", tv);
+        lv_label_set_text(val, buf);
+    }
+}
 
 void ui_sensor_calib_main(void) {
     sensor_calib_t *c = sensor_calib_get();
@@ -38,12 +105,8 @@ void ui_sensor_calib_main(void) {
             {"Старт", "▶", 0x34C759, NULL, NULL},
             {"Текущие T", "📊", 0x007AFF, NULL, NULL},
         };
-        btns[0].on_click = [](void*) {
-            sensor_calib_start(40.0f, 80.0f);
-            ui_toast("Окунайте датчики, ждём стабилизации");
-            ui_sensor_calib_main();
-        };
-        btns[1].on_click = [](void*) { ui_sensor_calib_list(); };
+        btns[0].on_click = cb_sc_start;
+        btns[1].on_click = cb_sc_list;
         ui_build_button_bar(scr, btns, 2);
         return;
     }
@@ -83,28 +146,12 @@ void ui_sensor_calib_main(void) {
         {"Отмена", "✕", 0xFF3B30, NULL, NULL},
         {"Показать T", "📊", 0x007AFF, NULL, NULL},
     };
-    btns[0].on_click = [](void*) {
-        sensor_calib_abort();
-        ui_sensor_calib_main();
-    };
-    btns[1].on_click = [](void*) { ui_sensor_calib_list(); };
+    btns[0].on_click = cb_sc_abort;
+    btns[1].on_click = cb_sc_list;
     ui_build_button_bar(scr, btns, 2);
 
     if (s_calib_timer) lv_timer_del(s_calib_timer);
-    s_calib_timer = lv_timer_create([](lv_timer_t *t) {
-        int n = hal_1wire_count();
-        lv_obj_t *cont = (lv_obj_t*)lv_timer_get_user_data(t);
-        for (int i = 0; i < n; i++) {
-            lv_obj_t *row = lv_obj_get_child(cont, i);
-            if (!row) continue;
-            lv_obj_t *val = lv_obj_get_child(row, 1);
-            if (!val) continue;
-            float t = hal_1wire_read(i);
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%.4f °C", t);
-            lv_label_set_text(val, buf);
-        }
-    }, 500, s_calib_cont);
+    s_calib_timer = lv_timer_create(cb_sc_timer, 500, s_calib_cont);
 }
 
 void ui_sensor_calib_results(void) {
@@ -124,7 +171,7 @@ void ui_sensor_calib_results(void) {
     char hbuf[128];
     snprintf(hbuf, sizeof(hbuf),
         "Эталон: %.3f°C\nРазброс: ±%.3f°C\nОбразцов: %u",
-        c->reference_temp, c->std_deviation, c->samples_count);
+        c->reference_temp, c->std_deviation, (unsigned)c->samples_count);
     lv_label_set_text(hdr, hbuf);
     lv_obj_set_style_text_font(hdr, &lv_font_montserrat_14, 0);
     lv_obj_align(hdr, LV_ALIGN_TOP_LEFT, 0, 0);
@@ -149,14 +196,9 @@ void ui_sensor_calib_results(void) {
         {"Эталон", "🌡", 0x007AFF, NULL, NULL},
         {"Отмена", "✕", 0xFF3B30, NULL, NULL},
     };
-    btns[0].on_click = [](void*) {
-        if (sensor_calib_apply_and_save())
-            ui_toast("✓ Калибровка применена");
-        else
-            ui_toast("Ошибка");
-    };
-    btns[1].on_click = [](void*) { ui_sensor_calib_manual(); };
-    btns[2].on_click = [](void*) { sensor_calib_init(); ui_sensor_calib_main(); };
+    btns[0].on_click = cb_sc_apply;
+    btns[1].on_click = cb_sc_manual;
+    btns[2].on_click = cb_sc_reinit;
     ui_build_button_bar(scr, btns, 3);
 }
 
@@ -185,18 +227,12 @@ void ui_sensor_calib_manual(void) {
     lv_obj_align(ta, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_font(ta, &lv_font_montserrat_20, 0);
 
-    static lv_obj_t *s_ta_ref = NULL;
-    s_ta_ref = ta;
+    s_ref_ta = ta;
 
     static ui_button_t btns[] = {
         {"Сохранить", "✓", 0x34C759, NULL, NULL},
     };
-    btns[0].on_click = [](void*) {
-        float v = atof(lv_textarea_get_text(s_ta_ref));
-        sensor_calib_set_manual_reference(v);
-        ui_toast("Эталон обновлён");
-        ui_sensor_calib_results();
-    };
+    btns[0].on_click = cb_sc_save_ref;
     ui_build_button_bar(scr, btns, 1);
 }
 

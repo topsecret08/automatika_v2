@@ -11,6 +11,25 @@ extern void ui_toast(const char *msg);
 static lv_obj_t *s_vol_ta = NULL;
 static lv_obj_t *s_abv_ta = NULL;
 
+static void cb_ab_input(void *c) {
+    (void)c;
+    ui_alcohol_balance_input();
+}
+
+static void cb_ab_accept(void *c) {
+    (void)c;
+    ui_toast("Отбор учтён");
+}
+
+static void cb_ab_save(void *c) {
+    (void)c;
+    float v = atof(lv_textarea_get_text(s_vol_ta));
+    float a = atof(lv_textarea_get_text(s_abv_ta));
+    alcohol_balance_set_initial(v, a);
+    ui_toast("Сохранено");
+    ui_alcohol_balance_show();
+}
+
 void ui_alcohol_balance_show(void) {
     lv_obj_t *c = ui_make_page("Баланс спирта");
     alcohol_balance_t *a = alcohol_balance_get();
@@ -33,8 +52,8 @@ void ui_alcohol_balance_show(void) {
         {"Задать", "⚙", 0x007AFF, NULL, NULL},
         {"Отбор",  "📤", 0x34C759, NULL, NULL},
     };
-    btns[0].on_click = [](void*) { ui_alcohol_balance_input(); };
-    btns[1].on_click = [](void*) { ui_toast("Отбор учтён"); };
+    btns[0].on_click = cb_ab_input;
+    btns[1].on_click = cb_ab_accept;
     ui_build_button_bar(c, btns, 2);
 }
 
@@ -66,16 +85,6 @@ void ui_alcohol_balance_input(void) {
     static ui_button_t btns[] = {
         {"✓ Сохранить", NULL, 0x34C759, NULL, NULL},
     };
-    btns[0].on_click = [](void*) {
-        float v = atof(lv_textarea_get_text(s_vol_ta));
-        float a = atof(lv_textarea_get_text(s_abv_ta));
-        alcohol_balance_set_initial(v, a);
-        ui_toast("Сохранено");
-        ui_alcohol_balance_show();
-    };
+    btns[0].on_click = cb_ab_save;
     ui_build_button_bar(c, btns, 1);
 }
-
-void cb_alc_set(void *c)  { (void)c; ui_alcohol_balance_input(); }
-void cb_alc_show(void *c) { (void)c; ui_alcohol_balance_show(); }
-void cb_alc_temp(void *c) { (void)c; ui_calc_temp_abv(); }

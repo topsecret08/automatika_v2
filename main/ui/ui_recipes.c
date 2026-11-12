@@ -6,6 +6,10 @@
 
 extern lv_obj_t* ui_make_page(const char *title);
 
+static void cb_recipe_open(void *ctx) {
+    recipes_show((const recipe_t*)ctx);
+}
+
 void ui_recipes_list(const char *cat) {
     lv_obj_t *c = ui_make_page("Рецепты");
 
@@ -17,9 +21,7 @@ void ui_recipes_list(const char *cat) {
             .icon = "🍺",
             .title = RECIPES[i].name,
             .subtitle = RECIPES[i].description,
-            .on_click = [](void *ctx) {
-                recipes_show((const recipe_t*)ctx);
-            },
+            .on_click = cb_recipe_open,
             .ctx = (void*)&RECIPES[i]
         };
     }

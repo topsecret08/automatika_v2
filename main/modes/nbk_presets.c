@@ -1,4 +1,5 @@
 #include "nbk_presets.h"
+#include <stddef.h>
 
 static const nbk_preset_t PRESETS[] = {
     { "Сахарная быстрая",  96.0f,  8.0f },

@@ -2,11 +2,11 @@ idf_component_register(
     SRCS
         "main.c" "selftest.c"
         "core/state.c" "core/events.c" "core/roles.c" "core/flags.c"
-        "core/storage.c" "core/watchdog.c"
+        "core/storage.c" "core/watchdog.c" "core/valve_config.c"
         "core/menu_engine.c" "core/menu_tree.c"
         "core/menu_callbacks.c" "core/menu_validator.c"
         "core/help_db.c" "core/learning.c" "core/recipes_db.c"
-        "core/sd_content.c" "core/sd_gen.c" "core/screenshot.c"
+        "core/sd_content.c"
         "hal/hal_i2c.c" "hal/hal_1wire.c" "hal/hal_adc.c" "hal/hal_dac.c"
         "hal/hal_relay.c" "hal/hal_display.c" "hal/hal_touch.c"
         "hal/hal_sd.c" "hal/hal_hx711.c" "hal/hal_usb.c"
@@ -29,18 +29,17 @@ idf_component_register(
         "ai/nn_pie.c" "ai/screen_serialize.c"
         "ui/ui.c" "ui/ui_theme.c" "ui/ui_builder.c"
         "ui/ui_screens.c" "ui/ui_screens_full.c" "ui/ui_welcome.c"
-        "ui/ui_graph.c" "ui/ui_graph_sqlite.c"
+        "ui/ui_graph_sqlite.c"
         "ui/ui_beer_editor.c" "ui/ui_beer_editor_callbacks.c"
         "ui/ui_anim.c" "ui/ui_fps.c" "ui/ui_wd.c"
         "ui/ui_ai.c" "ui/ui_ai_warnings.c" "ui/ui_scale.c" "ui/ui_scale_calib.c"
-        "ui/ui_usb.c" "ui/ui_fota.c" "ui/ui_diag.c" "ui/ui_diag_cpu.c"
+        "ui/ui_usb.c" "ui/ui_fota.c"
         "ui/ui_valve_calib.c" "ui/ui_alcohol_balance.c"
         "ui/ui_sensor_calib.c" "ui/ui_sensor_calib_callbacks.c"
         "ui/ui_roles.c" "ui/ui_learning.c" "ui/ui_recipes.c"
         "ui/ui_calc_loader.c" "ui/ui_scheme.c" "ui/ui_scheme_menu.c"
         "ui/ui_scheme_canvas.c" "ui/ui_markdown.c" "ui/ui_help.c"
-        "ui/ui_stats_extended.c" "ui/ui_manual.c" "ui/ui_forecast.c"
-        "ui/ui_heatmap.c" "ui/ui_icons.c"
+        "ui/ui_icons.c"
         "db/db_manager.c" "db/db_logger.c" "db/db_psram_alloc.c"
         "db/db_migrations.c" "db/db_export.c" "db/db_import.c" "db/db_queries.c"
         "web/web_server.c" "web/web_api.c" "web/web_alice.c"
@@ -51,15 +50,17 @@ idf_component_register(
         "ota/ota_qr.c" "ota/ota_verify.c"
         "patches/critical_fixes.c"
         "third_party/qrcodegen.c"
-    INCLUDE_DIRS "."
+    INCLUDE_DIRS "." "third_party"
     EMBED_FILES
         "web/www/index.html" "web/www/app.js" "web/www/style.css"
         "web/www/charts.js" "web/www/api.js" "web/www/ws.js"
         "web/www/recipes.js" "web/www/settings.js" "web/www/manifest.json"
     REQUIRES
         nvs_flash esp_wifi esp_http_server esp_https_server esp_timer
-        esp_netif json mdns driver fatfs sdmmc spi_flash
+        esp_netif json driver fatfs sdmmc spi_flash
+        app_update mqtt esp_http_client esp_lcd spiffs vfs esp_event esp_https_ota
         lvgl__lvgl espressif__esp_lcd_touch espressif__esp_lcd_st7796
-        espressif__sqlite3 espressif__esp_tinyusb espressif__esp_https_ota
-        espressif__esp_tinyusb_msc espressif__esp_lcd_touch_ft5x06
+        esp_sqlite3 espressif__esp_tinyusb
+        espressif__esp_lcd_touch_ft5x06
+        espressif__onewire_bus espressif__ds18b20
 )

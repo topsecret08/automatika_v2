@@ -9,6 +9,56 @@ extern lv_obj_t* ui_make_page(const char *title);
 extern void ui_toast(const char *msg);
 
 static lv_obj_t *s_pin_ta = NULL;
+static lv_obj_t *s_new_pin_ta = NULL;
+
+void ui_roles_login_dialog(void);
+
+static void cb_roles_login(void *c) {
+    (void)c;
+    uint16_t pin = (uint16_t)atoi(lv_textarea_get_text(s_pin_ta));
+    if (roles_login(pin)) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Роль: %s", roles_name(roles_get_current()));
+        ui_toast(buf);
+        ui_main_menu();
+    } else {
+        ui_toast("Неверный PIN");
+    }
+}
+
+static void cb_roles_cancel(void *c) {
+    (void)c;
+    ui_main_menu();
+}
+
+static void cb_roles_change(void *c) {
+    (void)c;
+    ui_roles_login_dialog();
+}
+
+static void cb_roles_logout(void *c) {
+    (void)c;
+    roles_logout();
+    ui_toast("Выход");
+    ui_main_menu();
+}
+
+static void cb_roles_timeout(void *ctx) {
+    uint16_t v = (uint16_t)(intptr_t)ctx;
+    if (v != 0xFFFF) roles_set_timeout(v);
+    ui_toast("Сохранено");
+}
+
+static void cb_roles_save_pin(void *c) {
+    (void)c;
+    uint16_t pin = (uint16_t)atoi(lv_textarea_get_text(s_new_pin_ta));
+    if (pin >= 1000 && pin <= 9999) {
+        roles_change_pin(ROLE_ADMIN, pin);
+        ui_toast("PIN изменён");
+    } else {
+        ui_toast("4 цифры, от 1000 до 9999");
+    }
+}
 
 void ui_roles_login_dialog(void) {
     lv_obj_t *scr = ui_make_page("Вход по PIN");
@@ -37,18 +87,8 @@ void ui_roles_login_dialog(void) {
         {"Войти", "✓", 0x34C759, NULL, NULL},
         {"Отмена", "✕", 0xFF3B30, NULL, NULL},
     };
-    btns[0].on_click = [](void*) {
-        uint16_t pin = (uint16_t)atoi(lv_textarea_get_text(s_pin_ta));
-        if (roles_login(pin)) {
-            char buf[64];
-            snprintf(buf, sizeof(buf), "Роль: %s", roles_name(roles_get_current()));
-            ui_toast(buf);
-            ui_main_menu();
-        } else {
-            ui_toast("Неверный PIN");
-        }
-    };
-    btns[1].on_click = [](void*) { ui_main_menu(); };
+    btns[0].on_click = cb_roles_login;
+    btns[1].on_click = cb_roles_cancel;
     ui_build_button_bar(scr, btns, 2);
 }
 
@@ -82,8 +122,8 @@ void ui_roles_current(void) {
         {"Сменить", "🔄", 0x007AFF, NULL, NULL},
         {"Выйти", "🚪", 0xFF3B30, NULL, NULL},
     };
-    btns[0].on_click = [](void*) { ui_roles_login_dialog(); };
-    btns[1].on_click = [](void*) { roles_logout(); ui_toast("Выход"); ui_main_menu(); };
+    btns[0].on_click = cb_roles_change;
+    btns[1].on_click = cb_roles_logout;
     ui_build_button_bar(scr, btns, 2);
 }
 
@@ -126,11 +166,7 @@ void ui_roles_timeout_dialog(void) {
     for (int i = 0; i < 4; i++) {
         items[i] = (ui_list_item_t){
             .icon = "⏱", .title = opts[i],
-            .on_click = [](void *ctx) {
-                uint16_t v = (uint16_t)(intptr_t)ctx;
-                if (v != 0xFFFF) roles_set_timeout(v);
-                ui_toast("Сохранено");
-            },
+            .on_click = cb_roles_timeout,
             .ctx = (void*)(intptr_t)vals[i]
         };
     }
@@ -151,20 +187,11 @@ void ui_roles_change_pin(void) {
     lv_obj_set_size(ta, 200, 60);
     lv_obj_align(ta, LV_ALIGN_CENTER, 0, 0);
 
-    static lv_obj_t *s_ta_new = NULL;
-    s_ta_new = ta;
+    s_new_pin_ta = ta;
 
     static ui_button_t btns[] = {
         {"✓ Сохранить", NULL, 0x34C759, NULL, NULL},
     };
-    btns[0].on_click = [](void*) {
-        uint16_t pin = (uint16_t)atoi(lv_textarea_get_text(s_ta_new));
-        if (pin >= 1000 && pin <= 9999) {
-            roles_change_pin(ROLE_ADMIN, pin);
-            ui_toast("PIN изменён");
-        } else {
-            ui_toast("4 цифры, от 1000 до 9999");
-        }
-    };
+    btns[0].on_click = cb_roles_save_pin;
     ui_build_button_bar(scr, btns, 1);
 }

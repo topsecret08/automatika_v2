@@ -119,6 +119,7 @@ void autolearn_report(threshold_id_t id, float reward, const char *note) {
         case TH_BODY_RATE:           delta = -2.0f;   break;
         case TH_TAIL_START_T:        delta = +0.5f;   break;
         case TH_PVK_AUTO_SWITCH:     delta = +1.0f;   break;
+        default: break;
         }
     }
 

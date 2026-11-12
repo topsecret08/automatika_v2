@@ -1,4 +1,5 @@
 #include "pvk_presets.h"
+#include <stddef.h>
 
 static const pvk_preset_t PRESETS[] = {
     { "Затирание зерна",   65.0f, 0 },

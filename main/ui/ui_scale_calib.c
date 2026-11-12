@@ -7,6 +7,18 @@
 extern lv_obj_t* ui_make_page(const char *title);
 extern void ui_toast(const char *msg);
 
+static void cb_scale_tare(void *c) {
+    (void)c;
+    scale_tare_now();
+    ui_toast("Тара обнулена");
+}
+
+static void cb_scale_cal_100(void *c) {
+    (void)c;
+    scale_start_calibration(100.0f);
+    ui_toast("Положите груз 100 г");
+}
+
 void ui_scale_calib(void) {
     lv_obj_t *c = ui_make_page("Калибровка весов");
 
@@ -26,10 +38,7 @@ void ui_scale_calib(void) {
         {"Тара", "⚖", 0x007AFF, NULL, NULL},
         {"100 г", "🎯", 0x34C759, NULL, NULL},
     };
-    btns[0].on_click = [](void*){ scale_tare_now(); ui_toast("Тара обнулена"); };
-    btns[1].on_click = [](void*){
-        scale_start_calibration(100.0f);
-        ui_toast("Положите груз 100 г");
-    };
+    btns[0].on_click = cb_scale_tare;
+    btns[1].on_click = cb_scale_cal_100;
     ui_build_button_bar(c, btns, 2);
 }

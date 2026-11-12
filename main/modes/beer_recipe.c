@@ -5,16 +5,37 @@
 #include "cJSON.h"
 #include "nvs.h"
 #include "esp_timer.h"
+#include "esp_heap_caps.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-static beer_recipe_t s_recipes[BEER_MAX_RECIPES];
+/*
+ * Рецепты занимают ~72 КБ (20 × 32 шага), поэтому держим их в PSRAM,
+ * чтобы не переполнять статический DRAM (dram0_0_seg).
+ */
+static beer_recipe_t *s_recipes = NULL;
 static int s_count = 0;
 static int s_current_playing = -1;
 static int s_current_step = 0;
 
+static beer_recipe_t* recipes_alloc(void) {
+    if (!s_recipes) {
+        s_recipes = heap_caps_calloc(BEER_MAX_RECIPES, sizeof(beer_recipe_t),
+                                     MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!s_recipes) {
+            s_recipes = calloc(BEER_MAX_RECIPES, sizeof(beer_recipe_t));
+        }
+    }
+    return s_recipes;
+}
+
 void beer_recipe_init(void) {
+    if (!recipes_alloc()) {
+        events_log(EVENT_ERROR, "Beer recipes: out of memory");
+        return;
+    }
+
     char names[32][64];
     int n = sd_content_list(CT_RECIPES, names, 32);
     for (int i = 0; i < n && s_count < BEER_MAX_RECIPES; i++) {
@@ -33,6 +54,7 @@ int beer_recipe_list(beer_recipe_t **out) {
 }
 
 beer_recipe_t* beer_recipe_new(void) {
+    if (!recipes_alloc()) return NULL;
     if (s_count >= BEER_MAX_RECIPES) return NULL;
     beer_recipe_t *r = &s_recipes[s_count++];
     memset(r, 0, sizeof(*r));
@@ -43,7 +65,7 @@ beer_recipe_t* beer_recipe_new(void) {
 }
 
 beer_recipe_t* beer_recipe_get(int idx) {
-    return (idx >= 0 && idx < s_count) ? &s_recipes[idx] : NULL;
+    return (s_recipes && idx >= 0 && idx < s_count) ? &s_recipes[idx] : NULL;
 }
 
 bool beer_recipe_export(const beer_recipe_t *r, const char *path) {

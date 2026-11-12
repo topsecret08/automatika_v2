@@ -12,6 +12,9 @@
 #include "ai/cache_manager.h"
 #include "ai/page_predictor.h"
 #include "ai/anomaly.h"
+#include "esp_heap_caps.h"
+#include "esp_timer.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_heap_caps.h"
 #include <stdio.h>
@@ -42,7 +45,8 @@ void ui_show_process(void) {
     lv_obj_t *info = lv_label_create(prog);
     char buf[128];
     snprintf(buf, sizeof(buf), "⏱ %s  Осталось %u:%02u",
-             tp->eta_str, tp->remaining_sec / 60, tp->remaining_sec % 60);
+             tp->eta_str, (unsigned)(tp->remaining_sec / 60),
+             (unsigned)(tp->remaining_sec % 60));
     lv_label_set_text(info, buf);
     lv_obj_align(info, LV_ALIGN_TOP_LEFT, 0, 40);
 
@@ -79,7 +83,7 @@ void ui_show_stats(void) {
     snprintf(hbuf, sizeof(hbuf), "%.0f мл", s->heads_collected_ml);
     snprintf(bbuf, sizeof(bbuf), "%.0f мл", s->body_collected_ml);
     snprintf(tbuf, sizeof(tbuf), "%.0f мл", s->tails_collected_ml);
-    snprintf(pbuf, sizeof(pbuf), "%u", s->predec_count);
+    snprintf(pbuf, sizeof(pbuf), "%u", (unsigned)s->predec_count);
 
     static ui_card_t cards[] = {
         {"🍶","Головы",hbuf,NULL,NULL,0xFF3B30,NULL,NULL},
@@ -100,8 +104,8 @@ void ui_stats_extended(void) {
         "  Клапан: %.0f%%\n  Предекр: %u\n\n"
         "Система:\n  Uptime: %lld д %lld ч\n"
         "  Heap: %u КБ\n  PSRAM: %u КБ\n  SRAM: %u КБ",
-        s->elapsed_sec/3600, (s->elapsed_sec%3600)/60,
-        s->body_collected_ml, s->valve_body_pct, s->predec_count,
+        (unsigned)(s->elapsed_sec/3600), (unsigned)((s->elapsed_sec%3600)/60),
+        s->body_collected_ml, s->valve_body_pct, (unsigned)s->predec_count,
         (long long)(uptime/86400), (long long)((uptime%86400)/3600),
         (unsigned)(esp_get_free_heap_size()/1024),
         (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)/1024),
@@ -177,7 +181,8 @@ void ui_show_forecast(void) {
     snprintf(buf, sizeof(buf),
         "ETA: %s\nОсталось: %u:%02u\n"
         "Прогресс: %.0f%%\nСкорость: %.2f°C/мин",
-        tp->eta_str, tp->remaining_sec/60, tp->remaining_sec%60,
+        tp->eta_str, (unsigned)(tp->remaining_sec/60),
+        (unsigned)(tp->remaining_sec%60),
         tp->progress_pct, tp->rate_per_min);
     lv_obj_t *l = lv_label_create(c);
     lv_label_set_text(l, buf);

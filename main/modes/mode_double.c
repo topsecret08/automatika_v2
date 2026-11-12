@@ -1,4 +1,5 @@
 #include "mode_base.h"
+#include "config.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "hal/hal_1wire.h"

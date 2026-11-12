@@ -5,6 +5,7 @@
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
 #include "control/ctrl_heater.h"
+#include "control/ctrl_safety.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_forecast.h"

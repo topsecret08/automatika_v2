@@ -20,7 +20,7 @@ static esp_err_t h_state(httpd_req_t *r) {
         s->type, s->stage, s->cube_temp, s->column_temp,
         s->power_percent, s->heads_collected_ml, s->body_collected_ml,
         s->tails_collected_ml, s->pressure_bar, s->vacuum_mbar,
-        s->is_running, s->is_paused, s->elapsed_sec);
+        s->is_running, s->is_paused, (unsigned)s->elapsed_sec);
     httpd_resp_set_type(r, "application/json");
     httpd_resp_sendstr(r, json);
     return ESP_OK;

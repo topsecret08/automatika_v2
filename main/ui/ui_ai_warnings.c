@@ -83,5 +83,3 @@ void ui_ai_warnings(void) {
         lv_obj_align(d, LV_ALIGN_BOTTOM_LEFT, 34, -8);
     }
 }
-
-void cb_ai_warnings_open(void *c) { (void)c; ui_ai_warnings(); }

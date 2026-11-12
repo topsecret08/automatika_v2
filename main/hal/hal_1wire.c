@@ -30,7 +30,6 @@ static float med_buf[MAX_SENSORS][MEDIAN_WIN];
 static int   med_idx[MAX_SENSORS];
 static int   med_fill[MAX_SENSORS];
 static float avg_buf[MAX_SENSORS][AVG_SAMPLES];
-static int   avg_idx[MAX_SENSORS];
 static float noise_buf[MAX_SENSORS][NOISE_WIN];
 static int   noise_idx[MAX_SENSORS];
 
@@ -64,13 +63,18 @@ esp_err_t hal_1wire_init(void) {
     ESP_ERROR_CHECK(onewire_new_device_iter(bus, &it));
 
     while (onewire_device_iter_get_next(it, &d) == ESP_OK && count < MAX_SENSORS) {
-        ds18b20_config_t cfg = {};
-        if (ds18b20_new_device_from_rom(d.rom_code, &cfg, &devs[count]) == ESP_OK) {
-            memcpy(rom_codes[count], d.rom_code, 8);
+        ds18b20_config_t cfg = { };
+        if (ds18b20_new_device_from_enumeration(&d, &cfg, &devs[count]) == ESP_OK) {
+            /* onewire_device_t.address хранит ROM ID в порядке байтов шины:
+             * байт 0 — family code, 1..6 — серийный номер, 7 — CRC. */
+            onewire_device_address_t addr = d.address;
+            for (int b = 0; b < 8; b++) {
+                rom_codes[count][b] = (uint8_t)(addr >> (8 * b));
+            }
             snprintf(addr_strs[count], sizeof(addr_strs[0]),
                      "%02X%02X%02X%02X%02X%02X",
-                     d.rom_code[2], d.rom_code[3], d.rom_code[4],
-                     d.rom_code[5], d.rom_code[6], d.rom_code[7]);
+                     rom_codes[count][2], rom_codes[count][3], rom_codes[count][4],
+                     rom_codes[count][5], rom_codes[count][6], rom_codes[count][7]);
 
             char key[32];
             snprintf(key, sizeof(key), "c%d", count);

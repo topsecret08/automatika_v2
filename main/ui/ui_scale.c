@@ -6,6 +6,11 @@
 
 extern lv_obj_t* ui_make_page(const char *title);
 
+static void cb_scale_reset(void *c) {
+    (void)c;
+    scale_reset_session();
+}
+
 void ui_scale_main(void) {
     lv_obj_t *c = ui_make_page("Весы HX711");
     scale_t *s = scale_get();
@@ -32,7 +37,7 @@ void ui_scale_main(void) {
     extern void cb_scale_tare(void*);
     extern void cb_scale_density(void*);
     btns[0].on_click = cb_scale_tare;
-    btns[1].on_click = [](void*){ scale_reset_session(); };
+    btns[1].on_click = cb_scale_reset;
     btns[2].on_click = cb_scale_density;
     ui_build_button_bar(c, btns, 3);
 }

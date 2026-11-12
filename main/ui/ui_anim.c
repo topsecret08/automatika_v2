@@ -10,6 +10,18 @@ static volatile uint32_t s_idle_counter = 0;
 static uint8_t s_cpu_load = 0;
 static bool s_auto_manage = true;
 
+static void anim_exec_opa(void *o, int32_t v) {
+    lv_obj_set_style_opa((lv_obj_t*)o, v, 0);
+}
+
+static void anim_exec_zoom(void *o, int32_t v) {
+    lv_obj_set_style_transform_zoom((lv_obj_t*)o, v, 0);
+}
+
+static void anim_exec_x(void *o, int32_t v) {
+    lv_obj_set_x((lv_obj_t*)o, v);
+}
+
 void ui_anim_init(void) {
     s_level = ANIM_NORMAL;
     s_auto_manage = true;
@@ -31,9 +43,7 @@ void ui_anim_fade_in(lv_obj_t *obj) {
     lv_anim_init(&a);
     lv_anim_set_var(&a, obj);
     lv_anim_set_time(&a, 300);
-    lv_anim_set_exec_cb(&a, [](void *o, int32_t v) {
-        lv_obj_set_style_opa((lv_obj_t*)o, v, 0);
-    });
+    lv_anim_set_exec_cb(&a, anim_exec_opa);
     lv_anim_set_values(&a, LV_OPA_0, LV_OPA_COVER);
     lv_anim_start(&a);
 }
@@ -46,9 +56,7 @@ void ui_anim_btn_press(lv_obj_t *btn) {
     lv_anim_set_time(&a, 80);
     lv_anim_set_playback_time(&a, 80);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-    lv_anim_set_exec_cb(&a, [](void *o, int32_t v) {
-        lv_obj_set_style_transform_zoom((lv_obj_t*)o, v, 0);
-    });
+    lv_anim_set_exec_cb(&a, anim_exec_zoom);
     lv_anim_set_values(&a, 256, 240);
     lv_anim_start(&a);
 }
@@ -62,9 +70,7 @@ void ui_anim_slide_in(lv_obj_t *obj, int from_x) {
     lv_anim_set_var(&a, obj);
     lv_anim_set_time(&a, 250);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-    lv_anim_set_exec_cb(&a, [](void *o, int32_t v) {
-        lv_obj_set_x((lv_obj_t*)o, v);
-    });
+    lv_anim_set_exec_cb(&a, anim_exec_x);
     lv_anim_set_values(&a, from_x, target_x);
     lv_anim_start(&a);
 }
@@ -76,9 +82,7 @@ void ui_anim_pop(lv_obj_t *obj) {
     lv_anim_set_var(&a, obj);
     lv_anim_set_time(&a, 200);
     lv_anim_set_path_cb(&a, lv_anim_path_overshoot);
-    lv_anim_set_exec_cb(&a, [](void *o, int32_t v) {
-        lv_obj_set_style_transform_zoom((lv_obj_t*)o, v, 0);
-    });
+    lv_anim_set_exec_cb(&a, anim_exec_zoom);
     lv_anim_set_values(&a, 100, 256);
     lv_anim_start(&a);
 }

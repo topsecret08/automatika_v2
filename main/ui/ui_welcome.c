@@ -6,6 +6,7 @@
 #include "core/flags.h"
 #include "nvs.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 extern lv_obj_t* ui_make_page(const char *title);
@@ -21,8 +22,64 @@ typedef enum {
 
 static wizard_step_t s_step = WIZ_LANG;
 static uint16_t s_new_pin = 0;
+static lv_obj_t *s_wiz_pin_ta = NULL;
+static lv_obj_t *s_wiz_ssid = NULL;
+static lv_obj_t *s_wiz_pass = NULL;
 
 static void wizard_next(void);
+
+static void cb_wiz_hello(lv_event_t *e) {
+    (void)e;
+    s_step = WIZ_HELLO;
+    wizard_next();
+}
+
+static void cb_wiz_check(lv_event_t *e) {
+    (void)e;
+    s_step = WIZ_CHECK;
+    wizard_next();
+}
+
+static void cb_wiz_pin(lv_event_t *e) {
+    (void)e;
+    s_step = WIZ_PIN;
+    wizard_next();
+}
+
+static void cb_wiz_save_pin(lv_event_t *e) {
+    (void)e;
+    const char *txt = lv_textarea_get_text(s_wiz_pin_ta);
+    uint16_t pin = (uint16_t)atoi(txt);
+    if (pin >= 1000 && pin <= 9999)
+        roles_change_pin(3, pin);
+    s_step = WIZ_WIFI;
+    wizard_next();
+}
+
+static void cb_wiz_wifi_skip(void *c) {
+    (void)c;
+    s_step = WIZ_DONE;
+    wizard_next();
+}
+
+static void cb_wiz_wifi_save(void *c) {
+    (void)c;
+    nvs_handle_t h;
+    if (nvs_open("wifi_cfg", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_str(h, "ssid", lv_textarea_get_text(s_wiz_ssid));
+        nvs_set_str(h, "pass", lv_textarea_get_text(s_wiz_pass));
+        nvs_commit(h);
+        nvs_close(h);
+    }
+    s_step = WIZ_DONE;
+    wizard_next();
+}
+
+static void cb_wiz_done(lv_event_t *e) {
+    (void)e;
+    events_log(EVENT_INFO, "Wizard complete");
+    ui_main_menu();
+}
 
 // Шаг 1: Выбор языка
 static void show_lang_step(void) {
@@ -51,11 +108,7 @@ static void show_lang_step(void) {
         lv_label_set_text(l, buf);
         lv_obj_set_style_text_font(l, &lv_font_montserrat_20, 0);
         lv_obj_center(l);
-        lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-            (void)e;
-            s_step = WIZ_HELLO;
-            wizard_next();
-        }, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, cb_wiz_hello, LV_EVENT_CLICKED, NULL);
     }
 }
 
@@ -87,11 +140,7 @@ static void show_hello_step(void) {
         lv_label_set_text(l, modes[i]);
         lv_obj_set_style_text_font(l, &lv_font_montserrat_16, 0);
         lv_obj_center(l);
-        lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-            (void)e;
-            s_step = WIZ_CHECK;
-            wizard_next();
-        }, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn, cb_wiz_check, LV_EVENT_CLICKED, NULL);
     }
 }
 
@@ -143,11 +192,7 @@ static void show_check_step(void) {
     lv_obj_t *l = lv_label_create(btn);
     lv_label_set_text(l, "Далее →");
     lv_obj_center(l);
-    lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-        (void)e;
-        s_step = WIZ_PIN;
-        wizard_next();
-    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn, cb_wiz_pin, LV_EVENT_CLICKED, NULL);
 }
 
 // Шаг 4: PIN админа
@@ -182,18 +227,8 @@ static void show_pin_step(void) {
     lv_label_set_text(l, "✓ Сохранить");
     lv_obj_center(l);
 
-    static lv_obj_t *s_ta = NULL;
-    s_ta = ta;
-    lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-        (void)e;
-        extern void roles_change_pin(int, uint16_t);
-        const char *txt = lv_textarea_get_text(s_ta);
-        uint16_t pin = (uint16_t)atoi(txt);
-        if (pin >= 1000 && pin <= 9999)
-            roles_change_pin(3, pin);
-        s_step = WIZ_WIFI;
-        wizard_next();
-    }, LV_EVENT_CLICKED, NULL);
+    s_wiz_pin_ta = ta;
+    lv_obj_add_event_cb(btn, cb_wiz_save_pin, LV_EVENT_CLICKED, NULL);
 }
 
 // Шаг 5: Wi-Fi
@@ -226,30 +261,15 @@ static void show_wifi_step(void) {
     lv_obj_set_size(ta2, 380, 44);
     lv_obj_align(ta2, LV_ALIGN_TOP_MID, 0, 210);
 
-    static lv_obj_t *s_ssid = NULL, *s_pass = NULL;
-    s_ssid = ta1;
-    s_pass = ta2;
+    s_wiz_ssid = ta1;
+    s_wiz_pass = ta2;
 
     static ui_button_t btns[] = {
         {"Пропустить", "→", 0x8E8E93, NULL, NULL},
         {"Сохранить", "✓", 0x34C759, NULL, NULL},
     };
-    btns[0].on_click = [](void*) {
-        s_step = WIZ_DONE;
-        wizard_next();
-    };
-    btns[1].on_click = [](void*) {
-        extern void flags_save(void);
-        // Сохраняем в NVS
-        nvs_handle_t h;
-        nvs_open("wifi_cfg", NVS_READWRITE, &h);
-        nvs_set_str(h, "ssid", lv_textarea_get_text(s_ssid));
-        nvs_set_str(h, "pass", lv_textarea_get_text(s_pass));
-        nvs_commit(h);
-        nvs_close(h);
-        s_step = WIZ_DONE;
-        wizard_next();
-    };
+    btns[0].on_click = cb_wiz_wifi_skip;
+    btns[1].on_click = cb_wiz_wifi_save;
     ui_build_button_bar(scr, btns, 2);
 }
 
@@ -284,11 +304,7 @@ static void show_done_step(void) {
     lv_label_set_text(l, "Начать работу");
     lv_obj_set_style_text_font(l, &lv_font_montserrat_20, 0);
     lv_obj_center(l);
-    lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-        (void)e;
-        events_log(EVENT_INFO, "Wizard complete");
-        ui_main_menu();
-    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn, cb_wiz_done, LV_EVENT_CLICKED, NULL);
 }
 
 static void wizard_next(void) {

@@ -12,6 +12,10 @@ static void cb_fota_url(void*)    { ui_toast("URL через Web"); }
 static void cb_fota_qr(void*)     { ui_toast("Сканируйте QR"); }
 static void cb_fota_rollback(void*){ fota_rollback(); }
 
+static void cb_fota_file(void *ctx) {
+    fota_flash_from_sd((const char*)ctx);
+}
+
 void ui_fota_menu(void) {
     lv_obj_t *c = ui_make_page("Обновление прошивки");
 
@@ -48,9 +52,7 @@ void ui_fota_pick_sd(void) {
         items[i] = (ui_list_item_t){
             .icon = "📦", .title = names[i],
             .subtitle = "Нажмите для прошивки",
-            .on_click = [](void *ctx) {
-                fota_flash_from_sd((const char*)ctx);
-            },
+            .on_click = cb_fota_file,
             .ctx = names[i]
         };
     }
@@ -77,6 +79,7 @@ void ui_fota_progress(void) {
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 50);
     char buf[64];
     snprintf(buf, sizeof(buf), "%u / %u байт (%u%%)",
-             p->written_bytes, p->total_bytes, p->percent);
+             (unsigned)p->written_bytes, (unsigned)p->total_bytes,
+             (unsigned)p->percent);
     lv_label_set_text(lbl, buf);
 }

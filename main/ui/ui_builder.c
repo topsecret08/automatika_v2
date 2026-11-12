@@ -4,6 +4,40 @@
 #include <stdio.h>
 #include <string.h>
 
+extern void ui_main_menu(void);
+
+static void cb_back_to_menu(lv_event_t *e) {
+    (void)e;
+    ui_main_menu();
+}
+
+static void cb_card_clicked(lv_event_t *e) {
+    const ui_card_t *cc = lv_event_get_user_data(e);
+    ui_anim_btn_press(lv_event_get_target(e));
+    if (cc && cc->on_click) cc->on_click(cc->ctx);
+}
+
+static void cb_list_item_clicked(lv_event_t *e) {
+    const ui_list_item_t *ii = lv_event_get_user_data(e);
+    ui_anim_btn_press(lv_event_get_target(e));
+    if (ii && ii->on_click) ii->on_click(ii->ctx);
+}
+
+static void cb_button_clicked(lv_event_t *e) {
+    const ui_button_t *bb = lv_event_get_user_data(e);
+    ui_anim_btn_press(lv_event_get_target(e));
+    if (bb && bb->on_click) bb->on_click(bb->ctx);
+}
+
+static void cb_slider_changed(lv_event_t *e) {
+    lv_obj_t *sld = lv_event_get_target(e);
+    const ui_slider_t *ss = lv_obj_get_user_data(sld);
+    float v = lv_slider_get_value(sld) / 10.0f;
+    if (!ss || !ss->value) return;
+    *ss->value = v;
+    if (ss->on_change) ss->on_change(v);
+}
+
 lv_obj_t* ui_build_screen_header(lv_obj_t *parent, const char *title) {
     lv_obj_t *hdr = lv_obj_create(parent);
     lv_obj_set_size(hdr, LV_PCT(100), 56);
@@ -21,11 +55,7 @@ lv_obj_t* ui_build_screen_header(lv_obj_t *parent, const char *title) {
     lv_label_set_text(bl, LV_SYMBOL_LEFT);
     lv_obj_set_style_text_color(bl, IOS_BLUE, 0);
     lv_obj_center(bl);
-    extern void ui_main_menu(void);
-    lv_obj_add_event_cb(back, [](lv_event_t *e) {
-        (void)e;
-        ui_main_menu();
-    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(back, cb_back_to_menu, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl = lv_label_create(hdr);
     lv_label_set_text(lbl, title);
@@ -80,11 +110,7 @@ void ui_build_card_grid(lv_obj_t *parent, const ui_card_t *cards, int count) {
         lv_obj_align(val, LV_ALIGN_BOTTOM_LEFT, 0, 0);
 
         if (c->on_click)
-            lv_obj_add_event_cb(card, [](lv_event_t *e) {
-                const ui_card_t *cc = lv_event_get_user_data(e);
-                ui_anim_btn_press(lv_event_get_target(e));
-                if (cc->on_click) cc->on_click(cc->ctx);
-            }, LV_EVENT_CLICKED, (void*)c);
+            lv_obj_add_event_cb(card, cb_card_clicked, LV_EVENT_CLICKED, (void*)c);
     }
     ui_anim_fade_in(grid);
 }
@@ -149,11 +175,7 @@ void ui_build_list(lv_obj_t *parent, const ui_list_item_t *items, int count) {
         }
 
         if (it->on_click)
-            lv_obj_add_event_cb(row, [](lv_event_t *e) {
-                const ui_list_item_t *ii = lv_event_get_user_data(e);
-                ui_anim_btn_press(lv_event_get_target(e));
-                if (ii->on_click) ii->on_click(ii->ctx);
-            }, LV_EVENT_CLICKED, (void*)it);
+            lv_obj_add_event_cb(row, cb_list_item_clicked, LV_EVENT_CLICKED, (void*)it);
     }
 }
 
@@ -185,11 +207,7 @@ void ui_build_button_bar(lv_obj_t *parent, const ui_button_t *btns, int count) {
         lv_obj_center(l);
 
         if (b->on_click)
-            lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-                const ui_button_t *bb = lv_event_get_user_data(e);
-                ui_anim_btn_press(lv_event_get_target(e));
-                if (bb->on_click) bb->on_click(bb->ctx);
-            }, LV_EVENT_CLICKED, (void*)b);
+            lv_obj_add_event_cb(btn, cb_button_clicked, LV_EVENT_CLICKED, (void*)b);
     }
 }
 
@@ -215,13 +233,7 @@ lv_obj_t* ui_build_slider(lv_obj_t *parent, const ui_slider_t *s) {
     lv_obj_set_style_bg_color(sl, IOS_BLUE, LV_PART_INDICATOR);
 
     lv_obj_set_user_data(sl, (void*)s);
-    lv_obj_add_event_cb(sl, [](lv_event_t *e) {
-        lv_obj_t *sld = lv_event_get_target(e);
-        const ui_slider_t *ss = lv_obj_get_user_data(sld);
-        float v = lv_slider_get_value(sld) / 10.0f;
-        *ss->value = v;
-        if (ss->on_change) ss->on_change(v);
-    }, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(sl, cb_slider_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
     return box;
 }

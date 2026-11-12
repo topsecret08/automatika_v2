@@ -1,5 +1,6 @@
 #pragma once
 #include "esp_err.h"
+#include <stdbool.h>
 typedef struct {
     char user_id[64];
     char api_key[128];

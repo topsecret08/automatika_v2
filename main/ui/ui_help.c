@@ -8,6 +8,18 @@
 
 extern lv_obj_t* ui_make_page(const char *title);
 
+static void cb_help_builtin(void *ctx) {
+    const help_article_t *a = (const help_article_t*)ctx;
+    if (a) ui_show_markdown(a->title, a->content_md);
+}
+
+static void cb_help_sd(void *ctx) {
+    const char *name = (const char*)ctx;
+    char path[256];
+    snprintf(path, sizeof(path), "/sdcard/help/%s", name);
+    ui_show_markdown_from_file(name, path);
+}
+
 void ui_help_main(void) {
     lv_obj_t *c = ui_make_page("Справка");
 
@@ -43,10 +55,7 @@ void ui_help_article_list(void) {
             .icon = "📖",
             .title = HELP_ARTICLES[i].title,
             .subtitle = HELP_ARTICLES[i].category,
-            .on_click = [](void *ctx) {
-                const help_article_t *a = (const help_article_t*)ctx;
-                ui_show_markdown(a->title, a->content_md);
-            },
+            .on_click = cb_help_builtin,
             .ctx = (void*)&HELP_ARTICLES[i]
         };
     }
@@ -58,12 +67,7 @@ void ui_help_article_list(void) {
         items[n].icon = "📄";
         items[n].title = names[i];
         items[n].subtitle = "SD-статья";
-        items[n].on_click = [](void *ctx) {
-            const char *name = (const char*)ctx;
-            char path[256];
-            snprintf(path, sizeof(path), "/sdcard/help/%s", name);
-            ui_show_markdown_from_file(name, path);
-        };
+        items[n].on_click = cb_help_sd;
         items[n].ctx = names[i];
         n++;
     }

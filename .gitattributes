@@ -1,0 +1,14 @@
+# Нормализация окончаний строк
+* text=auto
+
+*.c    text
+*.h    text
+*.md   text
+*.py   text
+*.json text
+*.yml  text
+*.csv  text
+
+*.png  binary
+*.jpg  binary
+*.bin  binary

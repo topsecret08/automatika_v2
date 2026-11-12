@@ -1,4 +1,5 @@
 #include "hal_touch.h"
+#include "hal_i2c.h"
 #include "config.h"
 #include "ui/ui_fps.h"
 #include "esp_log.h"
@@ -53,9 +54,11 @@ esp_err_t hal_touch_init(void) {
         .device_address = I2C_ADDR_FT6336,
         .scl_speed_hz = 400000,
     };
-    esp_err_t err = i2c_master_bus_add_device(NULL, &cfg, &s_dev);
-    // Внимание: если требуется — использовать hal_i2c_bus()
-    // Заглушка, реальная реализация зависит от esp_lcd_touch_ft5x06
+    esp_err_t err = i2c_master_bus_add_device(hal_i2c_bus(), &cfg, &s_dev);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Не удалось добавить устройство тача: %s", esp_err_to_name(err));
+        return err;
+    }
 
     lv_indev_drv_init(&s_indev);
     s_indev.type = LV_INDEV_TYPE_POINTER;

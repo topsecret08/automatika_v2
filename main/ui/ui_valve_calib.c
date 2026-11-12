@@ -8,6 +8,36 @@
 extern lv_obj_t* ui_make_page(const char *title);
 extern void ui_toast(const char *msg);
 
+void ui_valve_calib_run(int idx);
+
+static void cb_valve_open(void *ctx) {
+    ui_valve_calib_run((int)(intptr_t)ctx);
+}
+
+static void cb_valve_reset_all(void *c) {
+    (void)c;
+    for (int i = 0; i < VALVE_COUNT; i++) {
+        valve_config_t *v = valve_config_get(i);
+        if (!v) continue;
+        v->calibrated = false;
+        v->ml_per_hour = 0;
+    }
+    valve_config_save();
+    ui_toast("Калибровка сброшена");
+}
+
+static void cb_valve_start(void *ctx) {
+    int idx = (int)(intptr_t)ctx;
+    valve_calib_start(idx, 100.0f);
+    ui_toast("Калибровка запущена");
+}
+
+static void cb_valve_finish(void *ctx) {
+    int idx = (int)(intptr_t)ctx;
+    valve_calib_finish(idx, 100.0f);
+    ui_toast("Калибровка завершена");
+}
+
 void ui_valve_calib_menu(void) {
     lv_obj_t *c = ui_make_page("Калибровка клапанов");
 
@@ -22,7 +52,7 @@ void ui_valve_calib_menu(void) {
         items[i] = (ui_list_item_t){
             .icon = "🎚", .title = v->name,
             .subtitle = subs[i],
-            .on_click = [](void *ctx) { ui_valve_calib_run((int)(intptr_t)ctx); },
+            .on_click = cb_valve_open,
             .ctx = (void*)(intptr_t)i
         };
     }
@@ -30,15 +60,7 @@ void ui_valve_calib_menu(void) {
     items[3] = (ui_list_item_t){
         .icon = "🗑", .title = "Сбросить калибровку",
         .is_destructive = 1,
-        .on_click = [](void*) {
-            for (int i = 0; i < 3; i++) {
-                valve_config_t *v = valve_config_get(i);
-                v->calibrated = false;
-                v->ml_per_hour = 0;
-            }
-            valve_config_save();
-            ui_toast("Калибровка сброшена");
-        }
+        .on_click = cb_valve_reset_all
     };
     ui_build_list(c, items, 4);
 }
@@ -68,17 +90,9 @@ void ui_valve_calib_run(int idx) {
         {"СТАРТ", "▶", 0x34C759, NULL, NULL},
         {"СТОП", "⏹", 0xFF3B30, NULL, NULL},
     };
-    btns[0].on_click = [](void *ctx) {
-        int idx = (int)(intptr_t)ctx;
-        valve_calib_start(idx, 100.0f);
-        ui_toast("Калибровка запущена");
-    };
+    btns[0].on_click = cb_valve_start;
     btns[0].ctx = (void*)(intptr_t)idx;
-    btns[1].on_click = [](void *ctx) {
-        int idx = (int)(intptr_t)ctx;
-        valve_calib_finish(idx, 100.0f);
-        ui_toast("Калибровка завершена");
-    };
+    btns[1].on_click = cb_valve_finish;
     btns[1].ctx = (void*)(intptr_t)idx;
     ui_build_button_bar(c, btns, 2);
 }

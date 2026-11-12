@@ -1,6 +1,7 @@
 #include "beer_recipe.h"
 #include "ui/ui.h"
 #include "esp_log.h"
+#include <stdio.h>
 
 static int s_edit_idx = -1;
 static int s_edit_step = -1;

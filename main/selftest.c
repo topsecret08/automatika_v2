@@ -15,6 +15,7 @@
 #include "ai/tinyml_predict.h"
 #include "ai/cache_manager.h"
 #include "ota/fota.h"
+#include <inttypes.h>
 #include <string.h>
 
 static const char *TAG = "SELFTEST";
@@ -56,11 +57,11 @@ void selftest_run_all(void) {
     menu_validate_all();
     wd_stats_dump();
 
-    ESP_LOGI(TAG, "AI predictor: %u samples, acc %.0f%%",
+    ESP_LOGI(TAG, "AI predictor: %" PRIu32 " samples, acc %.0f%%",
              predictor_samples(), predictor_accuracy() * 100);
-    ESP_LOGI(TAG, "AI anomaly:   %u samples, err %.3f",
+    ESP_LOGI(TAG, "AI anomaly:   %" PRIu32 " samples, err %.3f",
              anomaly_samples(), anomaly_get()->error);
-    ESP_LOGI(TAG, "AI tinyml:    %u samples, MAE %.0f min",
+    ESP_LOGI(TAG, "AI tinyml:    %" PRIu32 " samples, MAE %.0f min",
              tiny_ml_samples(), tiny_ml_mae() / 60.0f);
     cache_dump();
 

@@ -1,4 +1,5 @@
 #include "rectify_presets.h"
+#include <stddef.h>
 
 static const rectify_preset_t PRESETS[] = {
     { "Сахарная 20л",        82.0f, 77.0f, 30.0f },

@@ -36,7 +36,8 @@ void ui_wd_status(void) {
         snprintf(buf, sizeof(buf),
             "%s%s\nTimeout: %u ms | Max: %u | Restarts: %u",
             t->name, t->critical ? " [CRIT]" : "",
-            t->timeout_ms, t->max_stale_ms, t->restarts);
+            (unsigned)t->timeout_ms, (unsigned)t->max_stale_ms,
+            (unsigned)t->restarts);
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 20, 0);

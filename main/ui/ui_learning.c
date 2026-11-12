@@ -6,6 +6,19 @@
 
 extern lv_obj_t* ui_make_page(const char *title);
 
+void ui_learning_answer(int idx);
+
+static const lesson_t *s_current_lesson;
+
+static void cb_lesson_open(void *ctx) {
+    s_current_lesson = (const lesson_t*)ctx;
+    ui_learning_quiz((const lesson_t*)ctx);
+}
+
+static void cb_quiz_answer(void *ctx) {
+    ui_learning_answer((int)(intptr_t)ctx);
+}
+
 void ui_learning_show_lessons(const void *module) {
     const module_t *m = (const module_t*)module;
     if (!m) return;
@@ -18,9 +31,7 @@ void ui_learning_show_lessons(const void *module) {
             .icon = "📖",
             .title = m->lessons[i].title,
             .subtitle = m->lessons[i].module,
-            .on_click = [](void *ctx) {
-                ui_learning_quiz((const lesson_t*)ctx);
-            },
+            .on_click = cb_lesson_open,
             .ctx = (void*)&m->lessons[i]
         };
     }
@@ -52,11 +63,7 @@ void ui_learning_quiz(const void *lesson) {
     for (int i = 0; i < 4; i++) {
         items[i] = (ui_list_item_t){
             .icon = "▶", .title = l->quiz_a[i],
-            .on_click = [](void *ctx) {
-                int idx = (int)(intptr_t)ctx;
-                extern void ui_learning_answer(int);
-                ui_learning_answer(idx);
-            },
+            .on_click = cb_quiz_answer,
             .ctx = (void*)(intptr_t)i
         };
     }
@@ -68,7 +75,16 @@ void ui_learning_quiz(const void *lesson) {
 }
 
 void ui_learning_answer(int idx) {
-    (void)idx;
     extern void ui_toast(const char*);
-    ui_toast("Ответ принят");
+
+    if (!s_current_lesson) {
+        ui_toast("Урок не выбран");
+        return;
+    }
+
+    if (learning_answer(s_current_lesson, idx)) {
+        ui_toast("Верно! Урок засчитан");
+    } else {
+        ui_toast("Неверно, попробуйте ещё раз");
+    }
 }

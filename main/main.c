@@ -78,11 +78,7 @@ void app_main(void) {
     roles_init();
     flags_init();
     state_init();
-    sd_content_init();
     wd_init();
-    learning_init();
-    help_init();
-    recipes_init();
 
     ESP_ERROR_CHECK(hal_i2c_init());
     ESP_ERROR_CHECK(hal_1wire_init());
@@ -90,6 +86,11 @@ void app_main(void) {
     hal_relay_init();
     hal_display_init();
     storage_init();
+
+    sd_content_init();
+    learning_init();
+    help_init();
+    recipes_init();
 
     valve_control_init();
     valve_calib_init();

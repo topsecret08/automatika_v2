@@ -6,6 +6,22 @@
 extern lv_obj_t* ui_make_page(const char *title);
 extern void ui_toast(const char *msg);
 
+static void cb_usb_off(void *c) {
+    (void)c; hal_usb_set_mode(USB_MODE_OFF); ui_toast("USB off");
+}
+
+static void cb_usb_msc(void *c) {
+    (void)c; hal_usb_set_mode(USB_MODE_MSC); ui_toast("MSC");
+}
+
+static void cb_usb_cdc(void *c) {
+    (void)c; hal_usb_set_mode(USB_MODE_CDC); ui_toast("CDC");
+}
+
+static void cb_usb_both(void *c) {
+    (void)c; hal_usb_set_mode(USB_MODE_BOTH); ui_toast("MSC+CDC");
+}
+
 void ui_usb_config(void) {
     lv_obj_t *c = ui_make_page("USB-OTG");
 
@@ -26,14 +42,9 @@ void ui_usb_config(void) {
         {"CDC",  "🖥", 0x34C759, NULL, NULL},
         {"Всё",  "↔",  0xAF52DE, NULL, NULL},
     };
-    btns[0].on_click = [](void*){ hal_usb_set_mode(USB_MODE_OFF); ui_toast("USB off"); };
-    btns[1].on_click = [](void*){ hal_usb_set_mode(USB_MODE_MSC); ui_toast("MSC"); };
-    btns[2].on_click = [](void*){ hal_usb_set_mode(USB_MODE_CDC); ui_toast("CDC"); };
-    btns[3].on_click = [](void*){ hal_usb_set_mode(USB_MODE_BOTH); ui_toast("MSC+CDC"); };
+    btns[0].on_click = cb_usb_off;
+    btns[1].on_click = cb_usb_msc;
+    btns[2].on_click = cb_usb_cdc;
+    btns[3].on_click = cb_usb_both;
     ui_build_button_bar(c, btns, 4);
-}
-
-void cb_usb_status(void *c) {
-    (void)c;
-    ui_toast(hal_usb_is_mounted() ? "USB смонтирован" : "USB отключён");
 }

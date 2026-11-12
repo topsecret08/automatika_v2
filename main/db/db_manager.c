@@ -450,7 +450,7 @@ bool db_export_process_json(int64_t id, const char *path) {
         "\"predec_count\":%u,\"rating\":%d}\n",
         (long long)p.id, p.type, (long long)p.started_ms, p.duration_sec,
         p.cube_start_t, p.cube_end_t, p.heads_ml, p.body_ml, p.tails_ml,
-        p.power_avg, p.predec_count, p.rating);
+        p.power_avg, (unsigned)p.predec_count, p.rating);
     fclose(f);
     return true;
 }

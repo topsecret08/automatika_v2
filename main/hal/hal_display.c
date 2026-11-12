@@ -2,6 +2,7 @@
 #include "config.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
+#include "esp_lcd_st7796.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_commands.h"
 #include "driver/spi_master.h"
@@ -16,6 +17,7 @@
 static const char *TAG = "LCD";
 
 static esp_lcd_panel_handle_t s_panel = NULL;
+static esp_lcd_panel_io_handle_t s_io = NULL;
 static SemaphoreHandle_t s_mtx = NULL;
 static lv_disp_draw_buf_t s_draw_buf;
 static lv_color_t *s_buf1 = NULL;
@@ -144,7 +146,14 @@ void hal_display_init(void) {
     drv.ver_res  = 320;
     drv.flush_cb = lvgl_flush_cb;
     drv.draw_buf = &s_draw_buf;
+
+    static esp_lcd_panel_io_callbacks_t io_cbs = {
+        .on_color_trans_done = lcd_flush_ready_cb,
+    };
+    esp_lcd_panel_io_register_event_callbacks(io, &io_cbs, &drv);
+
     lv_disp_drv_register(&drv);
+    s_io = io;
 
     s_mtx = xSemaphoreCreateMutex();
     s_ready = true;

@@ -16,20 +16,13 @@ static usb_mode_t s_mode = USB_MODE_OFF;
 static bool s_mounted = false;
 
 static void msc_event_cb(tinyusb_msc_event_t *event) {
-    switch (event->id) {
-    case TINYUSB_MSC_EVENT_MOUNT_START:
-        s_mounted = true;
-        events_log(EVENT_INFO, "USB MSC: mounted by host");
-        break;
-    case TINYUSB_MSC_EVENT_UNMOUNT_START:
-        s_mounted = false;
-        events_log(EVENT_INFO, "USB MSC: unmounted");
-        break;
-    case TINYUSB_MSC_EVENT_MOUNT_FAILED:
-        ESP_LOGW(TAG, "MSC mount failed");
-        s_mounted = false;
-        break;
-    default: break;
+    if (event->type == TINYUSB_MSC_EVENT_MOUNT_CHANGED) {
+        s_mounted = event->mount_changed_data.is_mounted;
+        if (s_mounted) {
+            events_log(EVENT_INFO, "USB MSC: mounted by host");
+        } else {
+            events_log(EVENT_INFO, "USB MSC: unmounted");
+        }
     }
 }
 
@@ -98,7 +91,7 @@ bool hal_usb_init(usb_mode_t mode) {
             .callback_line_state_changed = NULL,
             .callback_line_coding_changed = NULL,
         };
-        ESP_ERROR_CHECK(tusb_cdcacm_init(&acm_cfg));
+        ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
     }
 
     s_mode = mode;

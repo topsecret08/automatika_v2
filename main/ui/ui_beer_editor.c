@@ -11,6 +11,17 @@ extern void cb_beer_add_step(void*);
 extern void cb_beer_save(void*);
 extern void cb_beer_start_recipe(void*);
 
+static void cb_new_beer_recipe(lv_event_t *e) {
+    (void)e;
+    beer_recipe_new();
+    ui_beer_editor_list();
+}
+
+static void cb_edit_beer_step(lv_event_t *e) {
+    (void)e;
+    ui_beer_editor_step_edit();
+}
+
 void ui_beer_editor_list(void) {
     lv_obj_t *c = ui_make_page("Мои рецепты пива");
     beer_recipe_t *recipes;
@@ -40,11 +51,7 @@ void ui_beer_editor_list(void) {
     lv_obj_t *l = lv_label_create(btn);
     lv_label_set_text(l, "＋ Создать");
     lv_obj_center(l);
-    lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-        (void)e;
-        beer_recipe_new();
-        ui_beer_editor_list();
-    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn, cb_new_beer_recipe, LV_EVENT_CLICKED, NULL);
 }
 
 void ui_beer_editor_steps(int recipe_idx) {
@@ -65,16 +72,12 @@ void ui_beer_editor_steps(int recipe_idx) {
         lv_obj_t *lbl = lv_label_create(row);
         char buf[96];
         snprintf(buf, sizeof(buf), "%d. %s\n%.0f°C · %u мин",
-                 i + 1, st->name, st->temp, st->duration_sec / 60);
+                 i + 1, st->name, st->temp, (unsigned)(st->duration_sec / 60));
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 0, 0);
 
-        lv_obj_add_event_cb(row, [](lv_event_t *e) {
-            (void)e;
-            extern void ui_beer_editor_step_edit(void);
-            ui_beer_editor_step_edit();
-        }, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(row, cb_edit_beer_step, LV_EVENT_CLICKED, NULL);
     }
 
     static ui_button_t btns[] = {

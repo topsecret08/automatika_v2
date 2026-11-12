@@ -1,11 +1,15 @@
 #include "ui.h"
 #include "ui_builder.h"
 #include "ui_theme.h"
+#include "ui_anim.h"
 #include "core/state.h"
 #include "core/flags.h"
 #include "core/roles.h"
 #include "control/ctrl_alcohol_balance.h"
 #include "hal/hal_1wire.h"
+#include "esp_heap_caps.h"
+#include "esp_timer.h"
+#include "esp_system.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -184,10 +188,11 @@ void ui_settings_reset(void)    { lv_obj_t *c = ui_make_page("Полный сб�
 void ui_diag_overview(void) {
     lv_obj_t *c = ui_make_page("Обзор");
     static char cpu[8], h[16], u[24];
-    snprintf(cpu, sizeof(cpu), "%u%%", ui_cpu_get_load());
+    snprintf(cpu, sizeof(cpu), "%u%%", (unsigned)ui_cpu_get_load());
     snprintf(h, sizeof(h), "%u КБ", (unsigned)(esp_get_free_heap_size()/1024));
     uint32_t s = esp_timer_get_time()/1000000;
-    snprintf(u, sizeof(u), "%u:%02u", s/3600, (s%3600)/60);
+    snprintf(u, sizeof(u), "%u:%02u",
+             (unsigned)(s/3600), (unsigned)((s%3600)/60));
     static ui_card_t cards[] = {
         {"💻","CPU",cpu,NULL,NULL,0x34C759,NULL,NULL},
         {"🧠","RAM",h,NULL,NULL,0x007AFF,NULL,NULL},

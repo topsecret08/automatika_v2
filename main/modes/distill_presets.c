@@ -1,4 +1,5 @@
 #include "distill_presets.h"
+#include <stddef.h>
 
 static const distill_preset_t PRESETS[] = {
     { "Сахарная брага",  98.0f, 30.0f },
