@@ -9,3 +9,5 @@ esp_err_t calendar_create_reminder(const char *title, const char *desc, int minu
 esp_err_t calendar_list_upcoming(calendar_event_t *events, int max_count);
 void      calendar_set_enabled(bool en);
 bool      calendar_is_enabled(void);
+void      calendar_set_token(const char *token);
+bool      calendar_is_configured(void);

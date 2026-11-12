@@ -10,7 +10,7 @@
 #include "config.h"
 
 static proc_stage_t v_init(void) {
-    ctrl_pid_init(15, 0.6f, 2.0f, 40.0f);
+    ctrl_pid_init_ext(15, 0.6f, 2.0f, 40.0f, (float)PID_TIMESTEP_MS, 0);
     return ST_PRECHECK;
 }
 

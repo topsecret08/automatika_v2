@@ -6,3 +6,6 @@ void ctrl_safety_task(void *arg);
 bool ctrl_safety_ok(void);
 void ctrl_safety_trigger(const char *reason);
 void ctrl_safety_reset(void);
+
+// E-STOP защёлкнут по железу (нажата кнопка) — нагрев и отбор запрещены.
+bool ctrl_safety_estop_latched(void);

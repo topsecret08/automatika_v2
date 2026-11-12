@@ -21,7 +21,6 @@ typedef enum {
 } wizard_step_t;
 
 static wizard_step_t s_step = WIZ_LANG;
-static uint16_t s_new_pin = 0;
 static lv_obj_t *s_wiz_pin_ta = NULL;
 static lv_obj_t *s_wiz_ssid = NULL;
 static lv_obj_t *s_wiz_pass = NULL;
@@ -65,11 +64,12 @@ static void cb_wiz_wifi_skip(void *c) {
 static void cb_wiz_wifi_save(void *c) {
     (void)c;
     nvs_handle_t h;
-    if (nvs_open("wifi_cfg", NVS_READWRITE, &h) == ESP_OK) {
+    if (nvs_open("wifi", NVS_READWRITE, &h) == ESP_OK) {
         nvs_set_str(h, "ssid", lv_textarea_get_text(s_wiz_ssid));
         nvs_set_str(h, "pass", lv_textarea_get_text(s_wiz_pass));
         nvs_commit(h);
         nvs_close(h);
+        events_log(EVENT_INFO, "Wi-Fi credentials saved (reboot required)");
     }
     s_step = WIZ_DONE;
     wizard_next();

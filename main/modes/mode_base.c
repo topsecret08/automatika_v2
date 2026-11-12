@@ -2,6 +2,7 @@
 #include "core/events.h"
 #include "core/watchdog.h"
 #include "control/ctrl_safety.h"
+#include "control/ctrl_dose.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,6 +13,7 @@ static int64_t s_last_us = 0;
 void mode_set(const process_mode_t *m) {
     if (!m) return;
     if (s_cur && s_cur->stop) s_cur->stop();
+    ctrl_dose_stop();
     s_cur = m;
     events_log(EVENT_INFO, "Mode: %s", m->name);
     if (m->init) m->init();

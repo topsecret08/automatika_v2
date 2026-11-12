@@ -16,6 +16,8 @@ typedef struct {
 void        events_init(void);
 void        events_log(event_type_t t, const char *fmt, ...);
 event_t*    events_get(size_t *count);
+// Читает события, появившиеся после позиции *cursor, и сдвигает курсор.
+int         events_read_after(size_t *cursor, event_t *out, int max);
 void        events_clear(void);
 void        events_export_csv(const char *path);
 void        events_task(void *arg);

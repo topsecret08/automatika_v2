@@ -16,6 +16,7 @@ void cb_resume(void*);
 void cb_pause(void*);
 void cb_stop(void*);
 void cb_emergency_stop(void*);
+void cb_safety_reset(void*);
 
 // ==== МОНИТОРИНГ ====
 void cb_graph(void*);

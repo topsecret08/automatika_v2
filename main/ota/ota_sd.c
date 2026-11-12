@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -31,8 +32,14 @@ esp_err_t fota_flash_from_sd(const char *path) {
     if (!f) return ESP_FAIL;
 
     fseek(f, 0, SEEK_END);
-    uint32_t size = ftell(f);
+    long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
+    if (fsize <= 0) {
+        fclose(f);
+        events_log(EVENT_ERROR, "FOTA SD: empty file %s", path);
+        return ESP_ERR_INVALID_SIZE;
+    }
+    uint32_t size = (uint32_t)fsize;
 
     fota_progress_t *p = fota_get_progress();
     p->total_bytes = size;
@@ -40,9 +47,18 @@ esp_err_t fota_flash_from_sd(const char *path) {
     p->percent = 0;
     p->in_progress = true;
     p->failed = false;
+    p->error[0] = '\0';
 
     const esp_partition_t *part = esp_ota_get_next_update_partition(NULL);
     if (!part) { fclose(f); p->failed = true; return ESP_FAIL; }
+    if (size > part->size) {
+        fclose(f);
+        p->failed = true;
+        snprintf(p->error, sizeof(p->error), "Image too big");
+        events_log(EVENT_ERROR, "FOTA SD: image %u > partition %u",
+                   (unsigned)size, (unsigned)part->size);
+        return ESP_ERR_INVALID_SIZE;
+    }
 
     esp_ota_handle_t h;
     esp_err_t err = esp_ota_begin(part, size, &h);
@@ -56,12 +72,25 @@ esp_err_t fota_flash_from_sd(const char *path) {
         p->written_bytes += n;
         p->percent = size ? (uint8_t)(p->written_bytes * 100 / size) : 0;
     }
+    if (ferror(f) && err == ESP_OK) err = ESP_FAIL;
     fclose(f);
 
-    if (err != ESP_OK) { esp_ota_abort(h); p->failed = true; return err; }
+    if (err != ESP_OK) {
+        esp_ota_abort(h);
+        p->failed = true;
+        p->in_progress = false;
+        snprintf(p->error, sizeof(p->error), "Write failed");
+        events_log(EVENT_ERROR, "FOTA SD write failed: %s", esp_err_to_name(err));
+        return err;
+    }
 
     err = esp_ota_end(h);
-    if (err != ESP_OK) { p->failed = true; return err; }
+    if (err != ESP_OK) {
+        p->failed = true;
+        p->in_progress = false;
+        snprintf(p->error, sizeof(p->error), "Image validation failed");
+        return err;
+    }
 
     err = esp_ota_set_boot_partition(part);
     if (err != ESP_OK) { p->failed = true; return err; }

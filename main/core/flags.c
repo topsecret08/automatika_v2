@@ -60,6 +60,13 @@ bool flags_get_by_key(const char *key) {
     return false;
 }
 
+bool flags_key_exists(const char *key) {
+    for (size_t i = 0; i < MAP_N; i++)
+        if (strcmp(MAP[i].k, key) == 0)
+            return true;
+    return false;
+}
+
 void flags_set_by_key(const char *key, bool v) {
     for (size_t i = 0; i < MAP_N; i++)
         if (strcmp(MAP[i].k, key) == 0) {

@@ -9,3 +9,4 @@ typedef struct {
 esp_err_t brewfather_init(void);
 esp_err_t brewfather_export_batch(const char *batch_name);
 void      brewfather_set_credentials(const char *uid, const char *key);
+bool      brewfather_is_configured(void);

@@ -3,6 +3,7 @@
 #include "core/storage.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
+#include "esp_crt_bundle.h"
 #include "esp_https_ota.h"
 #include "esp_app_format.h"
 #include "esp_log.h"
@@ -23,9 +24,9 @@ esp_err_t fota_init(void) {
     esp_ota_img_states_t st;
     if (esp_ota_get_state_partition(run, &st) == ESP_OK) {
         if (st == ESP_OTA_IMG_PENDING_VERIFY) {
+            // Не блокируем загрузку: подтверждение делает fota_task после
+            // того, как система отработает без сбоев.
             ESP_LOGW(TAG, "Running image PENDING_VERIFY");
-            vTaskDelay(pdMS_TO_TICKS(30000));
-            fota_mark_valid();
         }
     }
     ESP_LOGI(TAG, "FOTA init: %s", fota_running_version());
@@ -65,7 +66,11 @@ const char* fota_partition_status(void) {
 esp_err_t fota_check_version(const char *path_or_url, char *out, size_t max) {
     uint8_t buf[0x200];
     if (strstr(path_or_url, "http")) {
-        esp_http_client_config_t cfg = { .url = path_or_url, .timeout_ms = 10000 };
+        esp_http_client_config_t cfg = {
+            .url = path_or_url,
+            .timeout_ms = 10000,
+            .crt_bundle_attach = esp_crt_bundle_attach,
+        };
         esp_http_client_handle_t c = esp_http_client_init(&cfg);
         esp_http_client_open(c, 0);
         int n = esp_http_client_read(c, (char*)buf, sizeof(buf));
@@ -112,10 +117,13 @@ esp_err_t fota_flash(const fota_config_t *cfg) {
 
 void fota_task(void *arg) {
     (void)arg;
-    for (int i = 0; i < 6; i++) {
-        if (fota_is_pending_verify()) vTaskDelay(pdMS_TO_TICKS(30000));
-        else break;
+    // Даём системе 60 секунд на self-test, затем подтверждаем образ.
+    for (int i = 0; i < 12 && fota_is_pending_verify(); i++) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
-    if (fota_is_pending_verify()) fota_mark_valid();
+    if (fota_is_pending_verify()) {
+        ESP_LOGW(TAG, "Health check passed, marking image valid");
+        fota_mark_valid();
+    }
     vTaskDelete(NULL);
 }

@@ -26,10 +26,11 @@ esp_err_t hal_dac_set_percent(float pct) {
     if (pct > 100) pct = 100;
 
     uint16_t v = (uint16_t)(pct / 100.0f * 4095.0f);
-    uint8_t buf[3] = {
-        (uint8_t)(v >> 8),
-        (uint8_t)(v & 0xFF),
-        0x60   // write DAC + EEPROM
+    // MCP4725: первый байт — команда 010 (write DAC) + старшие 4 бита,
+    // второй — младшие 8 бит. EEPROM не трогаем (ресурс ~100 тыс. циклов).
+    uint8_t buf[2] = {
+        (uint8_t)(0x40 | (v >> 8)),
+        (uint8_t)(v & 0xFF)
     };
-    return i2c_master_transmit(dev, buf, 3, 100);
+    return i2c_master_transmit(dev, buf, 2, 100);
 }

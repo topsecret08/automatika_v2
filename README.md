@@ -1,4 +1,4 @@
-# Automatika v2.9
+# Automatika v2.9.1
 
 Универсальная система управления технологическими процессами на **ESP32-S3**:
 дистилляция, ректификация, пивоварение, ПВК, НБК, вакуумная и двойная
@@ -9,8 +9,14 @@
 480×320, из веб-интерфейса и по API.
 
 > **Статус:** прошивка успешно собирается `idf.py build` под `esp32s3`
-> (ESP-IDF v5.3.2, бинарник ~1,84 МБ из 3 МБ раздела). Работа на реальном
-> оборудовании в текущем окружении не проверялась.
+> (ESP-IDF v5.3.2, бинарник ≈2,25 МБ из 3 МБ раздела, Lua 5.5.1 + LittleFS + AutoPID).
+> Проверено в офлайн-режиме: сборка проходит с нулём предупреждений в новом коде.
+> Работа на реальном оборудовании в текущем окружении не проверялась.
+
+> **Что нового в v2.9.1 (сервисный релиз, см. раздел «Новые модули v2.9.1»):**
+> защита REST API ключом, фильтр температуры с упреждающим анализом,
+> выбор PID / ШИМ, шаговый дозатор отбора, аппаратная кнопка E-STOP,
+> Lua-скрипты, страница диагностики исполнителей (только сервисный режим).
 
 ---
 
@@ -21,6 +27,10 @@
 - [Распиновка](#распиновка)
 - [Режимы работы](#режимы-работы)
 - [Архитектура и задачи FreeRTOS](#архитектура-и-задачи-freertos)
+- [Новые модули v2.9.1](#новые-модули-v291)
+- [Безопасность REST API](#безопасность-rest-api)
+- [Настройки NVS](#настройки-nvs)
+- [Lua-сценарии](#lua-сценарии)
 - [Структура репозитория](#структура-репозитория)
 - [Сборка и прошивка](#сборка-и-прошивка)
 - [Первый запуск](#первый-запуск)
@@ -125,6 +135,19 @@
 | HX711 DOUT | 5 | Touch IRQ | 39 |
 | HX711 SCK | 6 | Buzzer | 45 |
 | Spill sensor | 1 | Flow sensor | 2 |
+| **STEP дозатора** | **25** | **ENABLE дозатора** | **26** |
+| **E-STOP (NC)** | **27** | *(GPIO 28 — сервисный, опц.)* | 28 |
+
+**Важно по GPIO:** `PUMP_STEP_GPIO=25` и `ESTOP_GPIO=27` — *реальные* линии
+платы ESP32-S3 (в проекте остаются свободными). Требуется:
+E-STOP — контакт **NC** на GND, кнопка с фиксацией или «грибок»;
+конденсатор 100 нФ на линии против дребезга. Если на плате занят GPIO 25
+или 27 — поменяйте `PUMP_STEP_GPIO` / `ESTOP_GPIO` в `config.h` (строка
+`ESTOP_GPIO 18` из исходного примера **не используется**: 18 занят LCD MOSI).
+
+Голосовой терминал (SignalVoid/стационарный) в этой версии реализован
+**аппаратной кнопкой E-STOP**, а не дополнительным GPIO: расширение 1-Wire
+на втором пине невозможно (границы барабанов RMT занимают все каналы).
 
 I2C-адреса: `ADS1115 0x48`, `MCP4725 0x60`, `Grove SSR 0x11`,
 `PCA9685 0x40`, `BMP280 0x77`, `FT6336 0x38`.
@@ -182,22 +205,188 @@ I2C-адреса: `ADS1115 0x48`, `MCP4725 0x60`, `Grove SSR 0x11`,
 | `vcalib` | 3 | 3072 | Калибровка клапанов |
 | `events` | 3 | 3072 | Очередь событий |
 | `tinyml` | 2 | 4096 | TinyML-прогноз |
+| `doser` | 4 | 4096 | Шаговый дозатор отбора (v2.9.1) |
+| `samovar` | 3 | 6144 | Blynk + MQTT мост |
+| `mqtt` | 5 | 4096 | MQTT-клиент (при флаге `mqtt`) |
+| `telegram` | 5 | 4096 | Оповещения |
+| `lua` | 2 | 12288 | Выполнение Lua-скриптов (`lua_engine_init`) |
+
+> Задачи `doser`, `samovar`, `mqtt`, `telegram`, `lua` работают на ядре 0.
 
 Порядок инициализации `app_main()`:
 
 ```
-NVS → события → роли → флаги → состояние → watchdog
-→ I2C → 1-Wire → DAC → реле → дисплей → SD
-→ SD-контент → обучение → справка → рецепты
-→ клапаны → калибровки → весы → безопасность
-→ SQLite → AI-кэш/модели → FOTA → пивные рецепты
-→ UI → меню → welcome/восстановление → задачи
-→ selftest через 5 секунд
+NVS flash
+ → конфигурация (control_config_init: api_key, ctrl_mode, out_dev, steps_per_ml)
+ → events / roles / flags / state / watchdog
+ → estop_init()                     // до любых исполнителей
+ → I2C → 1-Wire (temp_filter) → DAC → реле → LCD → тач → SD → littlefs
+ → SD-контент → обучение → справка → рецепты
+ → клапаны → калибровки → ctrl_dose_init() → весы → безопасность
+ → SQLite → AI-кэш/модели → FOTA → пивные рецепты → мосты (Samovar/MQTT)
+ → UI → меню → welcome/восстановление → задачи (включая web_start)
+ → HTTP-обработчики /api/* (X-API-Key) → selftest через 5 с
 ```
 
 ---
 
+## Новые модули v2.9.1
+
+Сервисный релиз по требованиям заказчика. Все модули собираются в составе
+проекта (`idf.py build`, ESP-IDF 5.3.2, target `esp32s3`).
+
+| Модуль | Файлы | Назначение |
+|---|---|---|
+| Конфигурация | `core/control_config.{h,c}` | NVS `automatika`: `api_key`, `ctrl_mode`, `out_dev`, `hys`, `rate_mlmin`, `flow_mlmin`, `steps_per_ml`, `svc` |
+| Авторизация REST | `web/api_auth.{h,c}` | Заголовок `X-API-Key`, сравнение за постоянное время |
+| Фильтр сигнала | `hal/temp_filter.{h,c}` | окно `FILTER_WINDOW`, среднее, линейный тренд °C/мин, `temp_filter_is_rising()` |
+| Регулятор | `control/ctrl_pid.c`, `control/autopid_glue.cpp`, `control/autopid_c.h` | режимы PID (AutoPID) и PWM/bang-bang (`HYS`) |
+| Дозатор отбора | `control/ctrl_dose.{h,c}` | шаговый насос (`PUMP_STEP_GPIO`/`PUMP_EN_GPIO`) или клапан |
+| E-STOP | `core/estop.{h,c}` | аппаратная кнопка `ESTOP_GPIO`, ISR + опрос, защёлка |
+| Lua | `script/lua_engine.{h,c}` | Lua 5.5.1, задача на ядре 0, лимиты, белый список |
+| Диагностика исполнителей | `web/actuator_test.{h,c}` | `/api/diag/*`, только в сервисном режиме |
+| Внутренняя ФС | `core/flash_fs.{h,c}` | LittleFS, раздел `assets`, скрипты переживают извлечение SD |
+| Токен навыка | `core/skill_auth.{h,c}` | `X-Skill-Token` для webhook Алисы |
+
+### Инженерия вместо примеров
+
+Код из задания интегрирован, но с исправлением дефектов прототипа:
+
+1. **`api_check_auth`** — ключ читается из NVS `automatika/api_key`; если
+   ключ не задан, **API закрыт целиком** (401), а не «пропускает всех».
+   Сравнение — постоянное по времени. Защищены **все** POST-обработчики:
+   `/api/start`, `/api/stop`, `/api/pause`, `/api/power`, `/api/safety`,
+   `/api/estop`, `/api/settings`, `/api/wifi`, `/api/mqtt`, `/api/telegram`,
+   `/api/brewfather`, `/api/calendar`, `/api/samovar`, `/api/ota`,
+   `/api/control`, `/api/dose`, `/api/script/run`, `/api/diag/*`.
+   Исключения (не могут нести ключ): `/alice` — `X-Skill-Token`,
+   Telegram-webhook — секрет `X-Telegram-Bot-Api-Secret-Token`.
+2. **`estop_is_pressed()` больше не самосбрасывается** (в примере флаг
+   сбрасывался в `while` — авария исчезала). Защёлка держится до отпускания
+   кнопки и `ctrl_safety_reset()`.
+3. **`control_emergency_stop`** = `ctrl_safety_trigger("E-STOP")`:
+   DAC→0, реле off, дозатор стоп, процесс остановлен.
+4. **Все пути нагрева** (`/api/power`, режимы, Lua, MQTT, Samovar, тест
+   исполнителей) проходят через `ctrl_heater_set_percent()`, в котором
+   проверяются `ctrl_safety_ok()` и `estop_is_pressed()`.
+5. **`pump_dose_volume`** больше не сидит в цикле-задержке: выдача шагов
+   идёт в задаче `doser` (ядро 0, приоритет 4), API не блокируется.
+6. **Отбор по объёму = шаги**, а не «мл / (мл/сек)»; расход клапана
+   берётся из калибровки `flow_mlmin`, иначе отбор неконтролируем.
+7. **Сервисный режим** (`POST /api/diag/service`, только с ключом) —
+   без него `/api/diag/actuators` отвечает 403.
+8. **GPIO**: `ESTOP_GPIO=27` (в примере 18 — занят LCD MOSI), `PUMP_STEP_GPIO=25`
+   и `PUMP_EN_GPIO=26` — реальные свободные выводы платы.
+9. **Реакция на `temp_filter_is_rising()`**: `ctrl_heater_set_percent()`
+   снижает мощность на `HEATER_TREND_CUT` (не ниже `TREND_GUARD_MIN_PCT`),
+   `ctrl_pid_set_setpoint()` сдвигает уставку вниз на `PID_PREDEC_GAIN`,
+   режимы 1–3 уменьшают темп отбора на `PREDEC_TREND_CUT`.
+10. **Lua** — не `luaL_openlibs()`: открыты только base/math/string/table и
+    функция `automatika.*`; лимиты инструкций и времени; пути только
+    `/sdcard/scripts/` и `/lfs/scripts/`.
+
+### Распиновка новых сигналов
+
+| Сигнал | GPIO | Примечание |
+|---|---:|---|
+| STEP дозатора | 25 | импульс 3 мкс, период из скорости |
+| ENABLE дозатора | 26 | активен низким (как у DRV8825/TMC2209) |
+| E-STOP | 27 | контакт NC на GND, вход с подтяжкой, `ESTOP_DEBOUNCE_MS=50` |
+
+### Отбор: клапан или насос
+
+`control_config_get_output_device()` (`NVS automatika/out_dev`):
+
+- **PUMP** — `ctrl_dose_process()` из режимов копит объём и запускает
+  `ctrl_dose_volume()`, шаги выдаёт задача `doser`;
+- **VALVE** — доля открытия = `rate / flow_mlmin` (калиброванный расход).
+  Для соленоида предусмотрен ШИМ-выход (`ctrl_dose_enable_solenoid_pwm()`,
+  `SOLENOID_PWM_GPIO=-1` — нет свободного пина, задаётся вручную).
+
+---
+
+## Безопасность REST API
+
+```bash
+# Ключ можно задать только из кода NVS или собрать заново генерацией:
+# см. control_config_api_generate(); QR-код «API-ключ» в меню показывает
+# "API:/api/<key>". Первичная настройка — через USB/UART или сервисный режим.
+curl -H "X-API-Key: <KEY>" http://192.168.1.50/api/state
+curl -X POST -H "X-API-Key: <KEY>" -d '{"power":55}' http://192.168.1.50/api/power
+```
+
+`GET /api/state` без ключа отвечает **200** только если ключ не задан
+(первичный сервисный режим); как только ключ задан — все запросы без него
+получают `401 {"error":"unauthorized"}`. Лог отказов — событие `API 401`.
+
+---
+
+## Настройки NVS
+
+Namespace **`automatika`**:
+
+| Ключ | Тип | Значение по умолчанию | Описание |
+|---|---|---|---|
+| `api_key` | str | — | 32 hex-символа, `X-API-Key` |
+| `ctrl_mode` | u8 | `0` | `0` PID (AutoPID), `1` PWM/BANG-BANG (`HYS`) |
+| `out_dev` | u8 | `0` | `0` клапан, `1` насос-дозатор |
+| `hys` | i32 | `100` | гистерезис BANG-BANG, 0.01 °C (100 = 1.0 °C) |
+| `rate_mlmin` | i32 | `50` | скорость отбора, 0.01 мл/мин |
+| `flow_mlmin` | i32 | `6000` | расход клапана при 100 %, 0.01 мл/мин |
+| `steps_per_ml` | u32 | `1000` | калибровка дозатора |
+| `svc` | u8 | `0` | сервисный режим (только через API с ключом) |
+| `skill_token` | str | — | токен навыка Алисы (`X-Skill-Token`) |
+
+Остальные ключи разнесены по namespace-ам: `wifi` (`ssid`, `pass`, `ap_pass`),
+`telegram` (`token`, `chat`, `whsec`), `mqtt`, `roles`, `flags`, `menu`,
+`ds18b20`, `valves`.
+
+Чтение/запись основных настроек — через API:
+
+```bash
+curl -H "X-API-Key: <KEY>" http://192.168.1.50/api/control
+curl -X POST -H "X-API-Key: <KEY>" -H 'Content-Type: application/json' \
+     -d '{"ctrl_mode":1,"hys":1.5,"out_dev":1,"steps_per_ml":800}' \
+     http://192.168.1.50/api/control
+```
+
+---
+
+## Lua-сценарии
+
+Скрипт кладётся на карту в `/sdcard/scripts/*.lua` (или во внутренний
+раздел LittleFS `/lfs/scripts/`). Выполняется в задаче `lua` (ядро 0,
+приоритет 2, стек 12 КБ) — веб-сервер не блокируется.
+
+```lua
+-- пример: нагрев 30 %, ждать роста температуры, отбор 10 мл
+automatika.log("script start")
+automatika.set_percent(30)
+if automatika.get_rising(0) then
+    automatika.log("cab grows: predecrement")
+end
+automatika.dose(10.0, 40.0)
+print("cube", automatika.get_temp(0), "power", automatika.get_power())
+```
+
+Белый список функций: `set_percent`, `get_temp(idx)`, `get_rising(idx)`,
+`get_power`, `dose(ml, rate)`, `log`, `delay(ms ≤ 5000)`, `millis`, `state()`.
+Отсутствуют `io`, `os`, `package`, `debug`. Лимиты: 8 КБ на файл,
+200 000 инструкций (~15 с), путь только `/sdcard/scripts/*` и `/lfs/scripts/*`.
+
+```bash
+curl -H "X-API-Key: <KEY>" http://192.168.1.50/api/script/state
+curl -X POST -H "X-API-Key: <KEY>" -H 'Content-Type: application/json' \
+     -d '{"path":"/sdcard/scripts/demo.lua"}' http://192.168.1.50/api/script/run
+```
+
+Для боевого использования обязательно наличие аппаратной E-STOP-кнопки:
+Lua — это произвольная автоматизация, а не «безопасный песочник».
+
+---
+
 ## Структура репозитория
+
 
 ```
 automatika_v2/
@@ -286,6 +475,10 @@ $env:PYTHONUTF8=1
 - `espressif/esp_lcd_touch`, `espressif/esp_lcd_touch_ft5x06`
 - `espressif/esp_tinyusb`, `espressif/tinyusb`
 - `espressif/onewire_bus`, `espressif/ds18b20`
+- **`espressif/lua ^5.5.1`** — скриптовый движок (v2.9.1)
+- **`hayschan/autopid_for_esp_idf ^1.0.2`** — PID (C++ класс AutoPID,
+  обвязка в `main/control/autopid_glue.cpp`) (v2.9.1)
+- **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (v2.9.1)
 
 SQLite **не скачивается**: он лежит локально в `components/esp_sqlite3`
 (SQLite 3.54.1, MIT), чтобы сборка не зависела от реестра.
@@ -300,9 +493,10 @@ SQLite **не скачивается**: он лежит локально в `com
 | `factory` | app | `0x20000` | **3 МБ** |
 | `ota_0` | app | `0x320000` | **3 МБ** |
 | `ota_1` | app | `0x620000` | **3 МБ** |
-| `storage` | data/spiffs | `0x920000` | ~6,9 МБ |
+| `assets` | data/littlefs | `0x920000` | **1 МБ** (v2.9.1: скрипты) |
+| `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник: **0x1D4D20 (~1,84 МБ)**, свободно ~39% раздела.
+Текущий бинарник (v2.9.1): **0x230120 (~2,25 МБ)**, свободно ~27 % раздела.
 
 ### Полезные команды
 
@@ -352,8 +546,9 @@ strncpy((char*)cfg.sta.password, "YOUR_PASS", 64);
 | Инженер | 2222 |
 | Админ | 3333 |
 
-Перед реальной эксплуатацией смените PIN и включите проверку ролей
-(меню «Роли» или `roles_set_enabled(true)`).
+Перед реальной эксплуатацией смените PIN и **задайте `api_key`** (без него
+REST API закрыт), а также включите проверку ролей (меню «Роли» или
+`roles_set_enabled(true)`).
 
 ---
 
@@ -382,6 +577,7 @@ python generate_sdcard.py
 | `firmware/` | образы для FOTA |
 | `screenshots/` | скриншоты экрана |
 | `ai/` | модели и экспорт AI |
+| `scripts/` | **Lua-скрипты** `*.lua` (v2.9.1, путь `/sdcard/scripts/`) |
 | `profiles/`, `images/` | профили и изображения |
 
 Файл-маркер `help/.generated` показывает, что полная справка уже развёрнута.
@@ -447,13 +643,24 @@ UI построен на LVGL 8.3: 480×320, сенсорный ввод, рус
 | Метод | URI | Описание |
 |---|---|---|
 | `GET` | `/api/state` | Текущее состояние процесса (JSON) |
-| `POST` | `/api/start` | Запустить процесс |
-| `POST` | `/api/stop` | Остановить процесс |
-| `POST` | `/api/pause` | Пауза |
-| `POST` | `/api/power` | Мощность нагрева, тело — число `0..100` |
-| `POST` | `/api/ota` | Прошивка: тело — бинарный образ |
-| `GET` | `/ws` | WebSocket-телеметрия |
-| `POST` | `/alice` | Обработчик Яндекс.Алисы |
+| `POST` | `/api/start` | Запустить процесс (ключ) |
+| `POST` | `/api/stop` | Остановить процесс (ключ) |
+| `POST` | `/api/pause` | Пауза (ключ) |
+| `POST` | `/api/power` | Мощность нагрева `0..100` (ключ) |
+| `POST` | `/api/safety` | Сброс аварии (ключ) |
+| `POST` | `/api/estop` | Состояние/подтверждение E-STOP `{"ack":true}` (ключ) |
+| `GET/POST` | `/api/control` | Режим управления, устройство отбора, HYS, калибровки (POST — ключ) |
+| `POST` | `/api/dose` | Дозировать объём `{"volume_ml":10,"rate_mlmin":40}` (ключ) |
+| `GET` | `/api/script/state` | Состояние Lua-движка |
+| `POST` | `/api/script/run` | Выполнить скрипт `{"path":"/sdcard/scripts/x.lua"}` (ключ) |
+| `GET` | `/api/diag/status` | Диагностика исполнителей (ключ) |
+| `POST` | `/api/diag/actuators` | Тест исполнителей, **только сервисный режим** (ключ) |
+| `POST` | `/api/diag/service` | Включить/выключить сервисный режим (ключ) |
+| `POST` | `/api/ota` | Прошивка: тело — бинарный образ (ключ) |
+| `GET` | `/ws` | WebSocket-телеметрия (по запросу `{"get":1}`) |
+| `POST` | `/alice` | Яндекс.Алиса, заголовок `X-Skill-Token` |
+
+Заголовок авторизации: **`X-API-Key: <api_key>`**.
 
 ### Примеры
 
@@ -462,14 +669,18 @@ UI построен на LVGL 8.3: 480×320, сенсорный ввод, рус
 curl http://192.168.1.50/api/state
 
 # Запуск и остановка
-curl -X POST http://192.168.1.50/api/start
-curl -X POST http://192.168.1.50/api/stop
+curl -X POST -H "X-API-Key: $KEY" http://192.168.1.50/api/start
+curl -X POST -H "X-API-Key: $KEY" http://192.168.1.50/api/stop
 
-# Мощность 55% (тело — обычное число, не JSON)
-curl -X POST -d "55" http://192.168.1.50/api/power
+# Мощность 55 % (число или {"power":55})
+curl -X POST -H "X-API-Key: $KEY" -d "55" http://192.168.1.50/api/power
+
+# Дозирование 10 мл со скоростью 40 мл/мин
+curl -X POST -H "X-API-Key: $KEY" -d '{"volume_ml":10,"rate_mlmin":40}' \
+     http://192.168.1.50/api/dose
 
 # OTA по HTTP
-curl -X POST --data-binary @build/automatika_v2.bin \
+curl -X POST -H "X-API-Key: $KEY" --data-binary @build/automatika_v2.bin \
      http://192.168.1.50/api/ota
 ```
 
@@ -618,7 +829,21 @@ CONFIG_TINYUSB_CDC_ENABLED=y
 CONFIG_TINYUSB_MSC_ENABLED=y
 CONFIG_ESP_SQLITE3_PROFILE_STANDARD=y
 CONFIG_HTTPD_WS_SUPPORT=y
+# v2.9.1
+CONFIG_LUA_USE_PSRAM=y
+CONFIG_LUA_MAXSTACK=10000
+CONFIG_LITTLEFS_MAX_PARTITIONS=2
 ```
+
+> **Офлайн-сборка.** Если сеть недоступна, менеджер компонентов не в силах
+> восстановить `dependencies.lock` и пытается достать версии из реестра.
+> Проверенная процедура без сети (использована при верификации v2.9.1):
+> временная копия проекта, в которой скачанные компоненты из
+> `managed_components/` скопированы в `components/local/` с плоскими
+> именами, а манифест содержит только имена без версий. После первого
+> автоперезапуска CMake `build` проходит без ошибок. Для этого в
+> репозитории оставлен `tools/manifest_mode.py` (режим `--online`
+> возвращает обычный манифест).
 
 `sdkconfig` не хранится в репозитории: он генерируется из
 `sdkconfig.defaults` при первой сборке.

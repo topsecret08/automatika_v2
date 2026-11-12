@@ -11,7 +11,7 @@
 
 #define MAX_EVENTS 200
 static event_t ring[MAX_EVENTS];
-static size_t ring_head = 0, ring_count = 0;
+static size_t ring_head = 0, ring_count = 0, ring_total = 0;
 static SemaphoreHandle_t mtx;
 
 void events_init(void) {
@@ -31,6 +31,7 @@ void events_log(event_type_t t, const char *fmt, ...) {
     va_end(ap);
     ring_head = (ring_head + 1) % MAX_EVENTS;
     if (ring_count < MAX_EVENTS) ring_count++;
+    ring_total++;
     if (storage_sd_ready()) {
         FILE *f = fopen(PATH_EVENTS, "a");
         if (f) { fprintf(f, "%lu,%d,%s\n", e->timestamp_ms, t, e->msg); fclose(f); }
@@ -44,9 +45,28 @@ event_t* events_get(size_t *count) {
     return ring;
 }
 
+int events_read_after(size_t *cursor, event_t *out, int max) {
+    if (!cursor || !out || max <= 0 || !mtx) return 0;
+
+    xSemaphoreTake(mtx, portMAX_DELAY);
+
+    size_t first = (ring_total > ring_count) ? (ring_total - ring_count) : 0;
+    size_t start = (*cursor < first) ? first : *cursor;
+    if (start > ring_total) start = ring_total;
+
+    int n = 0;
+    for (size_t seq = start; seq < ring_total && n < max; seq++, n++) {
+        out[n] = ring[seq % MAX_EVENTS];
+    }
+    *cursor = start + (size_t)n;
+
+    xSemaphoreGive(mtx);
+    return n;
+}
+
 void events_clear(void) {
     xSemaphoreTake(mtx, portMAX_DELAY);
-    ring_head = ring_count = 0;
+    ring_head = ring_count = ring_total = 0;
     xSemaphoreGive(mtx);
 }
 

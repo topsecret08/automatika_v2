@@ -1,6 +1,7 @@
 #include "web_server.h"
 #include "web_api.h"
 #include "web_alice.h"
+#include "actuator_test.h"
 #include "core/events.h"
 #include "core/flags.h"
 #include "core/watchdog.h"
@@ -9,8 +10,11 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_log.h"
+#include "esp_random.h"
+#include "nvs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <stdio.h>
 #include <string.h>
 
 static const char *TAG = "WEB";
@@ -81,22 +85,91 @@ static esp_err_t h_manifest(httpd_req_t *r) {
     return ESP_OK;
 }
 
+// Пароль точки доступа генерируется один раз и хранится в NVS "wifi".
+// Пароль по умолчанию (automatika123) больше не используется: AP с
+// известным паролем — прямой доступ к управлению нагревом.
+static void ap_password(char *out, size_t out_len) {
+    nvs_handle_t h;
+    if (nvs_open("wifi", NVS_READWRITE, &h) != ESP_OK) {
+        snprintf(out, out_len, "%s", "automatika");
+        return;
+    }
+
+    size_t sz = out_len;
+    if (nvs_get_str(h, "ap_pass", out, &sz) == ESP_OK && strlen(out) >= 8) {
+        nvs_close(h);
+        return;
+    }
+
+    static const char alnum[] =
+        "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    uint8_t rnd[12];
+    esp_fill_random(rnd, sizeof(rnd));
+    for (size_t i = 0; i < 10 && i + 1 < out_len; i++)
+        out[i] = alnum[rnd[i] % (sizeof(alnum) - 1)];
+    out[10] = '\0';
+
+    nvs_set_str(h, "ap_pass", out);
+    nvs_commit(h);
+    nvs_close(h);
+    events_log(EVENT_WARNING, "Wi-Fi AP password generated (see menu «QR → AP»)");
+}
+
 static void wifi_start(void) {
     esp_netif_init();
-    esp_event_loop_create_default();
-    esp_netif_create_default_wifi_sta();
+    esp_err_t ev = esp_event_loop_create_default();
+    if (ev != ESP_OK && ev != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "event loop init failed: %s", esp_err_to_name(ev));
+    }
+
     wifi_init_config_t wc = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&wc);
 
-    // TODO: брать из NVS
-    wifi_config_t cfg = {0};
-    strncpy((char*)cfg.sta.ssid, "YOUR_SSID", 32);
-    strncpy((char*)cfg.sta.password, "YOUR_PASS", 64);
+    // Учётные данные из NVS (настраиваются через /api/wifi).
+    char ssid[33] = "";
+    char pass[65] = "";
+    nvs_handle_t h;
+    if (nvs_open("wifi", NVS_READONLY, &h) == ESP_OK) {
+        size_t sz = sizeof(ssid);
+        nvs_get_str(h, "ssid", ssid, &sz);
+        sz = sizeof(pass);
+        nvs_get_str(h, "pass", pass, &sz);
+        nvs_close(h);
+    }
 
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_set_config(WIFI_IF_STA, &cfg);
-    esp_wifi_start();
-    esp_wifi_connect();
+    if (ssid[0]) {
+        esp_netif_create_default_wifi_sta();
+
+        wifi_config_t cfg = {0};
+        strncpy((char*)cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
+        strncpy((char*)cfg.sta.password, pass, sizeof(cfg.sta.password));
+
+        esp_wifi_set_mode(WIFI_MODE_STA);
+        esp_wifi_set_config(WIFI_IF_STA, &cfg);
+        esp_wifi_start();
+        esp_wifi_connect();
+        ESP_LOGI(TAG, "Wi-Fi STA: %s", ssid);
+    } else {
+        // Нет сохранённой сети — поднимаем точку доступа для настройки.
+        esp_netif_create_default_wifi_ap();
+
+        char appass[16];
+        ap_password(appass, sizeof(appass));
+
+        wifi_config_t cfg = {0};
+        strncpy((char*)cfg.ap.ssid, "Automatika_Setup", sizeof(cfg.ap.ssid));
+        cfg.ap.ssid_len = strlen("Automatika_Setup");
+        strncpy((char*)cfg.ap.password, appass, sizeof(cfg.ap.password));
+        cfg.ap.max_connection = 4;
+        cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
+
+        esp_wifi_set_mode(WIFI_MODE_AP);
+        esp_wifi_set_config(WIFI_IF_AP, &cfg);
+        esp_wifi_start();
+        ESP_LOGW(TAG, "Wi-Fi: no credentials, AP '%s' started (password from NVS)",
+                 "Automatika_Setup");
+        events_log(EVENT_WARNING, "Wi-Fi AP mode: Automatika_Setup");
+    }
 }
 
 void web_start(void *arg) {
@@ -111,7 +184,7 @@ void web_start(void *arg) {
     wifi_start();
 
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
-    cfg.max_uri_handlers = 24;
+    cfg.max_uri_handlers = 40;
     cfg.stack_size = 8192;
     cfg.lru_purge_enable = true;
 
@@ -135,8 +208,11 @@ void web_start(void *arg) {
     for (size_t i = 0; i < sizeof(uris)/sizeof(*uris); i++)
         httpd_register_uri_handler(s_srv, &uris[i]);
 
+    // Все обработчики /api/* проверяют X-API-Key внутри себя;
+    // actuator_test_register() дополнительно требует сервисный режим.
     web_api_register(s_srv);
     web_alice_register(s_srv);
+    actuator_test_register(s_srv);
 
     ESP_LOGI(TAG, "Web server started");
     events_log(EVENT_INFO, "Web started");
@@ -150,3 +226,5 @@ void web_start(void *arg) {
 void web_stop(void) {
     if (s_srv) { httpd_stop(s_srv); s_srv = NULL; }
 }
+
+httpd_handle_t web_get_handle(void) { return s_srv; }

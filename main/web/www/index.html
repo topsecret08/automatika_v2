@@ -20,6 +20,14 @@
     <button onclick="api('/api/start')">▶ Старт</button>
     <button onclick="api('/api/pause')">⏸ Пауза</button>
     <button onclick="api('/api/stop')">⏹ Стоп</button>
+    <button onclick="api('/api/safety')">🛡 Сброс аварии</button>
+  </div>
+  <div class="controls">
+    <label for="power">Мощность:</label>
+    <input id="power" type="range" min="0" max="100" step="1" value="0"
+           oninput="document.getElementById('pwrset').textContent=this.value+'%'"
+           onchange="api('/api/power',{power:Number(this.value)})">
+    <span id="pwrset">0%</span>
   </div>
   <canvas id="chart"></canvas>
 </main>

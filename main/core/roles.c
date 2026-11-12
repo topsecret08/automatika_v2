@@ -10,11 +10,21 @@ static int64_t s_login_us = 0;
 static uint16_t s_timeout = 300;
 static nvs_handle_t nvs;
 
-void roles_init(void) { nvs_open("roles", NVS_READWRITE, &nvs); }
+void roles_init(void) {
+    if (nvs_open("roles", NVS_READWRITE, &nvs) != ESP_OK) return;
+    uint16_t t = 300;
+    if (nvs_get_u16(nvs, "timeout", &t) == ESP_OK && t >= 30) s_timeout = t;
+}
 const char* roles_name(user_role_t r) { return (r < 4) ? NAMES[r] : "?"; }
 bool roles_is_enabled(void) { uint8_t v = 0; nvs_get_u8(nvs, "en", &v); return v; }
 void roles_set_enabled(bool en) { nvs_set_u8(nvs, "en", en); nvs_commit(nvs); }
-void roles_set_timeout(uint16_t sec) { s_timeout = sec; }
+void roles_set_timeout(uint16_t sec) {
+    s_timeout = sec;
+    if (nvs) {
+        nvs_set_u16(nvs, "timeout", sec);
+        nvs_commit(nvs);
+    }
+}
 
 bool roles_login(uint16_t pin) {
     if (!roles_is_enabled()) { s_role = ROLE_ADMIN; return true; }

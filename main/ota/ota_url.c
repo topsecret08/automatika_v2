@@ -1,6 +1,7 @@
 #include "fota.h"
 #include "core/events.h"
 #include "esp_https_ota.h"
+#include "esp_crt_bundle.h"
 #include "esp_log.h"
 
 extern fota_progress_t* fota_get_progress(void);
@@ -15,6 +16,7 @@ esp_err_t fota_flash_from_url(const char *url) {
         .timeout_ms = 30000,
         .keep_alive_enable = true,
         .buffer_size = 4096,
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
     esp_https_ota_config_t ota_cfg = { .http_config = &http_cfg };
 

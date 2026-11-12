@@ -7,7 +7,9 @@
 #include "freertos/semphr.h"
 #include <string.h>
 
-#define WD_MAX_TASKS 16
+// Safety, mode, ui, scale, fps, vcalib, events, tinyml, sensors, web,
+// preloader, anomaly, autolearn, dblog, usb, fota, wd, mqtt, telegram.
+#define WD_MAX_TASKS 24
 static wd_task_t s_tasks[WD_MAX_TASKS];
 static int s_count = 0;
 static SemaphoreHandle_t s_mtx;
@@ -31,8 +33,15 @@ void wd_init(void) {
 }
 
 bool wd_register(const char *name, uint32_t timeout_ms, bool critical) {
-    if (s_count >= WD_MAX_TASKS) return false;
+    if (!s_mtx) return false;
+
     xSemaphoreTake(s_mtx, portMAX_DELAY);
+    if (s_count >= WD_MAX_TASKS) {
+        xSemaphoreGive(s_mtx);
+        events_log(EVENT_ERROR, "WD: no free slot for %s (max %d)",
+                   name, WD_MAX_TASKS);
+        return false;
+    }
     wd_task_t *t = &s_tasks[s_count++];
     t->name = name;
     t->timeout_ms = timeout_ms;
@@ -40,6 +49,7 @@ bool wd_register(const char *name, uint32_t timeout_ms, bool critical) {
     t->enabled = true;
     t->critical = critical;
     xSemaphoreGive(s_mtx);
+
     events_log(EVENT_INFO, "WD register: %s (%u ms, %s)",
                name, timeout_ms, critical ? "CRIT" : "norm");
     return true;

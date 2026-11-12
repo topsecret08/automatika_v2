@@ -2,10 +2,12 @@
 #include "core/state.h"
 #include "core/events.h"
 #include "core/flags.h"
+#include "core/control_config.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
+#include "control/ctrl_dose.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_forecast.h"
@@ -14,6 +16,7 @@
 
 static proc_stage_t s_stage = ST_IDLE;
 static float s_stage_t = 0;
+static int s_predec_logged = -1;
 
 #define PREHEAT_POWER   100.0f
 #define BODY_POWER      60.0f
@@ -23,8 +26,32 @@ static float s_stage_t = 0;
 static proc_stage_t d_init(void) {
     s_stage = ST_PRECHECK;
     s_stage_t = 0;
+    s_predec_logged = -1;
     events_log(EVENT_INFO, "Distill: init");
     return s_stage;
+}
+
+static float predec_factor(float cube) {
+    if (!flags_get_by_key("predecrement")) return 1.0f;
+
+    process_state_t *st = state_get();
+    float dist = st->predec_distance;
+    float factor = 1.0f;
+
+    /* прогнозная близость к точке отбора хвостов */
+    float rate = ctrl_forecast_rate();
+    if ((cube - TAIL_START_T) > -dist && rate > 0.05f) {
+        factor *= (1.0f - st->predec_step);
+        if (s_predec_logged != (int)st->predec_count) {
+            st->predec_count++;
+            s_predec_logged = (int)st->predec_count;
+        }
+    }
+
+    /* упреждающий анализ: температура растёт → снижаем темп отбора */
+    if (hal_1wire_rising(0)) factor *= PREDEC_TREND_CUT;
+
+    return factor;
 }
 
 static proc_stage_t d_update(float dt) {
@@ -35,6 +62,8 @@ static proc_stage_t d_update(float dt) {
     ctrl_forecast_update(cube, dt);
     state_get()->cube_temp = cube;
     state_get()->column_temp = col;
+
+    float rate = state_get()->body_rate_ml_min;
 
     switch (s_stage) {
     case ST_PRECHECK:
@@ -67,24 +96,19 @@ static proc_stage_t d_update(float dt) {
         break;
 
     case ST_BODY: {
-        float pwr = BODY_POWER;
-        float rate = state_get()->body_rate_ml_min;
         if (flags_get_by_key("auto92") && cube > 85.0f) {
             float f = 6.04f - 0.06f * cube;
             if (f < 0.1f) f = 0.1f;
             rate *= f;
         }
-        if (flags_get_by_key("predecrement")) {
-            float dist = state_get()->predec_distance;
-            if ((cube - TAIL_START_T) > -dist &&
-                ctrl_forecast_rate() > 0.05f) {
-                rate *= (1.0f - state_get()->predec_step);
-                state_get()->predec_count++;
-            }
-        }
-        ctrl_heater_set_percent(pwr);
-        valve_set_pct(VALVE_BODY, rate / 60.0f * 100.0f);
-        state_get()->body_collected_ml += rate * dt / 60.0f;
+        rate *= predec_factor(cube);
+
+        ctrl_heater_set_percent(BODY_POWER);
+        /* Отбор — через дозатор (шаговый насос или клапан); режим
+         * выбирается control_config_get_output_device(). */
+        ctrl_dose_process(rate, dt, VALVE_BODY);
+        if (control_config_get_output_device() == OUTPUT_DEVICE_PUMP)
+            state_get()->body_collected_ml += rate * dt / 60.0f;
         if (cube >= TAIL_START_T) {
             s_stage = ST_TAILS;
             events_log(EVENT_STAGE_CHANGE, "→ TAILS");
@@ -104,6 +128,7 @@ static proc_stage_t d_update(float dt) {
 
     case ST_COOLDOWN:
         ctrl_heater_set_percent(0);
+        ctrl_dose_stop();
         ctrl_valves_close_all();
         if (cube < 40.0f) s_stage = ST_DONE;
         break;
@@ -121,6 +146,7 @@ static proc_stage_t d_update(float dt) {
 
 static void d_stop(void) {
     ctrl_heater_set_percent(0);
+    ctrl_dose_stop();
     ctrl_valves_close_all();
     hal_relay_all_off();
 }

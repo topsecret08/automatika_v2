@@ -23,14 +23,19 @@ void storage_init(void) {
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
     };
-    spi_bus_initialize(SPI3_HOST, &bus, SPI_DMA_CH_AUTO);
+    esp_err_t bus_err = spi_bus_initialize(SPI3_HOST, &bus, SPI_DMA_CH_AUTO);
+    if (bus_err != ESP_OK && bus_err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE("STORAGE", "SPI3 init failed: %s", esp_err_to_name(bus_err));
+    }
 
     sdspi_device_config_t slot = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot.gpio_cs = PIN_SD_CS;
     slot.host_id = SPI3_HOST;
 
     esp_vfs_fat_sdmmc_mount_config_t mnt = {
-        .format_if_mount_failed = true,
+        // НЕ форматировать карту пользователя при ошибке монтирования:
+        // иначе одно плохое подключение уничтожит рецепты и историю.
+        .format_if_mount_failed = false,
         .max_files = 8,
         .allocation_unit_size = 16 * 1024,
     };
@@ -45,7 +50,7 @@ void storage_init(void) {
         .format_if_mount_failed = true,
     };
     lfs_ok = (esp_vfs_spiffs_register(&lc) == ESP_OK);
-    ESP_LOGI("STORAGE", "LittleFS: %s", lfs_ok ? "OK" : "FAIL");
+    ESP_LOGI("STORAGE", "SPIFFS: %s", lfs_ok ? "OK" : "FAIL");
 }
 
 bool storage_sd_ready(void) { return sd_ok; }

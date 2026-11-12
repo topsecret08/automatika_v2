@@ -1,16 +1,19 @@
 idf_component_register(
     SRCS
         "main.c" "selftest.c"
+        "core/control_config.c" "core/estop.c" "core/skill_auth.c"
+        "core/flash_fs.c"
         "core/state.c" "core/events.c" "core/roles.c" "core/flags.c"
         "core/storage.c" "core/watchdog.c" "core/valve_config.c"
         "core/menu_engine.c" "core/menu_tree.c"
         "core/menu_callbacks.c" "core/menu_validator.c"
         "core/help_db.c" "core/learning.c" "core/recipes_db.c"
         "core/sd_content.c"
-        "hal/hal_i2c.c" "hal/hal_1wire.c" "hal/hal_adc.c" "hal/hal_dac.c"
+        "hal/hal_i2c.c" "hal/hal_1wire.c" "hal/temp_filter.c" "hal/hal_adc.c" "hal/hal_dac.c"
         "hal/hal_relay.c" "hal/hal_display.c" "hal/hal_touch.c"
         "hal/hal_sd.c" "hal/hal_hx711.c" "hal/hal_usb.c"
-        "control/ctrl_safety.c" "control/ctrl_pid.c" "control/ctrl_heater.c"
+        "control/ctrl_safety.c" "control/ctrl_pid.c" "control/autopid_glue.cpp"
+        "control/ctrl_heater.c" "control/ctrl_dose.c"
         "control/ctrl_valves.c" "control/ctrl_valve_control.c"
         "control/ctrl_forecast.c" "control/valve_calibration.c"
         "control/ctrl_scale.c" "control/ctrl_autolearn.c"
@@ -23,6 +26,7 @@ idf_component_register(
         "modes/beer_recipe.c" "modes/beer_callbacks.c"
         "modes/beer_presets.c" "modes/distill_presets.c"
         "modes/rectify_presets.c" "modes/pvk_presets.c" "modes/nbk_presets.c"
+        "script/lua_engine.c"
         "ai/screen_registry.c" "ai/page_predictor.c"
         "ai/action_predictor.c" "ai/anomaly.c" "ai/tinyml_predict.c"
         "ai/cache_manager.c" "ai/ui_preloader.c"
@@ -42,9 +46,11 @@ idf_component_register(
         "ui/ui_icons.c"
         "db/db_manager.c" "db/db_logger.c" "db/db_psram_alloc.c"
         "db/db_migrations.c" "db/db_export.c" "db/db_import.c" "db/db_queries.c"
-        "web/web_server.c" "web/web_api.c" "web/web_alice.c"
+        "web/web_server.c" "web/web_api.c" "web/web_alice.c" "web/api_auth.c"
+        "web/actuator_test.c"
         "web/qr_wifi.c" "web/brewfather.c" "web/calendar.c"
         "web/mqtt_client.c" "web/telegram_bot.c"
+        "web/samovar.c" "web/samovar_blynk.c" "web/samovar_mqtt.c"
         "web/ws_handler.c" "web/http_handlers.c"
         "ota/fota.c" "ota/ota_sd.c" "ota/ota_url.c"
         "ota/ota_qr.c" "ota/ota_verify.c"
@@ -59,8 +65,10 @@ idf_component_register(
         nvs_flash esp_wifi esp_http_server esp_https_server esp_timer
         esp_netif json driver fatfs sdmmc spi_flash
         app_update mqtt esp_http_client esp_lcd spiffs vfs esp_event esp_https_ota
+        mbedtls lwip
         lvgl__lvgl espressif__esp_lcd_touch espressif__esp_lcd_st7796
         esp_sqlite3 espressif__esp_tinyusb
         espressif__esp_lcd_touch_ft5x06
         espressif__onewire_bus espressif__ds18b20
+        espressif__lua hayschan__autopid_for_esp_idf joltwallet__littlefs
 )

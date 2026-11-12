@@ -21,7 +21,7 @@ static proc_stage_t b_init(void) {
     s_recipe = beer_preset_get(0, &s_step_count);   // Эль по умолчанию
     if (!s_recipe || s_step_count == 0) return ST_ERROR;
 
-    ctrl_pid_init(15.0f, 0.5f, 2.0f, s_recipe[0].temp);
+    ctrl_pid_init_ext(15.0f, 0.5f, 2.0f, s_recipe[0].temp, 2000.0f, 0);
     ctrl_pid_set_limits(0, 100);
     ctrl_pid_set_sample_time(2000);
     events_log(EVENT_INFO, "Beer: %d steps", s_step_count);

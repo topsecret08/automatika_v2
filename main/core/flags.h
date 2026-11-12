@@ -13,4 +13,5 @@ void     flags_init(void);
 flags_t* flags_get(void);
 void     flags_save(void);
 bool     flags_get_by_key(const char *key);
+bool     flags_key_exists(const char *key);
 void     flags_set_by_key(const char *key, bool v);

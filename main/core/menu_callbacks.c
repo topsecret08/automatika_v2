@@ -21,13 +21,18 @@
 #include "ai/cache_manager.h"
 #include "control/ctrl_autolearn.h"
 #include "control/ctrl_heater.h"
+#include "control/ctrl_dose.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_scale.h"
+#include "core/control_config.h"
+#include "core/estop.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
 #include "config.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <stdlib.h>
 
 extern int64_t g_current_process_id;
@@ -83,6 +88,14 @@ void cb_stop(void *c) { (void)c;
 void cb_emergency_stop(void *c) { (void)c;
     ctrl_safety_trigger("USER_EMERGENCY");
     ui_toast("АВАРИЙНЫЙ СТОП");
+}
+
+void cb_safety_reset(void *c) { (void)c;
+    bool was_ok = ctrl_safety_ok();
+    ctrl_safety_reset();
+    if (!was_ok && ctrl_safety_ok()) ui_toast("Авария сброшена");
+    else if (!was_ok)                ui_toast("Сначала остановите процесс");
+    else                             ui_toast("Аварий нет");
 }
 
 // ============================================================
@@ -234,13 +247,20 @@ void cb_db_stats(void *c)   { (void)c;
     ui_show_text_dialog("БД", buf);
 }
 void cb_db_history(void *c) { (void)c; ui_graph_history(); }
-void cb_db_export(void *c)  { (void)c; ui_toast("Экспорт в /sdcard/"); }
+void cb_db_export(void *c)  { (void)c;
+    bool ok = db_export_all_csv("/sdcard");
+    ui_toast(ok ? "Экспорт: /sdcard/processes.csv" : "Ошибка экспорта");
+}
 void cb_db_backup(void *c)  { (void)c;
     db_backup("/sdcard/backups/db_auto.db");
     ui_toast("Backup создан");
 }
 void cb_db_vacuum(void *c)  { (void)c; db_vacuum(); ui_toast("VACUUM OK"); }
-void cb_db_clear(void *c)   { (void)c; ui_toast("История очищена"); }
+void cb_db_clear(void *c)   { (void)c;
+    bool ok = db_exec("BEGIN; DELETE FROM measurements; DELETE FROM events;"
+                      " DELETE FROM processes; COMMIT;");
+    ui_toast(ok ? "История очищена" : "Ошибка очистки");
+}
 
 // ============================================================
 // USB
@@ -423,16 +443,55 @@ void cb_valve_calib_menu(void *c)  { (void)c; ui_valve_calib_menu(); }
 
 // ============================================================
 // ТЕСТ
+// ------------------------------------------------------------
+// Тестовые пуски исполнителей разрешены только в СЕРВИСНОМ РЕЖИМЕ
+// (control_config_service_enabled) и проходят через ctrl_* инварианты:
+// нагрев — ctrl_heater_service_set (не в обход safety/estop), но с
+// автовыключением через 5 с.
 // ============================================================
-void cb_test_heater_10(void *c) { (void)c; ctrl_heater_set_percent(10); }
-void cb_test_heater_50(void *c) { (void)c; ctrl_heater_set_percent(50); }
+typedef struct { float pct; uint32_t sec; } heater_test_arg_t;
+
+static void heater_test_off(void *arg) {
+    heater_test_arg_t *a = (heater_test_arg_t *)arg;
+    vTaskDelay(pdMS_TO_TICKS(a->sec * 1000));
+    ctrl_heater_service_set(0);
+    events_log(EVENT_INFO, "Test: heater off (%.0f%%, %us)", a->pct, (unsigned)a->sec);
+    free(a);
+    vTaskDelete(NULL);
+}
+
+static void heater_test_start(float pct) {
+    if (!control_config_service_enabled()) {
+        ui_toast("Включите сервисный режим");
+        return;
+    }
+    if (!ctrl_safety_ok() || estop_is_pressed()) {
+        ui_toast("Авария / E-STOP");
+        return;
+    }
+    if (!ctrl_heater_service_set(pct)) {
+        ui_toast("Отказ");
+        return;
+    }
+    heater_test_arg_t *a = calloc(1, sizeof(*a));
+    if (a) {
+        a->pct = pct;
+        a->sec = 5;
+        xTaskCreate(heater_test_off, "htest", 2048, a, 2, NULL);
+    }
+    ui_toast("Нагрев 5 с");
+}
+
+void cb_test_heater_10(void *c) { (void)c; heater_test_start(10.0f); }
+void cb_test_heater_50(void *c) { (void)c; heater_test_start(50.0f); }
 void cb_test_pump(void *c)      { (void)c; hal_relay_set(RELAY_COOLING_PUMP, true); }
 void cb_test_valve_h(void *c)   { (void)c; valve_set_pct(0, 50); }
 void cb_test_valve_b(void *c)   { (void)c; valve_set_pct(1, 50); }
 void cb_test_all_off(void *c)   { (void)c;
-    ctrl_heater_set_percent(0);
+    ctrl_heater_service_set(0);
     hal_relay_all_off();
     ctrl_valves_close_all();
+    ctrl_dose_stop();
 }
 
 // ============================================================
@@ -459,5 +518,35 @@ void cb_alc_temp(void *c) { (void)c; ui_calc_temp_abv(); }
 // ============================================================
 // ЭКСПОРТ
 // ============================================================
-void cb_export_bf(void *c)  { (void)c; ui_toast("BrewFather экспорт"); }
-void cb_export_cal(void *c) { (void)c; ui_toast("Календарь"); }
+static void export_bf_task(void *arg) {
+    (void)arg;
+    esp_err_t err = brewfather_export_batch("Automatika");
+    events_log(err == ESP_OK ? EVENT_INFO : EVENT_WARNING,
+               "BrewFather export: %s", esp_err_to_name(err));
+    vTaskDelete(NULL);
+}
+
+static void export_cal_task(void *arg) {
+    (void)arg;
+    esp_err_t err = calendar_create_reminder("Automatika: процесс",
+                                             "Напоминание о процессе", 10);
+    events_log(err == ESP_OK ? EVENT_INFO : EVENT_WARNING,
+               "Calendar export: %s", esp_err_to_name(err));
+    vTaskDelete(NULL);
+}
+
+void cb_export_bf(void *c)  { (void)c;
+    if (!brewfather_is_configured()) { ui_toast("BrewFather не настроен"); return; }
+    if (xTaskCreate(export_bf_task, "bf_exp", 4096, NULL, 2, NULL) != pdPASS)
+        ui_toast("Не удалось запустить экспорт");
+    else
+        ui_toast("BrewFather: экспорт запущен");
+}
+
+void cb_export_cal(void *c) { (void)c;
+    if (!calendar_is_configured()) { ui_toast("Календарь не настроен"); return; }
+    if (xTaskCreate(export_cal_task, "cal_exp", 4096, NULL, 2, NULL) != pdPASS)
+        ui_toast("Не удалось создать напоминание");
+    else
+        ui_toast("Календарь: напоминание создаётся");
+}

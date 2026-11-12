@@ -2,10 +2,12 @@
 #include "config.h"
 #include "core/state.h"
 #include "core/events.h"
+#include "core/flags.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_pid.h"
+#include "control/ctrl_dose.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 
@@ -15,7 +17,7 @@ static float s_total_barda = 0;
 
 static proc_stage_t n_init(void) {
     s_total_feed = s_total_prod = s_total_barda = 0;
-    ctrl_pid_init(18, 0.6f, 2.5f, 96.0f);
+    ctrl_pid_init_ext(18, 0.6f, 2.5f, 96.0f, (float)PID_TIMESTEP_MS, 0);
     return ST_WARMUP;
 }
 
@@ -41,13 +43,17 @@ static proc_stage_t n_update(float dt) {
     s_total_prod += prod_lph * dt / 3600.0f;
     s_total_barda = s_total_feed - s_total_prod;
 
-    valve_set_pct(VALVE_BODY, 40.0f);
+    /* непрерывный отбор через дозатор; при росте температуры — меньше */
+    float rate = state_get()->body_rate_ml_min;
+    if (hal_1wire_rising(0)) rate *= PREDEC_TREND_CUT;
+    ctrl_dose_process(rate, dt, VALVE_BODY);
     state_get()->stage = ST_RUNNING;
     return ST_RUNNING;
 }
 
 static void n_stop(void) {
     ctrl_heater_set_percent(0);
+    ctrl_dose_stop();
     ctrl_valves_close_all();
     hal_relay_all_off();
 }

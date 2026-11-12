@@ -1,4 +1,5 @@
 #include "qr_wifi.h"
+#include "api_auth.h"
 #include "ui/ui_builder.h"
 #include "ui/ui_theme.h"
 #include "core/events.h"
@@ -95,7 +96,7 @@ void qr_wifi_current(void) {
 
 void qr_wifi_ap_mode(void) {
     qr_show_custom("AP QR",
-        "WIFI:S:Automatika_Setup;T:WPA;P:12345678;;");
+        "WIFI:S:Automatika_Setup;T:WPA;P:automatika123;;");
 }
 
 void qr_web_url(void) {
@@ -112,15 +113,7 @@ void qr_web_url(void) {
 }
 
 void qr_api_token(void) {
-    nvs_handle_t h;
-    nvs_open("web", NVS_READONLY, &h);
-    char token[64] = "no_token";
-    size_t sz = sizeof(token);
-    nvs_get_str(h, "api_token", token, &sz);
-    nvs_close(h);
-    char payload[128];
-    snprintf(payload, sizeof(payload), "AUTOMATIKA_TOKEN:%s", token);
-    qr_show_custom("API-токен", payload);
+    api_auth_show_qr();
 }
 
 void qr_brewfather_setup(void) {

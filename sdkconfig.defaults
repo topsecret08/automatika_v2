@@ -36,3 +36,13 @@ CONFIG_ESP_SQLITE3_THREADSAFE=y
 CONFIG_ESP_SQLITE3_SYNCHRONOUS_NORMAL=y
 # WebSocket API для web_api.c
 CONFIG_HTTPD_WS_SUPPORT=y
+
+# --- Lua (espressif/lua) ---------------------------------------------
+# Крупные объекты Lua — в PSRAM; стек VM не должен давить внутреннюю RAM.
+CONFIG_LUA_USE_PSRAM=y
+CONFIG_LUA_MAXSTACK=10000
+
+# --- littlefs (joltwallet/littlefs) ----------------------------------
+CONFIG_LITTLEFS_MAX_PARTITIONS=2
+CONFIG_LITTLEFS_PAGE_SIZE=256
+CONFIG_LITTLEFS_OBJ_NAME_LEN=64

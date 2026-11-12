@@ -5,6 +5,7 @@
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
 #include "control/ctrl_heater.h"
+#include "control/ctrl_dose.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_forecast.h"
@@ -90,9 +91,11 @@ static proc_stage_t r_update(float dt) {
                 state_get()->predec_count++;
             }
         }
+        /* упреждающий анализ: рост температуры → снизить отбор */
+        if (hal_1wire_rising(0)) rate *= PREDEC_TREND_CUT;
+
         ctrl_heater_set_percent(50.0f);
-        valve_set_pct(VALVE_BODY, rate / 60.0f * 100.0f);
-        state_get()->body_collected_ml += rate * dt / 60.0f;
+        ctrl_dose_process(rate, dt, VALVE_BODY);
         if (cube >= BODY_END_T) {
             s_stage = ST_TAILS;
             events_log(EVENT_STAGE_CHANGE, "→ TAILS");
@@ -128,6 +131,7 @@ static proc_stage_t r_update(float dt) {
 
 static void r_stop(void) {
     ctrl_heater_set_percent(0);
+    ctrl_dose_stop();
     ctrl_valves_close_all();
     hal_relay_all_off();
 }

@@ -4,11 +4,13 @@
 #define CORE_REALTIME_UI    1
 
 #define PRIO_WIFI           23
-#define PRIO_SAFETY         15
+#define PRIO_SAFETY         19
+#define PRIO_ESTOP          20
 #define PRIO_MODE           10
 #define PRIO_UI              8
 #define PRIO_SCALE           6
 #define PRIO_HTTP            5
+#define PRIO_DOSER           4
 #define PRIO_ANOMALY         4
 #define PRIO_WEB_API         4
 #define PRIO_FPS             4
@@ -19,6 +21,9 @@
 #define PRIO_AUTOLEARN       2
 #define PRIO_TINYML          2
 
+#define STACK_ESTOP         2048
+#define STACK_DOSER         4096
+#define STACK_LUA           12288
 #define STACK_SAFETY        4096
 #define STACK_MODE          8192
 #define STACK_UI            8192

@@ -13,7 +13,8 @@ static pvk_mode_t s_mode = PVK_AUTO;
 static proc_stage_t s_stage = ST_IDLE;
 
 static proc_stage_t p_init(void) {
-    ctrl_pid_init(20, 0.8f, 3, state_get()->target_cube_t);
+    ctrl_pid_init_ext(20, 0.8f, 3, state_get()->target_cube_t,
+                      (float)PID_TIMESTEP_MS, 0);
     s_stage = ST_PRECHECK;
     return s_stage;
 }

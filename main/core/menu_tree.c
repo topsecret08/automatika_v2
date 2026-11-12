@@ -119,6 +119,7 @@ static const menu_item_t SETTINGS[] = {
 // ============================================================
 static const menu_item_t DIAG[] = {
     { "d.ov","🔍","Обзор системы",        MENU_ITEM_SCREEN, .on_action=cb_diag_over },
+    { "d.safe","🛡","Сброс аварии",       MENU_ITEM_ACTION, .on_action=cb_safety_reset, .required_role=1 },
     { "d.i2c","🌐","I2C-сканер",          MENU_ITEM_SCREEN, .on_action=cb_diag_i2c, .help_id="20_ads1115" },
     { "d.ds","🌡","Датчики DS18B20",      MENU_ITEM_SCREEN, .on_action=cb_diag_ds,  .help_id="19_ds18b20" },
     { "d.tst","🔧","Тест исполнителей",   MENU_ITEM_SCREEN, .on_action=cb_diag_test, .required_role=2 },

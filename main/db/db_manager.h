@@ -51,3 +51,4 @@ bool    db_vacuum(void);
 int64_t db_file_size(void);
 void    db_stats(char *buf, size_t max);
 bool    db_export_process_json(int64_t id, const char *path);
+bool    db_export_all_csv(const char *dir);
