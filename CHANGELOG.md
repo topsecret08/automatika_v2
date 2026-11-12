@@ -1,5 +1,31 @@
 # История
 
+## v2.9.2 — продуктивные модули и эксплуатационная готовность
+- OTA с автоматическим откатом: образ подтверждается только после
+  health-check (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`), иначе
+  `mark_app_invalid_rollback_and_reboot()` (`ota/ota_manager.c`)
+- Миграция NVS schema v1→v3 без фиксированного api_key, защита от
+  downgrade (`core/nvs_migration.c`)
+- Экспорт/импорт конфигурации в JSON с белым списком ключей и валидацией
+  (`core/config_backup.c`, `/api/config/export|import`)
+- WebSocket-телеметрия `/ws/telemetry` с реестром клиентов под мьютексом
+  (`web/ws_telemetry.c`, задача `ws_tel` на ядре 0)
+- Telegram-уведомления через очередь с троттлингом (`web/telegram_notify.c`),
+  токен — только в NVS; вызовы из safety/estop/OTA
+- Датчик уровня (поплавок на GPIO 28): блокировка нагрева при сухом ходе,
+  авария при переполнении (`level/level_sensor.c`)
+- JSON-журнал событий `GET /api/events` (`core/event_log.c`)
+- Health-check `GET /api/health` без ключа, без секретов
+  (`core/health.c`), используется и для автоподтверждения OTA
+- Модульные тесты Unity (`test/`) для temp_filter, уровня, журнала
+- Новые эндпоинты: `/api/health`, `/api/events`, `/api/ota` (GET),
+  `/api/ota/url`, `/api/ota/confirm`, `/api/config*`, `/api/telegram/test`,
+  `/api/script/enable`, `/ws/telemetry`
+- Исправления: `telegram_notify` больше не блокирует safety; `mode_task`
+  больше не теряет dt; Lua выключен по умолчанию и требует сервисного режима
+- Документация: `README.md`, `SETUP.md`, новый `USER_GUIDE.md`,
+  `test/README.md`
+
 ## v2.9.1 — сервисный релиз (безопасность и новые модули)
 - REST API: обязательный `X-API-Key` на всех POST, 401/403, постоянное
   сравнение ключа, отказ от любого запроса, если ключ не задан

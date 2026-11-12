@@ -11,12 +11,23 @@
 #include "hal/hal_adc.h"
 #include "hal/hal_dac.h"
 #include "hal/hal_relay.h"
+#include "level/level_sensor.h"
+#include "web/telegram_notify.h"
 #include "config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
 
+// Период опроса безопасности: 100 мс на старой плате, можно поднять,
+// если добавить стабильные данные датчиков.
+#define SAFETY_PERIOD_MS 100
+
 static volatile bool s_ok = true;
+
+/* edge-детекторы информационных уведомлений */
+static bool s_level_low_last = false;
+static bool s_level_over_last = false;
+static bool s_run_done_notified = false;
 
 void ctrl_safety_init(void) { s_ok = true; }
 
@@ -36,6 +47,7 @@ void ctrl_safety_trigger(const char *reason) {
     st->is_running = false;
 
     events_log(EVENT_EMERGENCY, "SAFETY: %s", reason);
+    telegram_notify_alert("АВАРИЯ", reason);
 }
 
 void ctrl_safety_reset(void) {
@@ -74,6 +86,7 @@ void ctrl_safety_task(void *arg) {
             if (!s_estop_latched) {
                 s_estop_latched = true;
                 events_log(EVENT_EMERGENCY, "SAFETY: E-STOP (hardware)");
+                telegram_notify_alert("АВАРИЯ", "Сработала кнопка E-STOP!");
             }
             ctrl_safety_trigger("E-STOP");
         } else if (s_estop_latched) {
@@ -81,6 +94,7 @@ void ctrl_safety_task(void *arg) {
             // явного ctrl_safety_reset()
             s_estop_latched = false;
             events_log(EVENT_WARNING, "SAFETY: E-STOP released");
+            telegram_notify_alert("ИНФО", "Кнопка E-STOP отпущена, нужен сброс аварии");
         }
 
         // Быстрые значения из кэша: фоновая задача опрашивает DS18B20.
@@ -110,6 +124,35 @@ void ctrl_safety_task(void *arg) {
                 ctrl_safety_trigger("COOLING_PUMP_OFF");
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        // ---- Датчик уровня -------------------------------------------
+        level_sensor_poll();
+        if (level_is_too_low()) {
+            ctrl_heater_set_percent(0);       /* сухой ход: нагрев запрещён */
+            if (s_level_low_last != true) {
+                s_level_low_last = true;
+                events_log(EVENT_WARNING, "LEVEL low: heating blocked");
+                telegram_notify_alert("ВНИМАНИЕ", "Низкий уровень жидкости — нагрев заблокирован");
+            }
+        } else {
+            s_level_low_last = false;
+        }
+        if (level_is_overflow()) {
+            if (s_level_over_last != true) {
+                s_level_over_last = true;
+                telegram_notify_alert("АВАРИЯ", "Переполнение ёмкости — аварийный останов");
+            }
+            ctrl_safety_trigger("LEVEL_OVERFLOW");
+        } else {
+            s_level_over_last = false;
+        }
+
+        // ---- Завершение отбора (информационное уведомление) ----------
+        if (running && !state_get()->is_running && !s_run_done_notified) {
+            s_run_done_notified = true;
+            telegram_notify_alert("ИНФО", "Процесс завершён");
+        }
+        if (running) s_run_done_notified = false;
+
+        vTaskDelay(pdMS_TO_TICKS(SAFETY_PERIOD_MS));
     }
 }

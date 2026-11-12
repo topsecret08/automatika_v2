@@ -20,6 +20,7 @@
 #define PRIO_PRELOADER       2
 #define PRIO_AUTOLEARN       2
 #define PRIO_TINYML          2
+#define PRIO_TELEMETRY       3
 
 #define STACK_ESTOP         2048
 #define STACK_DOSER         4096

@@ -1,4 +1,5 @@
 #include "telegram_bot.h"
+#include "telegram_notify.h"
 #include "core/events.h"
 #include "core/flags.h"
 #include "core/watchdog.h"
@@ -102,7 +103,22 @@ bool telegram_get_webhook_secret(char *out, size_t *len) {
     return s_webhook_secret[0] != '\0';
 }
 
-void telegram_notify(const char *msg) {
+void telegram_get_credentials(char *token, size_t token_len,
+                              char *chat_id, size_t chat_len) {
+    if (token && token_len) {
+        strncpy(token, s_token, token_len - 1);
+        token[token_len - 1] = '\0';
+    }
+    if (chat_id && chat_len) {
+        strncpy(chat_id, s_chat_id, chat_len - 1);
+        chat_id[chat_len - 1] = '\0';
+    }
+}
+
+void telegram_send_legacy(const char *msg) {
+    /* Асинхронный путь — telegram_notify() в telegram_notify.c.
+     * Здесь оставлена прямая отправка для совместимости с экранами
+     * (не вызывается из задач реального времени). */
     if (!msg || !msg[0]) return;
     if (!flags_get_by_key("telegram") || !telegram_is_configured()) return;
 

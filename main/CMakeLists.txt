@@ -2,7 +2,9 @@ idf_component_register(
     SRCS
         "main.c" "selftest.c"
         "core/control_config.c" "core/estop.c" "core/skill_auth.c"
-        "core/flash_fs.c"
+        "core/flash_fs.c" "core/nvs_migration.c" "core/config_backup.c"
+        "core/health.c" "core/event_log.c"
+        "level/level_sensor.c"
         "core/state.c" "core/events.c" "core/roles.c" "core/flags.c"
         "core/storage.c" "core/watchdog.c" "core/valve_config.c"
         "core/menu_engine.c" "core/menu_tree.c"
@@ -50,13 +52,16 @@ idf_component_register(
         "web/actuator_test.c"
         "web/qr_wifi.c" "web/brewfather.c" "web/calendar.c"
         "web/mqtt_client.c" "web/telegram_bot.c"
+        "web/telegram_notify.c" "web/ws_telemetry.c"
         "web/samovar.c" "web/samovar_blynk.c" "web/samovar_mqtt.c"
         "web/ws_handler.c" "web/http_handlers.c"
-        "ota/fota.c" "ota/ota_sd.c" "ota/ota_url.c"
+        "ota/fota.c" "ota/ota_manager.c" "ota/ota_sd.c" "ota/ota_url.c"
         "ota/ota_qr.c" "ota/ota_verify.c"
         "patches/critical_fixes.c"
         "third_party/qrcodegen.c"
     INCLUDE_DIRS "." "third_party"
+    # Тестовый компонент main_test (Unity) живёт в test/ и включается
+    # отдельным проектом test_app (см. test/README.md).
     EMBED_FILES
         "web/www/index.html" "web/www/app.js" "web/www/style.css"
         "web/www/charts.js" "web/www/api.js" "web/www/ws.js"

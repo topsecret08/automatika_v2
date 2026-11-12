@@ -1,9 +1,14 @@
 #include "web_api.h"
 #include "api_auth.h"
 #include "actuator_test.h"
+#include "ws_telemetry.h"
 
+#include "core/config_backup.h"
 #include "core/control_config.h"
 #include "core/estop.h"
+#include "core/event_log.h"
+#include "core/health.h"
+#include "core/nvs_migration.h"
 #include "core/roles.h"
 #include "core/state.h"
 #include "core/events.h"
@@ -15,9 +20,12 @@
 #include "control/ctrl_safety.h"
 #include "control/ctrl_dose.h"
 #include "control/ctrl_pid.h"
+#include "level/level_sensor.h"
+#include "ota/ota_manager.h"
 #include "script/lua_engine.h"
 #include "web/mqtt_app.h"
 #include "web/telegram_bot.h"
+#include "web/telegram_notify.h"
 #include "web/brewfather.h"
 #include "web/calendar.h"
 #include "web/samovar.h"
@@ -31,6 +39,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+// Читалка тела запроса доступна остальным модулям (ws_telemetry/actuator).
+int  web_api_recv_body(httpd_req_t *r, char *buf, size_t max);
 
 static const char *TAG = "WEBAPI";
 
@@ -695,6 +706,227 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
 }
 
 // ============================================================
+// health / events / OTA-managed / backup / config
+// ============================================================
+
+// GET /api/health — БЕЗ ключа: мониторингу нужно проверять устройство
+// до провижининга ключа. Секретов в ответе нет.
+static esp_err_t h_health(httpd_req_t *r) {
+    return send_json(r, health_json());
+}
+
+// GET /api/events[?limit=N] — журнал событий в JSON.
+static esp_err_t h_events(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    int limit = 64;
+    size_t qlen = httpd_req_get_url_query_len(r);
+    if (qlen > 0 && qlen < 64) {
+        char q[64];
+        if (httpd_req_get_url_query_str(r, q, sizeof(q)) == ESP_OK) {
+            char val[16];
+            if (httpd_query_key_value(q, "limit", val, sizeof(val)) == ESP_OK) {
+                int v = atoi(val);
+                if (v > 0 && v <= EVENTS_RING_MAX) limit = v;
+            }
+        }
+    }
+    return send_json(r, event_log_dump_json(limit));
+}
+
+// GET /api/ota — состояние (managed OTA), POST /api/ota — см. ниже.
+static esp_err_t h_ota_get(httpd_req_t *r) {
+    return send_json(r, ota_manager_status_json());
+}
+
+// POST /api/config/export {"path":"/sdcard/cfg.json","secrets":false}
+static esp_err_t h_config_export(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[192];
+    int n = recv_body(r, body, sizeof(body));
+    (void)n;
+
+    char path[96] = "/sdcard/cfg.json";
+    bool secrets = false;
+
+    if (n > 0) {
+        cJSON *root = cJSON_Parse(body);
+        if (root) {
+            const char *p = json_string(root, "path");
+            if (p && p[0]) {
+                strncpy(path, p, sizeof(path) - 1);
+                path[sizeof(path) - 1] = '\0';
+            }
+            secrets = json_bool(cJSON_GetObjectItemCaseSensitive(root, "secrets"));
+            cJSON_Delete(root);
+        }
+    }
+
+    esp_err_t err = config_backup_export(path, secrets);
+    if (err != ESP_OK) return send_err(r, "400 Bad Request", "{\"error\":\"export\"}");
+
+    char json[256];
+    snprintf(json, sizeof(json), "{\"status\":\"ok\",\"info\":\"%s\"}",
+             config_backup_info());
+    return send_json(r, json);
+}
+
+// POST /api/config/import {"path":"/sdcard/cfg.json"}
+static esp_err_t h_config_import(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[192];
+    int n = recv_body(r, body, sizeof(body));
+    (void)n;
+
+    char path[96] = "/sdcard/cfg.json";
+    if (n > 0) {
+        cJSON *root = cJSON_Parse(body);
+        if (root) {
+            const char *p = json_string(root, "path");
+            if (p && p[0]) {
+                strncpy(path, p, sizeof(path) - 1);
+                path[sizeof(path) - 1] = '\0';
+            }
+            cJSON_Delete(root);
+        }
+    }
+
+    esp_err_t err = config_backup_import(path);
+    if (err != ESP_OK) return send_err(r, "400 Bad Request", "{\"error\":\"import\"}");
+
+    char json[256];
+    snprintf(json, sizeof(json), "{\"status\":\"ok\",\"info\":\"%s\"}",
+             config_backup_info());
+    return send_json(r, json);
+}
+
+// POST /api/config {"steps_per_ml":N,"ctrl_mode":...,"out_dev":...,"api_key":"..."}
+// Единая точка изменения конфигурации (аналог SETUP.md-команд из задания).
+static esp_err_t h_config(httpd_req_t *r) {
+    if (r->method == HTTP_GET) {
+        char json[384];
+        snprintf(json, sizeof(json),
+                 "{\"schema\":%u,\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
+                 "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
+                 "\"service\":%d,\"api_key_set\":%d,\"lua\":%d}",
+                 (unsigned)nvs_migration_schema_version(),
+                 (int)control_config_get_mode(),
+                 (int)control_config_get_output_device(),
+                 control_config_get_hys(),
+                 control_config_get_rate_ml_min(),
+                 control_config_get_flow_ml_min(),
+                 (unsigned)control_config_get_steps_per_ml(),
+                 control_config_service_enabled() ? 1 : 0,
+                 control_config_api_has_key() ? 1 : 0,
+                 lua_engine_enabled() ? 1 : 0);
+        return send_json(r, json);
+    }
+
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    return h_control(r);
+}
+
+// POST /api/config/generate-key — сгенерировать новый X-API-Key (требует
+// текущий ключ или сервисный режим). Возвращает ключ ОДИН раз.
+static esp_err_t h_config_generate_key(httpd_req_t *r) {
+    bool service = control_config_service_enabled();
+    if (!service) {
+        if (control_config_api_has_key()) {
+            if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+        } else {
+            return send_err(r, "403 Forbidden",
+                            "{\"error\":\"no key and no service mode\"}");
+        }
+    }
+
+    char key[API_KEY_LEN];
+    esp_err_t err = control_config_api_generate(key, sizeof(key));
+    if (err != ESP_OK) return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+
+    char json[96];
+    snprintf(json, sizeof(json), "{\"api_key\":\"%s\"}", key);
+    return send_json(r, json);
+}
+
+// POST /api/config/clear-key — закрыть API полностью (ключ удаляется).
+static esp_err_t h_config_clear_key(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    esp_err_t err = control_config_api_clear();
+    if (err != ESP_OK) return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+    return send_json(r, "{\"status\":\"ok\",\"api_key_set\":0}");
+}
+
+// POST /api/telegram/test — проверить уведомления.
+static esp_err_t h_telegram_test(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    bool queued = telegram_notify_alert("ИНФО", "Проверка уведомлений Automatika");
+    char json[128];
+    snprintf(json, sizeof(json),
+             "{\"queued\":%d,\"configured\":%d,\"sent\":%u,\"failed\":%u}",
+             queued ? 1 : 0, telegram_is_configured() ? 1 : 0,
+             (unsigned)telegram_notify_sent(), (unsigned)telegram_notify_failed());
+    return send_json(r, json);
+}
+
+// POST /api/script/enable {"enabled":true}
+static esp_err_t h_script_enable(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[64];
+    int n = recv_body(r, body, sizeof(body));
+    bool on = (n > 0) && (strstr(body, "true") || strstr(body, "1"));
+
+    if (on && !control_config_service_enabled())
+        return send_err(r, "409 Conflict",
+                        "{\"error\":\"enable service mode first\"}");
+
+    lua_engine_set_enabled(on);
+    char json[64];
+    snprintf(json, sizeof(json), "{\"lua\":%d}", on ? 1 : 0);
+    return send_json(r, json);
+}
+
+// POST /api/ota/url {"url":"https://..."} — managed OTA с автоподтверждением.
+static esp_err_t h_ota_url(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[224];
+    if (recv_body(r, body, sizeof(body)) <= 0)
+        return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+    const char *url = json_string(root, "url");
+    char url_copy[192] = "";
+    if (url) {
+        strncpy(url_copy, url, sizeof(url_copy) - 1);
+    }
+    cJSON_Delete(root);
+
+    if (!url_copy[0]) return send_err(r, "400 Bad Request", "{\"error\":\"url required\"}");
+    if (!ctrl_safety_ok() || estop_is_pressed())
+        return send_err(r, "409 Conflict", "{\"error\":\"safety/estop active\"}");
+
+    esp_err_t err = ota_manager_start_update(url_copy);
+    if (err == ESP_ERR_INVALID_STATE)
+        return send_err(r, "409 Conflict", "{\"error\":\"update in progress\"}");
+    if (err != ESP_OK)
+        return send_err(r, "400 Bad Request", "{\"error\":\"start failed\"}");
+
+    return send_json(r, "{\"status\":\"started\"}");
+}
+
+// POST /api/ota/confirm — подтвердить текущий образ вручную.
+static esp_err_t h_ota_confirm(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    esp_err_t err = ota_manager_confirm_running_app();
+    if (err != ESP_OK) return send_err(r, "409 Conflict", "{\"error\":\"confirm\"}");
+    return send_json(r, ota_manager_status_json());
+}
+
+// ============================================================
 // WebSocket
 // ============================================================
 static esp_err_t h_ws(httpd_req_t *r) {
@@ -758,4 +990,32 @@ void web_api_register(httpd_handle_t srv) {
     }
 
     actuator_test_register(srv);
+
+    // Новые эндпоинты v2.9.2: health, журнал, managed OTA, бэкап, ключи,
+    // телеметрия (WS), конфигурация.
+    httpd_uri_t extra[] = {
+        { .uri="/api/health",              .method=HTTP_GET,  .handler=h_health },
+        { .uri="/api/events",              .method=HTTP_GET,  .handler=h_events },
+        { .uri="/api/ota",                 .method=HTTP_GET,  .handler=h_ota_get },
+        { .uri="/api/ota/url",             .method=HTTP_POST, .handler=h_ota_url },
+        { .uri="/api/ota/confirm",         .method=HTTP_POST, .handler=h_ota_confirm },
+        { .uri="/api/config",              .method=HTTP_GET,  .handler=h_config },
+        { .uri="/api/config",              .method=HTTP_POST, .handler=h_config },
+        { .uri="/api/config/export",       .method=HTTP_POST, .handler=h_config_export },
+        { .uri="/api/config/import",       .method=HTTP_POST, .handler=h_config_import },
+        { .uri="/api/config/generate-key", .method=HTTP_POST, .handler=h_config_generate_key },
+        { .uri="/api/config/clear-key",    .method=HTTP_POST, .handler=h_config_clear_key },
+        { .uri="/api/telegram/test",       .method=HTTP_POST, .handler=h_telegram_test },
+        { .uri="/api/script/enable",       .method=HTTP_POST, .handler=h_script_enable },
+    };
+    for (size_t i = 0; i < sizeof(extra)/sizeof(*extra); i++) {
+        esp_err_t err = httpd_register_uri_handler(srv, &extra[i]);
+        if (err != ESP_OK)
+            ESP_LOGE(TAG, "register %s failed: %s", extra[i].uri, esp_err_to_name(err));
+    }
+
+    // WebSocket-телеметрия /ws/telemetry
+    esp_err_t werr = ws_telemetry_attach(srv);
+    if (werr != ESP_OK)
+        ESP_LOGE(TAG, "ws telemetry attach failed: %s", esp_err_to_name(werr));
 }

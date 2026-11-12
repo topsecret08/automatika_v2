@@ -21,4 +21,8 @@ void  wd_stats_dump(void);
 int   wd_count(void);
 wd_task_t* wd_get(int idx);
 
+// Наибольшее «зависание» любой зарегистрированной задачи, мс
+// (используется health-check и автоподтверждением OTA).
+uint32_t wd_max_stale_ms(void);
+
 #define WD_FEED(name) wd_feed(name)

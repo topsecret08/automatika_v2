@@ -37,6 +37,12 @@ CONFIG_ESP_SQLITE3_SYNCHRONOUS_NORMAL=y
 # WebSocket API для web_api.c
 CONFIG_HTTPD_WS_SUPPORT=y
 
+# --- OTA с автоматическим откатом (anti-brick) ------------------------
+# Загрузчик держит новый образ в ESP_OTA_IMG_PENDING_VERIFY, пока
+# ota_manager не подтвердит его по результату health-check.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+CONFIG_APP_ANTI_ROLLBACK=n
+
 # --- Lua (espressif/lua) ---------------------------------------------
 # Крупные объекты Lua — в PSRAM; стек VM не должен давить внутреннюю RAM.
 CONFIG_LUA_USE_PSRAM=y

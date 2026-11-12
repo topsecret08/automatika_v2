@@ -8,7 +8,11 @@
 #include "config.h"
 #include "core/core_pinning.h"
 #include "core/control_config.h"
+#include "core/config_backup.h"
 #include "core/estop.h"
+#include "core/event_log.h"
+#include "core/health.h"
+#include "core/nvs_migration.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "core/roles.h"
@@ -64,7 +68,11 @@
 #include "web/brewfather.h"
 #include "web/calendar.h"
 #include "web/samovar.h"
+#include "web/telegram_notify.h"
+#include "web/ws_telemetry.h"
+#include "level/level_sensor.h"
 #include "script/lua_engine.h"
+#include "ota/ota_manager.h"
 #include "ota/fota.h"
 
 static const char *TAG = "MAIN";
@@ -75,9 +83,12 @@ void vApplicationIdleHook(void) {
     ui_cpu_idle_hook();
 }
 
-// Порядок инициализации (требование задачи):
-//   nvs_flash_init → control_config_init → estop_init → lua_engine_init
-//   → ... → web_start() (регистрация HTTP-обработчиков)
+// Порядок инициализации (v2.9.2):
+//   nvs_flash_init → nvs_migration_run → ota_manager_init → control_config_init
+//   → event_log/health → estop_init → level_sensor_init → lua_engine_init
+//   → telegram_notify_init → ... → web_start() (регистрация HTTP/WS)
+// Задача ota_manager_task подтверждает образ ТОЛЬКО по результату
+// health-check (см. ota/ota_manager.h), а не по таймауту.
 void app_main(void) {
     ESP_LOGI(TAG, "=========== %s ===========", FW_NAME);
     ESP_LOGI(TAG, "Build: %s %s", __DATE__, __TIME__);
@@ -88,13 +99,22 @@ void app_main(void) {
         nvs_flash_init();
     }
 
-    // 1. Конфигурация: api_key, ctrl_mode, out_dev, hys, rate/flow, steps_per_ml.
+    // 0. События/журнал и базовая конфигурация.
+    events_init();
+    if (nvs_migration_run() != ESP_OK) {
+        ESP_LOGW(TAG, "NVS migration skipped — settings may be at old schema");
+    }
+    event_log_add(EVENT_INFO, "Boot v" FW_VERSION);
+
     esp_err_t cfg = control_config_init();
     if (cfg != ESP_OK) {
         ESP_LOGE(TAG, "control_config_init failed: %s — работа без NVS", esp_err_to_name(cfg));
     }
 
-    events_init();
+    // 1. OTA: зафиксировать, что мы загрузились с рабочего раздела, и
+    //    запустить окно проверки, если образ новый (PENDING_VERIFY).
+    ota_manager_init();
+
     roles_init();
     flags_init();
     state_init();
@@ -103,9 +123,19 @@ void app_main(void) {
     // 2. Аппаратная аварийная кнопка — раньше любых исполнителей.
     estop_init();
 
-    // 3. Скриптовый движок (ядро 0). Если упал — система работает без Lua.
+    // 3. Датчик уровня: защита от сухого хода и переполнения.
+    if (level_sensor_init() != ESP_OK) {
+        ESP_LOGW(TAG, "level sensor unavailable");
+    }
+
+    // 4. Скриптовый движок (ядро 0). Если упал — система работает без Lua.
     if (lua_engine_init() != ESP_OK) {
         ESP_LOGW(TAG, "lua_engine_init failed, scripts disabled");
+    }
+
+    // 5. Очередь асинхронных уведомлений Telegram (ядро 0).
+    if (telegram_notify_init() != ESP_OK) {
+        ESP_LOGW(TAG, "telegram notify queue unavailable");
     }
 
     // Аппаратные ошибки не должны валить всю прошивку: без датчика или
@@ -159,6 +189,10 @@ void app_main(void) {
     mqtt_init();
     samovar_init();
 
+    // Приемник событий Telegram подписывается на журнал — стартует после
+    // того, как журнал и учётные данные уже готовы.
+    health_init();
+
     ui_init();
     ui_anim_init();
     ui_fps_init();
@@ -184,6 +218,9 @@ void app_main(void) {
     SPAWN(wd_task,            "wd",        3072,              2,                 CORE_NETWORK_AI);
     SPAWN(ctrl_dose_task,     "doser",     4096,              PRIO_DOSER,        CORE_NETWORK_AI);
     SPAWN(samovar_task,       "samovar",   6144,              3,                 CORE_NETWORK_AI);
+    SPAWN(ota_manager_task,   "ota_mgr",   4096,              3,                 CORE_NETWORK_AI);
+    SPAWN(ws_telemetry_task,  "ws_tel",    4096,              PRIO_TELEMETRY,    CORE_NETWORK_AI);
+    SPAWN(telegram_notify_task, "tg_notify", 6144,            3,                 CORE_NETWORK_AI);
 
     if (flags_get_by_key("mqtt"))
         SPAWN(mqtt_task,      "mqtt",      4096,              PRIO_HTTP,         CORE_NETWORK_AI);

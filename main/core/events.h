@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define EVENTS_RING_MAX 200
+
 typedef enum {
     EVENT_INFO = 0, EVENT_WARNING, EVENT_ERROR, EVENT_EMERGENCY,
     EVENT_STAGE_CHANGE, EVENT_USER_ACTION, EVENT_SENSOR, EVENT_NETWORK,

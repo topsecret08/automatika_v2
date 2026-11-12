@@ -122,3 +122,14 @@ int wd_count(void) { return s_count; }
 wd_task_t* wd_get(int idx) {
     return (idx < s_count) ? &s_tasks[idx] : NULL;
 }
+
+uint32_t wd_max_stale_ms(void) {
+    uint32_t worst = 0;
+    if (!s_mtx) return 0;
+    xSemaphoreTake(s_mtx, portMAX_DELAY);
+    for (int i = 0; i < s_count; i++)
+        if (s_tasks[i].enabled && s_tasks[i].max_stale_ms > worst)
+            worst = s_tasks[i].max_stale_ms;
+    xSemaphoreGive(s_mtx);
+    return worst;
+}

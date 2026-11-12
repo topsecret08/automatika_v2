@@ -1,5 +1,6 @@
 #include "mode_base.h"
 #include "core/events.h"
+#include "core/state.h"
 #include "core/watchdog.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_dose.h"
@@ -26,6 +27,8 @@ void mode_task(void *arg) {
     wd_register("mode", 3000, true);
     s_last_us = esp_timer_get_time();
 
+    /* Порядок шага: сначала режим (он двигает этап и нагрев), затем
+     * снимок времени — так dt каждой итерации расходуется ровно один раз. */
     while (1) {
         WD_FEED("mode");
 
@@ -34,9 +37,8 @@ void mode_task(void *arg) {
         s_last_us = now;
         if (dt < 0.1f || dt > 5.0f) dt = 1.0f;
 
-        if (s_cur && s_cur->update &&
-            state_get()->is_running && !state_get()->is_paused &&
-            ctrl_safety_ok()) {
+        if (s_cur && s_cur->update && state_get()->is_running &&
+            !state_get()->is_paused && ctrl_safety_ok()) {
             s_cur->update(dt);
         }
         state_update_snapshot(dt);
