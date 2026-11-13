@@ -20,7 +20,7 @@ dependencies:
   hayschan/autopid_for_esp_idf: "^1.0.2"
   joltwallet/littlefs: "~1.14.8"
 
-# v2.9.3: дополнительные компоненты НЕ добавлялись намеренно.
+# V0.5 alfa: дополнительные компоненты НЕ добавлялись намеренно.
 #   * BMP280          — собственный драйвер main/hal/baro.c (I2C, Bosch);
 #   * YF-S201         — счёт импульсов в main/hal/flow_sensor.c;
 #   * mDNS            — собственный responder main/net/mdns_service.c;

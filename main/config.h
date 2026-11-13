@@ -212,7 +212,7 @@
 #define PATH_SCRIPTS_FLASH  "/lfs/scripts"
 
 // ------------------------------------------------------------
-// v2.9.3: Wi-Fi provisioning, время, датчики, безопасность
+// V0.5 alfa: Wi-Fi provisioning, время, датчики, безопасность
 // ------------------------------------------------------------
 
 // Wi-Fi provisioning (SoftAP + captive portal)

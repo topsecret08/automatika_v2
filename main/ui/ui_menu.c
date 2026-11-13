@@ -516,5 +516,5 @@ static void enter_about(void) {
              (unsigned)(esp_get_free_heap_size() / 1024),
              (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
     menu_label(c, buf);
-    menu_label(c, "Automatika v2/v3 · ESP32-S3 · ESP-IDF");
+    menu_label(c, "Automatika · ESP32-S3 · ESP-IDF");
 }

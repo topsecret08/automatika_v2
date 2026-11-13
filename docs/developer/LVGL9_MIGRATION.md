@@ -5,7 +5,7 @@
 | Компонент | Актуальная версия | Источник |
 |---|---|---|
 | LVGL | **9.6.0** (16.09.2026, stability release) | <https://github.com/lvgl/lvgl/releases/tag/v9.6.0> |
-| esp_lvgl_port | **2.9.0** (поддерживает LVGL 8 и 9) | <https://components.espressif.com/components/espressif/esp_lvgl_port> |
+| esp_lvgl_port | **2.9.0** (версия компонента, не прошивки; LVGL 8 и 9) | <https://components.espressif.com/components/espressif/esp_lvgl_port> |
 | esp_lcd_touch | **1.2.1** | <https://components.espressif.com/components/espressif/esp_lcd_touch> |
 | esp_lcd_touch_ft5x06 | **1.1.1** | <https://components.espressif.com/components/espressif/esp_lcd_touch_ft5x06> |
 | uPlot | **1.6.32** (MIT, 14.03.2025) | <https://github.com/leeoniya/uPlot/releases/tag/1.6.32> |

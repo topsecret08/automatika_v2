@@ -7,7 +7,7 @@
 #include "freertos/semphr.h"
 #include <string.h>
 
-// v2.9.3: добавлены sensors/baro/flow/autotune/sd_safe/reflux/ui_phys/
+// V0.5 alfa: добавлены sensors/baro/flow/autotune/sd_safe/reflux/ui_phys/
 // session/mdns/wifi_mgr/time — увеличиваем ёмкость реестра.
 #define WD_MAX_TASKS 48
 static wd_task_t s_tasks[WD_MAX_TASKS];

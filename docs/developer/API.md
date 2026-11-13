@@ -1,7 +1,7 @@
 # REST API и WebSocket
 
 Все эндпоинты ниже реально зарегистрированы в `main/web/web_api.c`,
-`main/web/actuator_test.c` и `main/web/ws_telemetry.c` (прошивка v2.9.3).
+`main/web/actuator_test.c` и `main/web/ws_telemetry.c` (прошивка V0.5 alfa).
 Никаких «предполагаемых» `/api/sensors/*` и `/api/openapi.json` в прошивке
 нет.
 
@@ -50,7 +50,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 {"level":"ok","reason":"","free_heap":182344,"min_free_heap":154112,
  "free_psram":4123456,"uptime_s":9876,"reset":1,"wifi_rssi":-61,
  "sd":1,"db":1,"sensors":2,"safety":1,"estop":0,"running":1,
- "stage":2,"version":"2.9.3","tasks":14}
+ "stage":2,"version":"V0.5 alfa","tasks":14}
 ```
 
 `level`: `ok` | `degraded` | `fail`. `reason` заполняется при `fail`.

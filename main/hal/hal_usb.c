@@ -63,7 +63,7 @@ bool hal_usb_init(usb_mode_t mode) {
 
     static const char *str_desc[5] = {
         "Automatika",
-        "Automatika v2.9",
+        "Automatika V0.5 alfa",
         serial,
         "Automatika USB",
         NULL

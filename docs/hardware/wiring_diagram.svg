@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1150" viewBox="0 0 1400 1150">
-  <title>Automatika v2 — wiring diagram</title>
-  <desc>Reference wiring for ESP32-S3 distiller controller. Pins match main/config.h (v2.9.3).</desc>
+  <title>Automatika — wiring diagram</title>
+  <desc>Reference wiring for ESP32-S3 distiller controller. Pins match main/config.h (V0.5 alfa).</desc>
   <style>
     .bg      { fill: #ffffff; }
     .block   { fill: #e8f1fb; stroke: #1f5f9e; stroke-width: 2; }
@@ -23,8 +23,8 @@
 
   <rect class="bg" x="0" y="0" width="1400" height="1150"/>
 
-  <text x="700" y="34" style="font-family:'Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;text-anchor:middle;fill:#10243a;">Automatika v2 — схема подключения (референс)</text>
-  <text x="700" y="56" class="small">Пины и адреса соответствуют main/config.h v2.9.3. Силовая часть 220 В — только через E-STOP и предохранитель.</text>
+  <text x="700" y="34" style="font-family:'Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;text-anchor:middle;fill:#10243a;">Automatika — схема подключения (референс)</text>
+  <text x="700" y="56" class="small">Пины и адреса соответствуют main/config.h V0.5 alfa. Силовая часть 220 В — только через E-STOP и предохранитель.</text>
 
   <!-- ================= MAINS / POWER ================= -->
   <rect class="power" x="40" y="90" width="220" height="80" rx="8"/>

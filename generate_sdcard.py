@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 '''
-generate_sdcard.py — создаёт полную SD-карту Automatika v2.9
+generate_sdcard.py — создаёт полную SD-карту Automatika V0.5 alfa
 Запуск: python generate_sdcard.py
 '''
 
@@ -26,7 +26,7 @@ HELP = {}
 
 # ============ ГРУППА 1: ОСНОВЫ (10) ============
 
-HELP["01_intro.md"] = '''# Введение в Automatika v2.9
+HELP["01_intro.md"] = '''# Введение в Automatika V0.5 alfa
 
 ## Что это
 Универсальная система управления технологическими процессами
@@ -1881,7 +1881,7 @@ HELP["51_fota.md"] = '''# FOTA — 4 источника
 
 ## 1. SD-карта (рекомендуется)
 Скопируйте .bin на SD:
-/sdcard/firmware/automatika_v2.9.bin
+/sdcard/firmware/automatika_v0.5_alfa.bin
 Меню → Прошивка → Из SD → выбрать.
 
 ## 2. USB-OTG
@@ -3125,7 +3125,7 @@ HELP["88_updates.md"] = '''# Обновления
 - v2.0 — базовая
 - v2.5 — AI-модули
 - v2.7 — SQLite, USB, FOTA
-- v2.9 — полная справка
+- V0.5 alfa — полная справка
 
 ## Откат
 Если не работает — «Прошивка → Откат».
@@ -3189,7 +3189,7 @@ GitHub Issues, Wiki.
 
 HELP["90_whatsnew.md"] = '''# Что нового
 
-## v2.9 (текущая)
+## V0.5 alfa (текущая)
 - Полная справка (103 статьи)
 - SQLite в PSRAM
 - Watchdog на 10 задачах
@@ -3525,7 +3525,7 @@ HELP["100_fota_qr.md"] = '''# FOTA через QR
 3. Система загружает и прошивает
 
 ## Формат QR
-https://example.com/firmware_v2.9.bin
+https://example.com/firmware_v0.5_alfa.bin
 
 ## Применение
 - Быстрая передача с телефона
@@ -3974,7 +3974,7 @@ CALCS = {
 # ============================================================
 LANG = {
     "ru.json": {
-        "app_title": "Automatika v2.9",
+        "app_title": "Automatika V0.5 alfa",
         "menu": {
             "modes": "Режимы работы", "monitoring": "Мониторинг",
             "recipes": "Рецепты", "calcs": "Калькуляторы",
@@ -3989,7 +3989,7 @@ LANG = {
         }
     },
     "en.json": {
-        "app_title": "Automatika v2.9",
+        "app_title": "Automatika V0.5 alfa",
         "menu": {
             "modes": "Modes", "monitoring": "Monitoring",
             "recipes": "Recipes", "calcs": "Calculators",
@@ -4004,7 +4004,7 @@ LANG = {
         }
     },
     "de.json": {
-        "app_title": "Automatika v2.9",
+        "app_title": "Automatika V0.5 alfa",
         "menu": {
             "modes": "Betriebsarten", "monitoring": "Überwachung",
             "recipes": "Rezepte", "calcs": "Rechner",
@@ -4024,7 +4024,7 @@ LANG = {
 # ГЛАВНЫЙ БЛОК
 # ============================================================
 def main():
-    print("SD-карта Automatika v2.9")
+    print("SD-карта Automatika V0.5 alfa")
     print()
 
     print("Справка:")

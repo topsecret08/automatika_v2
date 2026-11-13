@@ -425,7 +425,7 @@ void learning_show_certificate(void) {
         ui_show_markdown("Сертификат",
             "# Сертификат\n\n"
             "Курс пройден полностью — все шесть модулей.\n\n"
-            "**Automatika v2.9**\n"
+            "**Automatika V0.5 alfa**\n"
             "Курс: основы дистилляции и ректификации\n\n"
             "🏆 Поздравляем!");
         return;
@@ -436,7 +436,7 @@ void learning_show_certificate(void) {
         "# Сертификат\n\n"
         "Сертификат выдаётся после прохождения всех шести модулей.\n\n"
         "Сейчас пройдено **%d** уроков.\n\n"
-        "**Automatika v2.9**\n"
+        "**Automatika V0.5 alfa**\n"
         "Курс: основы дистилляции и ректификации",
         learning_passed_count());
     ui_show_markdown("Сертификат", buf);

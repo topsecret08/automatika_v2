@@ -201,10 +201,10 @@ const help_article_t HELP_ARTICLES[] = {
     },
     {
         .id = "90_whatsnew",
-        .title = "Что нового в v2.9",
+        .title = "Что нового в V0.5 alfa",
         .category = "Общее",
         .content_md =
-            "# Automatika v2.9\n\n"
+            "# Automatika V0.5 alfa\n\n"
             "## Новое\n"
             "- полная справка (100+ статей) прямо в устройстве;\n"
             "- SQLite-база в PSRAM: история процессов и графики;\n"
