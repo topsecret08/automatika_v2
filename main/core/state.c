@@ -3,14 +3,26 @@
 #include "events.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include <string.h>
 
 static const char *TAG = "STATE";
 static process_state_t s;
 static nvs_handle_t nvs;
 static int64_t last_save_us = 0;
+static SemaphoreHandle_t s_mtx = NULL;
+
+static void state_lock(void) {
+    if (s_mtx) xSemaphoreTake(s_mtx, portMAX_DELAY);
+}
+
+static void state_unlock(void) {
+    if (s_mtx) xSemaphoreGive(s_mtx);
+}
 
 void state_init(void) {
+    if (!s_mtx) s_mtx = xSemaphoreCreateMutex();
     nvs_open("app_state", NVS_READWRITE, &nvs);
     memset(&s, 0, sizeof(s));
     s.type = PROCESS_IDLE;
@@ -27,20 +39,39 @@ void state_init(void) {
 
 process_state_t* state_get(void) { return &s; }
 
+void state_snapshot(process_state_t *out) {
+    if (!out) return;
+    state_lock();
+    memcpy(out, &s, sizeof(*out));
+    state_unlock();
+}
+
 bool state_load(void) {
-    size_t sz = sizeof(s);
-    esp_err_t err = nvs_get_blob(nvs, "proc", &s, &sz);
+    process_state_t tmp;
+    size_t sz = sizeof(tmp);
+    memset(&tmp, 0, sizeof(tmp));
+    esp_err_t err = nvs_get_blob(nvs, "proc", &tmp, &sz);
     if (err != ESP_OK) return false;
-    s.is_running = false;
-    s.is_paused = true;
-    s.interrupted_ago_sec = 0;
-    ESP_LOGI(TAG, "Loaded: type=%d stage=%d", s.type, s.stage);
+    tmp.is_running = false;
+    tmp.is_paused = true;
+    tmp.interrupted_ago_sec = 0;
+
+    state_lock();
+    s = tmp;
+    state_unlock();
+
+    ESP_LOGI(TAG, "Loaded: type=%d stage=%d", tmp.type, tmp.stage);
     return true;
 }
 
 void state_save(void) {
-    nvs_set_blob(nvs, "proc", &s, sizeof(s));
-    nvs_commit(nvs);
+    process_state_t tmp;
+    state_snapshot(&tmp);
+
+    esp_err_t err = nvs_set_blob(nvs, "proc", &tmp, sizeof(tmp));
+    if (err == ESP_OK) err = nvs_commit(nvs);
+    if (err != ESP_OK)
+        ESP_LOGW(TAG, "state save failed: %s", esp_err_to_name(err));
 }
 
 void state_clear(void) {
@@ -54,8 +85,12 @@ bool state_has_saved(void) {
 }
 
 void state_update_snapshot(float dt) {
+    state_lock();
     s.elapsed_sec += (uint32_t)dt;
-    if (s.is_running) {
+    bool running = s.is_running;
+    state_unlock();
+
+    if (running) {
         int64_t now = esp_timer_get_time();
         if (now - last_save_us > 30000000) {
             state_save();
@@ -66,16 +101,16 @@ void state_update_snapshot(float dt) {
 
 const char* state_type_name(process_type_t t) {
     static const char *n[] = {
-        "Простой","Дистилляция","Ректификация","Пивоварня","ПВК",
-        "НБК","Вакуум","Двойная","Габриэль","Брожение"
+        "Ожидание","Дистилляция","Ректификация","Пивоварение","ПВК",
+        "НБК","Вакуум","Двойная","Габриэль","Ферментация"
     };
     return (t < 10) ? n[t] : "?";
 }
 
 const char* state_stage_name(proc_stage_t s) {
     static const char *n[] = {
-        "Простой","Нагрев","Стабилизация","Головы","Тело",
-        "Хвосты","Охлаждение","Готово","Проверка","Разогрев",
+        "Ожидание","Нагрев","Стабилизация","Головы","Тело",
+        "Хвосты","Охлаждение","Готово","Проверка","Разгон",
         "Работа","Ошибка"
     };
     return (s < 12) ? n[s] : "?";

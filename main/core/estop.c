@@ -1,4 +1,5 @@
 #include "estop.h"
+#include "estop_logic.h"
 #include "config.h"
 #include "events.h"
 #include "watchdog.h"
@@ -32,7 +33,7 @@ static void IRAM_ATTR estop_isr(void *arg) {
 }
 
 static bool pin_down(void) {
-    return gpio_get_level((gpio_num_t)ESTOP_GPIO) == 0;
+    return estop_level_active(gpio_get_level((gpio_num_t)ESTOP_GPIO));
 }
 
 esp_err_t estop_init(void) {
@@ -41,7 +42,7 @@ esp_err_t estop_init(void) {
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_NEGEDGE,
+        .intr_type = GPIO_INTR_POSEDGE,
     };
     esp_err_t err = gpio_config(&io);
     if (err != ESP_OK) {
@@ -71,13 +72,18 @@ esp_err_t estop_init(void) {
         s_pressed = true;
         events_log(EVENT_WARNING, "ESTOP: button down at boot");
     }
-    ESP_LOGI(TAG, "ready on GPIO%d (NC, level=%d)", ESTOP_GPIO,
+    ESP_LOGI(TAG, "ready on GPIO%d (NC, active level=%d, current=%d)",
+             ESTOP_GPIO, ESTOP_ACTIVE_LEVEL,
              gpio_get_level((gpio_num_t)ESTOP_GPIO));
     return ESP_OK;
 }
 
 bool estop_button_down(void) {
     return s_ready && pin_down();
+}
+
+int estop_raw_level(void) {
+    return s_ready ? gpio_get_level((gpio_num_t)ESTOP_GPIO) : -1;
 }
 
 bool estop_is_pressed(void) {

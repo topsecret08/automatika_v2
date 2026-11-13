@@ -37,6 +37,9 @@
 // LCD MOSI (PIN_LCD_MOSI). Поэтому кнопка на 27; для другой разводки
 // достаточно поменять только это значение (см. README, раздел GPIO).
 #define ESTOP_GPIO          27
+// E-STOP: нормально замкнутая кнопка на GND. В норме линия = 0,
+// при нажатии/обрыве провода pull-up даёт 1. Активный уровень — высокий.
+#define ESTOP_ACTIVE_LEVEL  1
 // Порог «нажатия» аварийной кнопки, мс.
 #define ESTOP_DEBOUNCE_MS   50
 
@@ -122,6 +125,8 @@
 
 // Скрипты Lua
 #define LUA_SCRIPT_MAX_BYTES  8192
+// Жёсткий лимит памяти Lua VM (байт). Скрипт не может выесть всю PSRAM.
+#define LUA_MEM_LIMIT_BYTES   (256 * 1024)
 #define LUA_HOOK_MIN_PERIOD_MS 200
 // Lua по умолчанию только через сервисный ключ: включается POST /api/script/enable
 #define LUA_ENABLE_REQUIRES_API_KEY 1
@@ -217,10 +222,12 @@
 
 // Wi-Fi provisioning (SoftAP + captive portal)
 #define PROV_AP_SSID        "Automatika-Setup"
-// PoP по умолчанию — пустой (secure1 без PoP). Для «закрытого» AP задайте
-// PROV_POP_SECRET и текст PoP; длина PoP >= 8 символов (требование ESP-IDF).
-#define PROV_POP_SECRET     NULL
-#define PROV_POP_TEXT       "automatika"
+// PoP обязателен: AP доступен любому в радиусе, поэтому provisioning
+// использует security1. Значение ниже — ЗАВОДСКОЕ и известно из исходников:
+// перед прошивкой партии задайте уникальный PROV_POP_TEXT (>= 8 символов)
+// для каждого устройства или используйте общий, но не публичный PoP.
+#define PROV_POP_SECRET     1
+#define PROV_POP_TEXT       "automatika-setup"
 #define WIFI_STA_CONNECT_TIMEOUT_MS (60 * 1000u)  // fallback в AP через 60 с
 
 // SNTP

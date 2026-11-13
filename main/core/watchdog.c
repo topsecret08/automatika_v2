@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include <stdio.h>
 #include <string.h>
 
 // V0.5 alfa: добавлены sensors/baro/flow/autotune/sd_safe/reflux/ui_phys/
@@ -19,6 +20,7 @@ static uint32_t now_ms(void) {
 }
 
 void wd_init(void) {
+    if (s_mtx) return;
     s_mtx = xSemaphoreCreateMutex();
     memset(s_tasks, 0, sizeof(s_tasks));
     s_count = 0;
@@ -36,6 +38,17 @@ bool wd_register(const char *name, uint32_t timeout_ms, bool critical) {
     if (!s_mtx) return false;
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
+    for (int i = 0; i < s_count; i++) {
+        if (strcmp(s_tasks[i].name, name) == 0) {
+            s_tasks[i].timeout_ms = timeout_ms;
+            s_tasks[i].critical = critical;
+            s_tasks[i].handle = (void *)xTaskGetCurrentTaskHandle();
+            s_tasks[i].enabled = true;
+            s_tasks[i].last_feed_ms = now_ms();
+            xSemaphoreGive(s_mtx);
+            return true;
+        }
+    }
     if (s_count >= WD_MAX_TASKS) {
         xSemaphoreGive(s_mtx);
         events_log(EVENT_ERROR, "WD: no free slot for %s (max %d)",
@@ -43,7 +56,9 @@ bool wd_register(const char *name, uint32_t timeout_ms, bool critical) {
         return false;
     }
     wd_task_t *t = &s_tasks[s_count++];
-    t->name = name;
+    memset(t, 0, sizeof(*t));
+    snprintf(t->name, sizeof(t->name), "%s", name ? name : "?");
+    t->handle = (void *)xTaskGetCurrentTaskHandle();
     t->timeout_ms = timeout_ms;
     t->last_feed_ms = now_ms();
     t->enabled = true;
@@ -67,10 +82,12 @@ void wd_feed(const char *name) {
 }
 
 void wd_remove(const char *name) {
+    if (!s_mtx || !name) return;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     for (int i = 0; i < s_count; i++) {
         if (strcmp(s_tasks[i].name, name) == 0) {
             s_tasks[i] = s_tasks[--s_count];
+            memset(&s_tasks[s_count], 0, sizeof(s_tasks[s_count]));
             break;
         }
     }

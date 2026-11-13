@@ -429,7 +429,7 @@ void web_start(void *arg) {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     // Обработчиков стало больше (PWA + HTTPS-дубль), поэтому запас по слотам.
     // Сокеты: 4 HTTP + 3 HTTPS + Telegram/MQTT оставляют запас в LWIP (10).
-    cfg.max_uri_handlers = 96;
+    cfg.max_uri_handlers = 160;
     cfg.max_open_sockets = 4;
     cfg.stack_size = 8192;
     cfg.lru_purge_enable = true;

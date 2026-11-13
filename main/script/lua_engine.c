@@ -25,6 +25,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static const char *TAG = "LUA";
@@ -58,6 +59,42 @@ typedef struct {
 } lua_limits_t;
 
 static lua_limits_t s_limits;
+
+// ------------------------------------------------------------------
+// Аллокатор с жёстким лимитом: Lua не может выйти за LUA_MEM_LIMIT_BYTES.
+// ------------------------------------------------------------------
+typedef struct {
+    size_t used;
+    size_t limit;
+} lua_mem_t;
+
+static lua_mem_t s_lua_mem = { 0, LUA_MEM_LIMIT_BYTES };
+
+static void *lua_limited_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
+    lua_mem_t *m = (lua_mem_t *)ud;
+    if (!m) return NULL;
+
+    if (nsize == 0) {
+        if (ptr) {
+            free(ptr);
+            m->used = (osize <= m->used) ? m->used - osize : 0;
+        }
+        return NULL;
+    }
+
+    size_t base = ptr ? osize : 0;
+    if (nsize > base && m->used + (nsize - base) > m->limit) {
+        ESP_LOGE(TAG, "Lua memory limit %u KB exceeded",
+                 (unsigned)(m->limit / 1024));
+        return NULL;   // Lua корректно обработает нехватку памяти
+    }
+
+    void *np = realloc(ptr, nsize);
+    if (!np) return NULL;
+
+    m->used = m->used - base + nsize;
+    return np;
+}
 
 static void lua_hook(lua_State *l, lua_Debug *ar) {
     (void)ar;
@@ -364,9 +401,12 @@ esp_err_t lua_engine_init(void) {
     s_queue = xQueueCreate(LUA_QUEUE_LEN, sizeof(lua_job_t));
     if (!s_queue) return ESP_ERR_NO_MEM;
 
-    L = luaL_newstate();
+    s_lua_mem.used = 0;
+    s_lua_mem.limit = LUA_MEM_LIMIT_BYTES;
+    L = lua_newstate(lua_limited_alloc, &s_lua_mem, 0);
     if (!L) {
-        ESP_LOGE(TAG, "luaL_newstate failed (heap=%u KB)",
+        ESP_LOGE(TAG, "lua_newstate failed (limit %u KB, heap=%u KB)",
+                 (unsigned)(LUA_MEM_LIMIT_BYTES / 1024),
                  (unsigned)(heap_caps_get_free_size(MALLOC_CAP_DEFAULT) / 1024));
         vQueueDelete(s_queue);
         s_queue = NULL;

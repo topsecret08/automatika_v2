@@ -144,7 +144,10 @@ static proc_stage_t d_update(float dt) {
     case ST_HEADS:
         ctrl_heater_set_percent(40.0f);
         valve_set_pct(VALVE_HEADS, 20.0f);
-        st->heads_collected_ml += 5.0f * dt;
+        {
+            float flow = control_config_get_flow_ml_min();
+            st->heads_collected_ml += flow * 0.20f * dt / 60.0f;
+        }
 
         if (f >= FRAC_BODY ||
             st->heads_collected_ml > st->target_heads_ml) {
@@ -163,8 +166,7 @@ static proc_stage_t d_update(float dt) {
 
         ctrl_heater_set_percent(BODY_POWER);
         ctrl_dose_process(rate, dt, VALVE_BODY);
-        if (control_config_get_output_device() == OUTPUT_DEVICE_PUMP)
-            st->body_collected_ml += rate * dt / 60.0f;
+        st->body_collected_ml += rate * dt / 60.0f;
 
         if (f >= FRAC_TAILS || cube >= TAIL_START_T) {
             s_stage = ST_TAILS;
@@ -176,7 +178,10 @@ static proc_stage_t d_update(float dt) {
     case ST_TAILS:
         ctrl_heater_set_percent(TAIL_POWER);
         valve_set_pct(VALVE_TAILS, 30.0f);
-        st->tails_collected_ml += 15.0f * dt;
+        {
+            float flow = control_config_get_flow_ml_min();
+            st->tails_collected_ml += flow * 0.30f * dt / 60.0f;
+        }
 
         if (f >= FRAC_DONE || cube > st->target_cube_t) {
             s_stage = ST_COOLDOWN;

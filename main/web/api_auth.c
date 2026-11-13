@@ -48,6 +48,13 @@ esp_err_t api_check_auth(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t api_check_read_auth(httpd_req_t *req) {
+    if (!req) return ESP_FAIL;
+    if (!control_config_ready()) return ESP_ERR_INVALID_STATE;
+    if (!control_config_api_has_key()) return ESP_OK;  // первичная настройка
+    return api_check_auth(req);
+}
+
 esp_err_t api_reject_unauthorized(httpd_req_t *req) {
     httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
                         "{\"error\":\"unauthorized\",\"hint\":\"send X-API-Key\"}");

@@ -23,7 +23,7 @@ Linux / macOS:
 ```bash
 git clone -b v5.3.2 --recursive https://github.com/espressif/esp-idf.git
 cd esp-idf && ./install.sh esp32s3
-. ./export.sh
+source ./export.sh
 ```
 
 Сообщество Windows-сборок кладёт окружение в `C:\Espressif`. Если `export.ps1`
@@ -72,9 +72,14 @@ $env:PYTHONUTF8=1
 ```
 
 Первая сборка скачивает компоненты и занимает несколько минут.
-Размер образа ≈ **2,3 МБ**; OTA-раздел — 3 МБ (V0.5 alfa). Слоты по 2 МБ из ТЗ
-не подходят: образ больше 2 МБ, поэтому в `partitions.csv` оставлены 3 МБ
-и запас ~0,7 МБ на рост.
+Размер образа ≈ **2,78 МБ** (`0x2A7800`); OTA-раздел — 3 МБ (V0.5 alfa).
+Слоты по 2 МБ из ТЗ не подходят: образ больше 2 МБ, поэтому в `partitions.csv`
+оставлены 3 МБ и запас ~12 % на рост.
+
+Быстрый старт (Linux/macOS) — `./tools/bootstrap.sh`; он сам активирует
+`source "$IDF_PATH/export.sh"`, при необходимости устанавливает IDF 5.3.2 и
+собирает прошивку и тесты. Windows: `.\tools\bootstrap.ps1 all` после
+`export.ps1`.
 
 ### Очистка сборки
 
@@ -205,7 +210,8 @@ curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
 ```
 
 Подписанная OTA (Secure Boot v2) выключена, пока не заданы ключи; порядок
-включения — в `README.md`, раздел «Аппаратное расширение V0.5 alfa».
+включения — в `README.md`, раздел «OTA и подпись», и в `docs/SECURITY.md`.
+Для production подпись обязательна.
 
 ### 6.7. Резервная копия и восстановление
 
@@ -307,6 +313,7 @@ curl -X POST -H "X-API-Key: $KEY" http://<IP>/api/backup/telegram
 - SPIRAM: Octal, 80 МГц; крупные буферы (LVGL, Lua, AI) — в PSRAM
 - Задачи распределены по двум ядрам (`main/core/core_pinning.h`);
   safety/estop — ядро 1 с максимальным приоритетом, сеть/Lua/WS — ядро 0
-- E-STOP: `ESTOP_GPIO=27`, NC-контакт, 100 нФ на линии
+- E-STOP: `ESTOP_GPIO=27`, NC-контакт на GND, активный уровень — высокий
+  (нажатие/обрыв), 100 нФ на линии
 - Датчик уровня: поплавок на `LEVEL_SENSOR_GPIO=28`
 - Дозатор: STEP=25, ENABLE=26

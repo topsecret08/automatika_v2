@@ -71,6 +71,25 @@ static bool exec(const char *sql) {
     return true;
 }
 
+static bool prepare(const char *sql, sqlite3_stmt **st) {
+    *st = NULL;
+    int rc = sqlite3_prepare_v2(s_db, sql, -1, st, NULL);
+    if (rc != SQLITE_OK) {
+        ESP_LOGE(TAG, "prepare failed (%d): %s", rc, sqlite3_errmsg(s_db));
+        return false;
+    }
+    return true;
+}
+
+static bool step_done(sqlite3_stmt *st) {
+    int rc = sqlite3_step(st);
+    if (rc != SQLITE_DONE) {
+        ESP_LOGE(TAG, "step failed (%d): %s", rc, sqlite3_errmsg(s_db));
+        return false;
+    }
+    return true;
+}
+
 bool db_exec(const char *sql) {
     if (!s_ready) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
@@ -114,15 +133,17 @@ int64_t db_process_start(uint8_t type, const char *recipe_id) {
     if (!s_ready) return 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "INSERT INTO processes(started_ms, type, recipe_id) VALUES(?,?,?)",
-        -1, &st, NULL);
+    if (!prepare("INSERT INTO processes(started_ms, type, recipe_id) VALUES(?,?,?)",
+                 &st)) {
+        xSemaphoreGive(s_mtx);
+        return 0;
+    }
     sqlite3_bind_int64(st, 1, now_ms());
     sqlite3_bind_int(st, 2, type);
     sqlite3_bind_text(st, 3, recipe_id ? recipe_id : "", -1, SQLITE_STATIC);
-    sqlite3_step(st);
+    bool ok = step_done(st);
     sqlite3_finalize(st);
-    int64_t id = sqlite3_last_insert_rowid(s_db);
+    int64_t id = ok ? sqlite3_last_insert_rowid(s_db) : 0;
     xSemaphoreGive(s_mtx);
     return id;
 }
@@ -131,10 +152,12 @@ bool db_process_update(int64_t id, const db_process_t *d) {
     if (!s_ready) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "UPDATE processes SET stage_final=?, cube_start_t=?, cube_end_t=?,"
-        "heads_ml=?, body_ml=?, tails_ml=?, power_avg=?, predec_count=? WHERE id=?",
-        -1, &st, NULL);
+    if (!prepare("UPDATE processes SET stage_final=?, cube_start_t=?, cube_end_t=?,"
+                 "heads_ml=?, body_ml=?, tails_ml=?, power_avg=?, predec_count=? WHERE id=?",
+                 &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
     sqlite3_bind_int(st, 1, d->stage_final);
     sqlite3_bind_double(st, 2, d->cube_start_t);
     sqlite3_bind_double(st, 3, d->cube_end_t);
@@ -144,20 +167,22 @@ bool db_process_update(int64_t id, const db_process_t *d) {
     sqlite3_bind_double(st, 7, d->power_avg);
     sqlite3_bind_int(st, 8, d->predec_count);
     sqlite3_bind_int64(st, 9, id);
-    sqlite3_step(st);
+    bool ok = step_done(st);
     sqlite3_finalize(st);
     xSemaphoreGive(s_mtx);
-    return true;
+    return ok;
 }
 
 bool db_process_finish(int64_t id, const db_process_t *d) {
     if (!s_ready) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "UPDATE processes SET ended_ms=?, stage_final=?, cube_end_t=?,"
-        "heads_ml=?, body_ml=?, tails_ml=?, power_avg=?, predec_count=?,"
-        "duration_sec=? WHERE id=?", -1, &st, NULL);
+    if (!prepare("UPDATE processes SET ended_ms=?, stage_final=?, cube_end_t=?,"
+                 "heads_ml=?, body_ml=?, tails_ml=?, power_avg=?, predec_count=?,"
+                 "duration_sec=? WHERE id=?", &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
     sqlite3_bind_int64(st, 1, now_ms());
     sqlite3_bind_int(st, 2, d->stage_final);
     sqlite3_bind_double(st, 3, d->cube_end_t);
@@ -168,17 +193,20 @@ bool db_process_finish(int64_t id, const db_process_t *d) {
     sqlite3_bind_int(st, 8, d->predec_count);
     sqlite3_bind_double(st, 9, d->duration_sec);
     sqlite3_bind_int64(st, 10, id);
-    sqlite3_step(st);
+    bool ok = step_done(st);
     sqlite3_finalize(st);
     xSemaphoreGive(s_mtx);
-    return true;
+    return ok;
 }
 
 bool db_process_get(int64_t id, db_process_t *o) {
     if (!s_ready) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db, "SELECT * FROM processes WHERE id=?", -1, &st, NULL);
+    if (!prepare("SELECT * FROM processes WHERE id=?", &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
     sqlite3_bind_int64(st, 1, id);
     bool ok = false;
     if (sqlite3_step(st) == SQLITE_ROW) {
@@ -212,9 +240,11 @@ int db_process_list(db_process_t *out, int max, int offset) {
     if (!s_ready) return 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "SELECT * FROM processes ORDER BY started_ms DESC LIMIT ? OFFSET ?",
-        -1, &st, NULL);
+    if (!prepare("SELECT * FROM processes ORDER BY started_ms DESC LIMIT ? OFFSET ?",
+                 &st)) {
+        xSemaphoreGive(s_mtx);
+        return 0;
+    }
     sqlite3_bind_int(st, 1, max);
     sqlite3_bind_int(st, 2, offset);
     int n = 0;
@@ -242,7 +272,10 @@ int db_process_count(void) {
     if (!s_ready) return 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db, "SELECT COUNT(*) FROM processes", -1, &st, NULL);
+    if (!prepare("SELECT COUNT(*) FROM processes", &st)) {
+        xSemaphoreGive(s_mtx);
+        return 0;
+    }
     int n = 0;
     if (sqlite3_step(st) == SQLITE_ROW) n = sqlite3_column_int(st, 0);
     sqlite3_finalize(st);
@@ -254,36 +287,52 @@ bool db_process_delete(int64_t id) {
     if (!s_ready) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db, "DELETE FROM processes WHERE id=?", -1, &st, NULL);
-    sqlite3_bind_int64(st, 1, id); sqlite3_step(st); sqlite3_finalize(st);
-    sqlite3_prepare_v2(s_db, "DELETE FROM measurements WHERE process_id=?", -1, &st, NULL);
-    sqlite3_bind_int64(st, 1, id); sqlite3_step(st); sqlite3_finalize(st);
+    if (!prepare("DELETE FROM processes WHERE id=?", &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
+    sqlite3_bind_int64(st, 1, id);
+    bool ok = step_done(st);
+    sqlite3_finalize(st);
+
+    if (!prepare("DELETE FROM measurements WHERE process_id=?", &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
+    sqlite3_bind_int64(st, 1, id);
+    ok = step_done(st) && ok;
+    sqlite3_finalize(st);
     xSemaphoreGive(s_mtx);
-    return true;
+    return ok;
 }
 
 bool db_process_set_rating(int64_t id, uint8_t rating, const char *notes) {
     if (!s_ready) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "UPDATE processes SET rating=?, notes=? WHERE id=?", -1, &st, NULL);
+    if (!prepare("UPDATE processes SET rating=?, notes=? WHERE id=?", &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
     sqlite3_bind_int(st, 1, rating);
     sqlite3_bind_text(st, 2, notes ? notes : "", -1, SQLITE_STATIC);
     sqlite3_bind_int64(st, 3, id);
-    sqlite3_step(st); sqlite3_finalize(st);
+    bool ok = step_done(st);
+    sqlite3_finalize(st);
     xSemaphoreGive(s_mtx);
-    return true;
+    return ok;
 }
 
 bool db_meas_insert(int64_t pid, const db_measurement_t *m) {
     if (!s_ready || pid == 0) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "INSERT INTO measurements(process_id, ts_ms, cube_temp, column_temp,"
-        "jacket_temp, pressure, power, valve_body, flow)"
-        "VALUES(?,?,?,?,?,?,?,?,?)", -1, &st, NULL);
+    if (!prepare("INSERT INTO measurements(process_id, ts_ms, cube_temp, column_temp,"
+                 "jacket_temp, pressure, power, valve_body, flow)"
+                 "VALUES(?,?,?,?,?,?,?,?,?)", &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
     sqlite3_bind_int64(st, 1, pid);
     sqlite3_bind_int64(st, 2, m->ts_ms);
     sqlite3_bind_double(st, 3, m->cube_temp);
@@ -293,9 +342,10 @@ bool db_meas_insert(int64_t pid, const db_measurement_t *m) {
     sqlite3_bind_double(st, 7, m->power);
     sqlite3_bind_double(st, 8, m->valve_body);
     sqlite3_bind_double(st, 9, m->flow);
-    sqlite3_step(st); sqlite3_finalize(st);
+    bool ok = step_done(st);
+    sqlite3_finalize(st);
     xSemaphoreGive(s_mtx);
-    return true;
+    return ok;
 }
 
 int db_meas_range(int64_t pid, int64_t from, int64_t to,
@@ -303,11 +353,13 @@ int db_meas_range(int64_t pid, int64_t from, int64_t to,
     if (!s_ready) return 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "SELECT ts_ms, cube_temp, column_temp, jacket_temp, pressure,"
-        "power, valve_body, flow FROM measurements"
-        " WHERE process_id=? AND ts_ms BETWEEN ? AND ? ORDER BY ts_ms",
-        -1, &st, NULL);
+    if (!prepare("SELECT ts_ms, cube_temp, column_temp, jacket_temp, pressure,"
+                 "power, valve_body, flow FROM measurements"
+                 " WHERE process_id=? AND ts_ms BETWEEN ? AND ? ORDER BY ts_ms",
+                 &st)) {
+        xSemaphoreGive(s_mtx);
+        return 0;
+    }
     sqlite3_bind_int64(st, 1, pid);
     sqlite3_bind_int64(st, 2, from);
     sqlite3_bind_int64(st, 3, to);
@@ -333,8 +385,10 @@ int db_meas_count(int64_t pid) {
     if (!s_ready) return 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "SELECT COUNT(*) FROM measurements WHERE process_id=?", -1, &st, NULL);
+    if (!prepare("SELECT COUNT(*) FROM measurements WHERE process_id=?", &st)) {
+        xSemaphoreGive(s_mtx);
+        return 0;
+    }
     sqlite3_bind_int64(st, 1, pid);
     int n = 0;
     if (sqlite3_step(st) == SQLITE_ROW) n = sqlite3_column_int(st, 0);
@@ -347,28 +401,34 @@ bool db_event_insert(const db_event_t *e) {
     if (!s_ready) return false;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(s_db,
-        "INSERT INTO events(ts_ms, type, msg) VALUES(?,?,?)", -1, &st, NULL);
+    if (!prepare("INSERT INTO events(ts_ms, type, msg) VALUES(?,?,?)", &st)) {
+        xSemaphoreGive(s_mtx);
+        return false;
+    }
     sqlite3_bind_int64(st, 1, e->ts_ms);
     sqlite3_bind_int(st, 2, e->type);
     sqlite3_bind_text(st, 3, e->msg, -1, SQLITE_STATIC);
-    sqlite3_step(st); sqlite3_finalize(st);
+    bool ok = step_done(st);
+    sqlite3_finalize(st);
     xSemaphoreGive(s_mtx);
-    return true;
+    return ok;
 }
 
 int db_event_list(db_event_t *out, int max, uint8_t tf) {
     if (!s_ready) return 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
+    bool prepared;
     if (tf == 0xFF)
-        sqlite3_prepare_v2(s_db,
-            "SELECT id, ts_ms, type, msg FROM events ORDER BY ts_ms DESC LIMIT ?",
-            -1, &st, NULL);
+        prepared = prepare("SELECT id, ts_ms, type, msg FROM events"
+                           " ORDER BY ts_ms DESC LIMIT ?", &st);
     else
-        sqlite3_prepare_v2(s_db,
-            "SELECT id, ts_ms, type, msg FROM events WHERE type=?"
-            " ORDER BY ts_ms DESC LIMIT ?", -1, &st, NULL);
+        prepared = prepare("SELECT id, ts_ms, type, msg FROM events WHERE type=?"
+                           " ORDER BY ts_ms DESC LIMIT ?", &st);
+    if (!prepared) {
+        xSemaphoreGive(s_mtx);
+        return 0;
+    }
     int idx = 1;
     if (tf != 0xFF) sqlite3_bind_int(st, idx++, tf);
     sqlite3_bind_int(st, idx, max);
@@ -390,11 +450,16 @@ int db_event_count(uint8_t tf) {
     if (!s_ready) return 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     sqlite3_stmt *st;
+    bool prepared;
     if (tf == 0xFF)
-        sqlite3_prepare_v2(s_db, "SELECT COUNT(*) FROM events", -1, &st, NULL);
+        prepared = prepare("SELECT COUNT(*) FROM events", &st);
     else {
-        sqlite3_prepare_v2(s_db, "SELECT COUNT(*) FROM events WHERE type=?", -1, &st, NULL);
-        sqlite3_bind_int(st, 1, tf);
+        prepared = prepare("SELECT COUNT(*) FROM events WHERE type=?", &st);
+        if (prepared) sqlite3_bind_int(st, 1, tf);
+    }
+    if (!prepared) {
+        xSemaphoreGive(s_mtx);
+        return 0;
     }
     int n = 0;
     if (sqlite3_step(st) == SQLITE_ROW) n = sqlite3_column_int(st, 0);
@@ -423,11 +488,17 @@ bool db_backup(const char *path) {
     bool ok = false;
     if (src && dst) {
         char buf[4096]; size_t n;
-        while ((n = fread(buf, 1, sizeof(buf), src)) > 0) fwrite(buf, 1, n, dst);
         ok = true;
+        while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+            if (fwrite(buf, 1, n, dst) != n) {
+                ok = false;
+                break;
+            }
+        }
+        if (fflush(dst) != 0) ok = false;
     }
     if (src) fclose(src);
-    if (dst) fclose(dst);
+    if (dst && fclose(dst) != 0) ok = false;
     xSemaphoreGive(s_mtx);
     return ok;
 }

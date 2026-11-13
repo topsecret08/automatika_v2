@@ -22,6 +22,7 @@ idf_component_register(
         "test_alcohol_balance.c"
         "test_regulator.c"
         "test_heater_logic.c"
+        "test_estop_logic.c"
         "${PROD_DIR}/hal/temp_filter.c"
         "${PROD_DIR}/hal/sensor_pipeline.c"
         "${PROD_DIR}/control/select_algorithm.c"

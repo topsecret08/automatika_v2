@@ -5,6 +5,8 @@
 #include "core/estop.h"
 #include "core/health.h"
 #include "core/storage.h"
+#include "core/state.h"
+#include "core/session_manager.h"
 #include "core/watchdog.h"
 #include "control/ctrl_safety.h"
 #include "db/db_manager.h"
@@ -267,15 +269,17 @@ typedef struct {
 
 static void ota_update_task(void *arg) {
     ota_job_t *job = (ota_job_t *)arg;
-    wd_register("ota", 30000, true);
+    wd_register("ota_upd", 30000, true);
 
     esp_err_t err = flash_from_url(job->url);
     s_update_running = false;
 
     if (err == ESP_OK) {
+        wd_remove("ota_upd");
         vTaskDelay(pdMS_TO_TICKS(500));
         esp_restart();
     }
+    wd_remove("ota_upd");
     free(job);
     vTaskDelete(NULL);
 }
@@ -284,6 +288,10 @@ esp_err_t ota_manager_start_update(const char *firmware_url) {
     if (!firmware_url || strlen(firmware_url) >= 192) return ESP_ERR_INVALID_ARG;
     if (s_update_running) return ESP_ERR_INVALID_STATE;
     if (!ctrl_safety_ok() || estop_is_pressed()) return ESP_ERR_INVALID_STATE;
+    if (state_get()->is_running || session_is_running()) {
+        events_log(EVENT_WARNING, "OTA rejected: process is running");
+        return ESP_ERR_INVALID_STATE;
+    }
 
     ota_job_t *job = calloc(1, sizeof(*job));
     if (!job) return ESP_ERR_NO_MEM;
@@ -337,10 +345,10 @@ const char *ota_manager_status_json(void) {
 
 void ota_manager_task(void *arg) {
     (void)arg;
-    wd_register("ota", 5000, false);
+    wd_register("ota_mgr", 5000, false);
 
     while (1) {
-        WD_FEED("ota");
+        WD_FEED("ota_mgr");
         if (s_state == OTA_STATE_PENDING) confirm_from_window();
         vTaskDelay(pdMS_TO_TICKS(1000));
     }

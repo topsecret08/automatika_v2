@@ -28,7 +28,7 @@
 | 22 | SSR PWM | output | `REG_SSR_GPIO` по умолчанию, 5 кГц; проверить, что GPIO свободен на вашей плате |
 | 25 | Pump STEP | output | A4988 |
 | 26 | Pump ENABLE | output | A4988, активный низкий |
-| 27 | **E-STOP** | input, pull-up | НЗ-кнопка на GND, антидребезг 50 мс |
+| 27 | **E-STOP** | input, pull-up | НЗ-кнопка на GND; в норме 0, нажатие/обрыв — 1 |
 | 28 | Level float | input, pull-up | поплавок, активный низкий |
 | 38 | Touch CS (резерв) | — | FT6336 работает по I2C, линия не задействована |
 | 39 | Touch IRQ | input | прерывание касания |

@@ -2,6 +2,7 @@
 #include "core/state.h"
 #include "core/events.h"
 #include "core/flags.h"
+#include "core/control_config.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
 #include "control/ctrl_heater.h"
@@ -73,7 +74,8 @@ static proc_stage_t r_update(float dt) {
     case ST_HEADS:
         ctrl_heater_set_percent(45.0f);
         valve_set_pct(VALVE_HEADS, 5.0f);
-        state_get()->heads_collected_ml += 5.0f * dt;
+        state_get()->heads_collected_ml +=
+            control_config_get_flow_ml_min() * 0.05f * dt / 60.0f;
         if (state_get()->heads_collected_ml > state_get()->target_heads_ml) {
             s_stage = ST_BODY;
             events_log(EVENT_STAGE_CHANGE, "→ BODY");
@@ -100,6 +102,7 @@ static proc_stage_t r_update(float dt) {
 
         ctrl_heater_set_percent(50.0f);
         ctrl_dose_process(rate, dt, VALVE_BODY);
+        state_get()->body_collected_ml += rate * dt / 60.0f;
         if (cube >= BODY_END_T) {
             s_stage = ST_TAILS;
             events_log(EVENT_STAGE_CHANGE, "→ TAILS");
@@ -110,6 +113,8 @@ static proc_stage_t r_update(float dt) {
     case ST_TAILS:
         ctrl_heater_set_percent(70.0f);
         valve_set_pct(VALVE_TAILS, 25.0f);
+        state_get()->tails_collected_ml +=
+            control_config_get_flow_ml_min() * 0.25f * dt / 60.0f;
         if (cube >= state_get()->tail_stop_temp) {
             s_stage = ST_COOLDOWN;
             events_log(EVENT_STAGE_CHANGE, "→ COOLDOWN");

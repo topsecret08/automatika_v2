@@ -52,6 +52,8 @@ typedef struct {
 
 void             state_init(void);
 process_state_t* state_get(void);
+// Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
+void             state_snapshot(process_state_t *out);
 bool             state_load(void);
 void             state_save(void);
 void             state_clear(void);

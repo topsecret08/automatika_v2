@@ -17,6 +17,11 @@
 // (см. control_config_api_check()).
 esp_err_t api_check_auth(httpd_req_t *req);
 
+// Проверка для GET-чтения: до провижининга ключа (bootstrap) чтение
+// разрешено, после — обязателен X-API-Key. Секретов в таких ответах нет,
+// но конфигурация и внутренняя телеметрия остаются закрытыми.
+esp_err_t api_check_read_auth(httpd_req_t *req);
+
 // Отправить 401 и вернуть ESP_FAIL — удобный однострочник для обработчиков.
 esp_err_t api_reject_unauthorized(httpd_req_t *req);
 

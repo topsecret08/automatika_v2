@@ -133,7 +133,9 @@ void ws_telemetry_push(const char *json) {
 /* Формат кадра совпадает с примером из задания, плюс safety-поля:
  * {"tc":..,"ts":..,"p":..,"m":..,"sa":..,"es":..,"lv":..,"r":..} */
 void ws_telemetry_push_state(void) {
-    process_state_t *s = state_get();
+    process_state_t snap;
+    state_snapshot(&snap);
+    process_state_t *s = &snap;
 
     float tc = hal_1wire_read(0);
     float ts = hal_1wire_read(1);

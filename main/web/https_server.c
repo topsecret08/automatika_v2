@@ -236,7 +236,7 @@ esp_err_t https_server_start(httpd_handle_t *out) {
     cfg.port_secure     = WEB_HTTPS_PORT;
 
     // TLS-сессия требует больше стека, чем обычный HTTP.
-    cfg.httpd.max_uri_handlers  = 96;
+    cfg.httpd.max_uri_handlers  = 160;
     cfg.httpd.max_open_sockets  = 3;
     cfg.httpd.stack_size        = 10240;
     cfg.httpd.lru_purge_enable  = true;

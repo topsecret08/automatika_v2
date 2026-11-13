@@ -129,7 +129,10 @@ static const char* json_string(const cJSON *root, const char *key) {
 // state / control
 // ============================================================
 static esp_err_t h_state(httpd_req_t *r) {
-    process_state_t *s = state_get();
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    process_state_t snap;
+    state_snapshot(&snap);
+    process_state_t *s = &snap;
     char json[896];
     snprintf(json, sizeof(json),
         "{\"type\":%d,\"stage\":%d,\"cube\":%.2f,\"col\":%.2f,"
@@ -480,6 +483,7 @@ static esp_err_t h_script_run(httpd_req_t *r) {
 }
 
 static esp_err_t h_script_state(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[320];
     snprintf(json, sizeof(json),
              "{\"ready\":%d,\"enabled\":%d,\"status\":\"%s\",\"error\":\"%s\"}",
@@ -731,6 +735,10 @@ static esp_err_t h_samovar(httpd_req_t *r) {
 // ============================================================
 static esp_err_t h_ota_post(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (state_get()->is_running || session_is_running()) {
+        return send_err(r, "409 Conflict",
+                        "{\"error\":\"process is running\"}");
+    }
 
     const esp_partition_t *p = esp_ota_get_next_update_partition(NULL);
     if (!p) return send_err(r, "500 Internal Server Error", "{\"error\":\"no ota partition\"}");
@@ -814,6 +822,7 @@ static esp_err_t h_events(httpd_req_t *r) {
 
 // GET /api/ota — состояние (managed OTA), POST /api/ota — см. ниже.
 static esp_err_t h_ota_get(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     return send_json(r, ota_manager_status_json());
 }
 
@@ -884,6 +893,7 @@ static esp_err_t h_config_import(httpd_req_t *r) {
 // Единая точка изменения конфигурации (аналог SETUP.md-команд из задания).
 static esp_err_t h_config(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
+        if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
         char json[512];
         snprintf(json, sizeof(json),
                  "{\"schema\":%u,\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
@@ -1303,6 +1313,7 @@ static void fsel_state_json(char *out, size_t out_len) {
 }
 
 static esp_err_t h_fsel_state(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[512];
     fsel_state_json(json, sizeof(json));
     return send_json(r, json);
@@ -1612,6 +1623,7 @@ static void session_state_json(char *out, size_t out_len) {
 }
 
 static esp_err_t h_session_state(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[192];
     session_state_json(json, sizeof(json));
     return send_json(r, json);
@@ -1659,6 +1671,7 @@ static esp_err_t h_session_stop(httpd_req_t *r) {
 }
 
 static esp_err_t h_param_get(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[2048];
     int off = snprintf(json, sizeof(json), "{\"running\":%d,\"params\":[",
                        session_is_running() ? 1 : 0);
@@ -1758,6 +1771,7 @@ static esp_err_t h_fsel_algo(httpd_req_t *r) {
 }
 
 static esp_err_t h_verify_state(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[1536];
     int off = snprintf(json, sizeof(json),
         "{\"enabled\":%d,\"stage\":%d,\"stage_name\":\"%s\","
@@ -1933,6 +1947,7 @@ static esp_err_t h_verify_fuzz(httpd_req_t *r) {
 }
 
 static esp_err_t h_env(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[384];
     snprintf(json, sizeof(json),
              "{\"baro\":{\"present\":%d,\"hpa\":%.2f,\"boiling_c\":%.2f},"

@@ -7,11 +7,15 @@
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_valve_control.h"
+#include "control/regulator_driver.h"
 #include "core/control_config.h"
 #include "core/estop.h"
 #include "core/events.h"
 #include "config.h"
+#include "hal/hal_1wire.h"
+#include "hal/flow_sensor.h"
 #include "hal/hal_relay.h"
+#include "level/level_sensor.h"
 
 #include "cJSON.h"
 #include "esp_err.h"
@@ -21,6 +25,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 static const char *TAG = "ACTUATOR";
 
@@ -194,6 +199,42 @@ static esp_err_t h_diag_service(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t h_diag_safety(httpd_req_t *req) {
+    if (api_check_auth(req) != ESP_OK) return api_reject_unauthorized(req);
+
+    float t0 = hal_1wire_count() > 0 ? hal_1wire_read(0) : -127.0f;
+    float t1 = hal_1wire_count() > 1 ? hal_1wire_read(1) : -127.0f;
+    bool sensor0_ok = isfinite(t0) && t0 > -50.0f;
+    bool sensor1_ok = isfinite(t1) && t1 > -50.0f;
+
+    char json[640];
+    snprintf(json, sizeof(json),
+        "{\"estop\":{\"raw\":%d,\"active\":%d,\"pressed\":%d,"
+        "\"source\":\"%s\",\"since_ms\":%u},"
+        "\"sensors\":{\"count\":%d,\"t0\":%.2f,\"t1\":%.2f,"
+        "\"t0_ok\":%d,\"t1_ok\":%d},"
+        "\"flow\":{\"present\":%d,\"ok\":%d,\"lpm\":%.2f},"
+        "\"level\":{\"low\":%d,\"overflow\":%d},"
+        "\"regulator\":{\"type\":%d,\"ready\":%d,\"gpio\":%d,"
+        "\"pwm_hz\":%d,\"power\":%.1f,\"manual\":%d},"
+        "\"safety_ok\":%d}",
+        estop_raw_level(), ESTOP_ACTIVE_LEVEL,
+        estop_is_pressed() ? 1 : 0, estop_source_name(),
+        (unsigned)estop_since_ms(),
+        hal_1wire_count(), t0, t1, sensor0_ok ? 1 : 0, sensor1_ok ? 1 : 0,
+        flow_is_present() ? 1 : 0, flow_is_ok() ? 1 : 0, flow_get_lpm(),
+        level_is_too_low() ? 1 : 0, level_is_overflow() ? 1 : 0,
+        (int)control_config_get_regulator(),
+        regulator_is_ready() ? 1 : 0, regulator_get_gpio(),
+        regulator_get_pwm_freq(), ctrl_heater_get_percent(),
+        ctrl_heater_manual_active() ? 1 : 0,
+        ctrl_safety_ok() ? 1 : 0);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json);
+    return ESP_OK;
+}
+
 void actuator_test_register(httpd_handle_t srv) {
     httpd_uri_t u1 = { .uri = "/api/diag/actuators", .method = HTTP_POST,
                        .handler = h_diag_actuators };
@@ -201,7 +242,10 @@ void actuator_test_register(httpd_handle_t srv) {
                        .handler = h_diag_service };
     httpd_uri_t u3 = { .uri = "/api/diag/status", .method = HTTP_GET,
                        .handler = h_diag_actuator_status };
+    httpd_uri_t u4 = { .uri = "/api/diag/safety", .method = HTTP_GET,
+                       .handler = h_diag_safety };
     rate_limit_register(srv, &u1);
     rate_limit_register(srv, &u2);
     rate_limit_register(srv, &u3);
+    rate_limit_register(srv, &u4);
 }

@@ -3,7 +3,8 @@
 #include <stdint.h>
 
 typedef struct {
-    const char *name;
+    char        name[24];
+    void       *handle;
     uint32_t    timeout_ms;
     uint32_t    last_feed_ms;
     uint32_t    max_stale_ms;
