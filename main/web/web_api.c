@@ -1,6 +1,7 @@
 #include "web_api.h"
 #include "api_auth.h"
 #include "actuator_test.h"
+#include "rate_limit.h"
 #include "ws_telemetry.h"
 
 #include "core/config_backup.h"
@@ -8,20 +9,30 @@
 #include "core/estop.h"
 #include "core/event_log.h"
 #include "core/health.h"
+#include "core/i18n.h"
 #include "core/nvs_migration.h"
+#include "core/profiles.h"
 #include "core/roles.h"
+#include "core/session_recovery.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "core/flags.h"
 #include "core/watchdog.h"
 #include "hal/hal_1wire.h"
+#include "hal/baro.h"
+#include "hal/flow_sensor.h"
+#include "hal/pressure_sensor.h"
 #include "modes/mode_base.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_dose.h"
 #include "control/ctrl_pid.h"
+#include "control/fraction_logic.h"
+#include "control/pid_autotune.h"
+#include "control/reflux.h"
 #include "level/level_sensor.h"
 #include "ota/ota_manager.h"
+#include "ota/secure_ota.h"
 #include "script/lua_engine.h"
 #include "web/mqtt_app.h"
 #include "web/telegram_bot.h"
@@ -29,6 +40,7 @@
 #include "web/brewfather.h"
 #include "web/calendar.h"
 #include "web/samovar.h"
+#include "web/tg_backup.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
 #include "esp_log.h"
@@ -919,6 +931,38 @@ static esp_err_t h_ota_url(httpd_req_t *r) {
 }
 
 // POST /api/ota/confirm — подтвердить текущий образ вручную.
+// POST /api/ota/secure {"url":"https://..."} — OTA только по HTTPS с
+// проверкой сертификата (esp_crt_bundle). Загрузка идёт в отдельной задаче.
+static esp_err_t h_ota_secure(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[224];
+    if (recv_body(r, body, sizeof(body)) <= 0)
+        return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+    const char *url = json_string(root, "url");
+    char url_copy[192] = "";
+    if (url) strncpy(url_copy, url, sizeof(url_copy) - 1);
+    cJSON_Delete(root);
+
+    if (!url_copy[0]) return send_err(r, "400 Bad Request", "{\"error\":\"url required\"}");
+    if (!ctrl_safety_ok() || estop_is_pressed())
+        return send_err(r, "409 Conflict", "{\"error\":\"safety/estop active\"}");
+
+    esp_err_t err = secure_ota_start(url_copy);
+    if (err == ESP_ERR_INVALID_STATE)
+        return send_err(r, "409 Conflict", "{\"error\":\"update in progress\"}");
+    if (err == ESP_ERR_INVALID_ARG)
+        return send_err(r, "400 Bad Request", "{\"error\":\"https:// required\"}");
+    if (err != ESP_OK)
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"start failed\"}");
+
+    httpd_resp_set_status(r, "202 Accepted");
+    return send_json(r, "{\"status\":\"started\",\"mode\":\"https\"}");
+}
+
 static esp_err_t h_ota_confirm(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     esp_err_t err = ota_manager_confirm_running_app();
@@ -955,6 +999,234 @@ static esp_err_t h_ws(httpd_req_t *r) {
 }
 
 // ============================================================
+// profiles / autotune / session / i18n / backup / environment
+// ============================================================
+static esp_err_t h_profiles(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    if (r->method == HTTP_GET) {
+        char qs[96];
+        char name[PROFILES_MAX_NAME];
+        if (httpd_req_get_url_query_str(r, qs, sizeof(qs)) == ESP_OK &&
+            httpd_query_key_value(qs, "name", name, sizeof(name)) == ESP_OK) {
+            char buf[PROFILES_MAX_BYTES + 1];
+            esp_err_t err = profiles_load(name, buf, sizeof(buf));
+            if (err != ESP_OK)
+                return send_err(r, "404 Not Found", "{\"error\":\"not found\"}");
+            return send_json(r, buf);
+        }
+
+        char names[PROFILES_MAX_COUNT][PROFILES_MAX_NAME];
+        int n = profiles_list(names, PROFILES_MAX_COUNT);
+
+        cJSON *arr = cJSON_CreateArray();
+        if (!arr) return send_err(r, "500 Internal Server Error", "{\"error\":\"oom\"}");
+        for (int i = 0; i < n; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(names[i]));
+
+        char *js = cJSON_PrintUnformatted(arr);
+        cJSON_Delete(arr);
+        if (!js) return send_err(r, "500 Internal Server Error", "{\"error\":\"oom\"}");
+        esp_err_t err = send_json(r, js);
+        cJSON_free(js);
+        return err;
+    }
+
+    char body[PROFILES_MAX_BYTES + 256];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0)
+        return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root)
+        return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    const char *name = json_string(root, "name");
+    esp_err_t err = ESP_OK;
+    const char *msg = "{\"ok\":true}";
+
+    if (r->method == HTTP_DELETE) {
+        err = profiles_delete(name);
+    } else {
+        const cJSON *profile = cJSON_GetObjectItemCaseSensitive(root, "profile");
+        if (!cJSON_IsObject(profile)) {
+            cJSON_Delete(root);
+            return send_err(r, "400 Bad Request", "{\"error\":\"profile object required\"}");
+        }
+        char *js = cJSON_PrintUnformatted(profile);
+        if (!js) {
+            cJSON_Delete(root);
+            return send_err(r, "500 Internal Server Error", "{\"error\":\"oom\"}");
+        }
+        err = profiles_save(name, js);
+        cJSON_free(js);
+    }
+    cJSON_Delete(root);
+
+    if (err == ESP_ERR_INVALID_ARG || err == ESP_ERR_INVALID_SIZE)
+        return send_err(r, "400 Bad Request", "{\"error\":\"invalid name or size\"}");
+    if (err == ESP_ERR_NOT_FOUND)
+        return send_err(r, "404 Not Found", "{\"error\":\"not found\"}");
+    if (err != ESP_OK)
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"storage\"}");
+
+    return send_json(r, msg);
+}
+
+static esp_err_t h_autotune(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    if (r->method == HTTP_GET) {
+        process_state_t *st = state_get();
+        char json[192];
+        snprintf(json, sizeof(json),
+                 "{\"running\":%d,\"done\":%d,\"kp\":%.3f,\"ki\":%.4f,\"kd\":%.3f}",
+                 pid_autotune_is_running() ? 1 : 0,
+                 pid_autotune_done() ? 1 : 0,
+                 st->pid_kp, st->pid_ki, st->pid_kd);
+        return send_json(r, json);
+    }
+
+    char body[192];
+    int n = recv_body(r, body, sizeof(body));
+    cJSON *root = (n > 0) ? cJSON_Parse(body) : NULL;
+    const char *action = root ? json_string(root, "action") : NULL;
+
+    esp_err_t err;
+    if (action && strcmp(action, "stop") == 0) {
+        pid_autotune_stop();
+        err = ESP_OK;
+    } else {
+        const cJSON *t = root ? cJSON_GetObjectItemCaseSensitive(root, "target") : NULL;
+        float target = cJSON_IsNumber(t) ? (float)t->valuedouble
+                                         : state_get()->target_cube_t;
+        err = pid_autotune_start(target);
+    }
+    if (root) cJSON_Delete(root);
+
+    if (err == ESP_ERR_INVALID_STATE)
+        return send_err(r, "409 Conflict",
+                        "{\"error\":\"unavailable (safety/PID mode/busy)\"}");
+    if (err != ESP_OK)
+        return send_err(r, "400 Bad Request", "{\"error\":\"invalid target\"}");
+
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_session(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    if (r->method == HTTP_GET) {
+        session_snapshot_t s;
+        if (!session_load(&s)) {
+            return send_json(r, "{\"valid\":false}");
+        }
+        char json[256];
+        snprintf(json, sizeof(json),
+                 "{\"valid\":true,\"setpoint\":%.1f,\"volume_ml\":%.0f,"
+                 "\"heads_ml\":%.0f,\"body_ml\":%.0f,\"tails_ml\":%.0f,"
+                 "\"mode\":%d,\"stage\":%d,\"saved_at\":%lld}",
+                 s.setpoint_cube, s.volume_done_ml, s.heads_ml, s.body_ml,
+                 s.tails_ml, (int)s.mode, (int)s.stage,
+                 (long long)s.saved_at);
+        return send_json(r, json);
+    }
+
+    char body[96];
+    int n = recv_body(r, body, sizeof(body));
+    cJSON *root = (n > 0) ? cJSON_Parse(body) : NULL;
+    const char *action = root ? json_string(root, "action") : NULL;
+    esp_err_t err = ESP_ERR_INVALID_ARG;
+
+    if (action && strcmp(action, "clear") == 0) {
+        session_clear();
+        state_clear();
+        err = ESP_OK;
+    } else if (action && strcmp(action, "restore") == 0) {
+        session_snapshot_t s;
+        if (!session_load(&s)) {
+            if (root) cJSON_Delete(root);
+            return send_err(r, "404 Not Found", "{\"error\":\"no snapshot\"}");
+        }
+        process_state_t *st = state_get();
+        st->target_cube_t = s.setpoint_cube;
+        st->target_column_t = s.setpoint_column;
+        st->heads_collected_ml = s.heads_ml;
+        st->body_collected_ml = s.body_ml;
+        st->tails_collected_ml = s.tails_ml;
+        st->type = (process_type_t)s.mode;
+        st->stage = (proc_stage_t)s.stage;
+        /* Нагрев НЕ включается: сначала проверки безопасности и /api/start. */
+        st->is_running = false;
+        st->is_paused = true;
+        err = ESP_OK;
+    }
+
+    if (root) cJSON_Delete(root);
+
+    if (err != ESP_OK)
+        return send_err(r, "400 Bad Request", "{\"error\":\"action clear|restore\"}");
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_i18n(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    if (r->method == HTTP_GET) {
+        char json[48];
+        snprintf(json, sizeof(json), "{\"lang\":\"%s\"}",
+                 i18n_lang_name(i18n_get_lang()));
+        return send_json(r, json);
+    }
+
+    char body[64];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    const char *lang = root ? json_string(root, "lang") : NULL;
+    esp_err_t err = ESP_ERR_INVALID_ARG;
+    if (lang) {
+        if (strcmp(lang, "en") == 0) { i18n_set_lang(LANG_EN); err = ESP_OK; }
+        else if (strcmp(lang, "ru") == 0) { i18n_set_lang(LANG_RU); err = ESP_OK; }
+    }
+    if (root) cJSON_Delete(root);
+
+    if (err != ESP_OK)
+        return send_err(r, "400 Bad Request", "{\"error\":\"lang ru|en\"}");
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_backup_telegram(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!telegram_is_configured())
+        return send_err(r, "409 Conflict", "{\"error\":\"telegram not configured\"}");
+
+    esp_err_t err = tg_backup_request();
+    if (err != ESP_OK)
+        return send_err(r, "409 Conflict", "{\"error\":\"backup busy\"}");
+
+    httpd_resp_set_status(r, "202 Accepted");
+    return send_json(r, "{\"status\":\"queued\"}");
+}
+
+static esp_err_t h_env(httpd_req_t *r) {
+    char json[384];
+    snprintf(json, sizeof(json),
+             "{\"baro\":{\"present\":%d,\"hpa\":%.2f,\"boiling_c\":%.2f},"
+             "\"column\":{\"kpa\":%.2f,\"source\":\"%s\"},"
+             "\"flow\":{\"present\":%d,\"lpm\":%.2f,\"ok\":%d},"
+             "\"fraction\":\"%s\",\"reflux_ratio\":%.2f,\"reflux\":%d}",
+             baro_available() ? 1 : 0, baro_get_pressure_hpa(),
+             baro_boiling_point_c(baro_get_pressure_hpa()),
+             column_pressure_kpa(), pressure_sensor_source(),
+             flow_is_present() ? 1 : 0, flow_get_lpm(), flow_is_ok() ? 1 : 0,
+             fraction_name(fraction_get()), reflux_get_ratio(),
+             reflux_enabled() ? 1 : 0);
+    return send_json(r, json);
+}
+
+// ============================================================
 // registration
 // ============================================================
 void web_api_register(httpd_handle_t srv) {
@@ -983,7 +1255,7 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/ws",           .method=HTTP_GET,  .handler=h_ws, .is_websocket=true },
     };
     for (size_t i = 0; i < sizeof(uris)/sizeof(*uris); i++) {
-        esp_err_t err = httpd_register_uri_handler(srv, &uris[i]);
+        esp_err_t err = rate_limit_register(srv, &uris[i]);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "register %s failed: %s", uris[i].uri, esp_err_to_name(err));
         }
@@ -999,6 +1271,7 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/ota",                 .method=HTTP_GET,  .handler=h_ota_get },
         { .uri="/api/ota/url",             .method=HTTP_POST, .handler=h_ota_url },
         { .uri="/api/ota/confirm",         .method=HTTP_POST, .handler=h_ota_confirm },
+        { .uri="/api/ota/secure",          .method=HTTP_POST, .handler=h_ota_secure },
         { .uri="/api/config",              .method=HTTP_GET,  .handler=h_config },
         { .uri="/api/config",              .method=HTTP_POST, .handler=h_config },
         { .uri="/api/config/export",       .method=HTTP_POST, .handler=h_config_export },
@@ -1007,9 +1280,20 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/config/clear-key",    .method=HTTP_POST, .handler=h_config_clear_key },
         { .uri="/api/telegram/test",       .method=HTTP_POST, .handler=h_telegram_test },
         { .uri="/api/script/enable",       .method=HTTP_POST, .handler=h_script_enable },
+        { .uri="/api/profiles",            .method=HTTP_GET,  .handler=h_profiles },
+        { .uri="/api/profiles",            .method=HTTP_POST, .handler=h_profiles },
+        { .uri="/api/profiles",            .method=HTTP_DELETE, .handler=h_profiles },
+        { .uri="/api/autotune",            .method=HTTP_GET,  .handler=h_autotune },
+        { .uri="/api/autotune",            .method=HTTP_POST, .handler=h_autotune },
+        { .uri="/api/session",             .method=HTTP_GET,  .handler=h_session },
+        { .uri="/api/session",             .method=HTTP_POST, .handler=h_session },
+        { .uri="/api/i18n",                .method=HTTP_GET,  .handler=h_i18n },
+        { .uri="/api/i18n",                .method=HTTP_POST, .handler=h_i18n },
+        { .uri="/api/backup/telegram",     .method=HTTP_POST, .handler=h_backup_telegram },
+        { .uri="/api/env",                 .method=HTTP_GET,  .handler=h_env },
     };
     for (size_t i = 0; i < sizeof(extra)/sizeof(*extra); i++) {
-        esp_err_t err = httpd_register_uri_handler(srv, &extra[i]);
+        esp_err_t err = rate_limit_register(srv, &extra[i]);
         if (err != ESP_OK)
             ESP_LOGE(TAG, "register %s failed: %s", extra[i].uri, esp_err_to_name(err));
     }

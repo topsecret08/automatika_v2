@@ -26,7 +26,10 @@ CONFIG_LV_FONT_MONTSERRAT_28=y
 CONFIG_LV_FONT_MONTSERRAT_32=y
 CONFIG_TINYUSB_CDC_ENABLED=y
 CONFIG_TINYUSB_MSC_ENABLED=y
-CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=y
+# OTA только по HTTPS: сертификат сервера проверяется через CA bundle.
+# Для локальной отладки можно временно вернуть y (см. main/config.h →
+# OTA_ALLOW_PLAIN_HTTP), но в production это запрещено.
+CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 CONFIG_FATFS_LFN_HEAP=y
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192

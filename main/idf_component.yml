@@ -10,3 +10,13 @@ dependencies:
   espressif/lua: "^5.5.1"
   hayschan/autopid_for_esp_idf: "^1.0.2"
   joltwallet/littlefs: "~1.14.8"
+
+# v2.9.3: дополнительные компоненты НЕ добавлялись намеренно.
+#   * BMP280          — собственный драйвер main/hal/baro.c (I2C, Bosch);
+#   * YF-S201         — счёт импульсов в main/hal/flow_sensor.c;
+#   * mDNS            — собственный responder main/net/mdns_service.c;
+#   * физический UI   — LED/buzzer в main/ui/ui_physical.c (LVGL уже есть).
+# Причина: офлайн-сборка не должна зависеть от реестра компонентов, а
+# перечисленные модули слишком просты, чтобы тянуть внешние зависимости.
+# wifi_provisioning и esp_https_ota входят в ESP-IDF и объявлены в
+# main/CMakeLists.txt (REQUIRES), а не здесь.

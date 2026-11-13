@@ -1,7 +1,7 @@
 #pragma once
 
-#define FW_VERSION          "2.9.1"
-#define FW_NAME             "Automatika v2.9"
+#define FW_VERSION          "2.9.3"
+#define FW_NAME             "Automatika v2.9.3"
 
 // ============================================================
 // GPIO
@@ -197,3 +197,84 @@
 #define LFS_PARTITION_LABEL "assets"
 #define LFS_MOUNT_POINT     "/lfs"
 #define PATH_SCRIPTS_FLASH  "/lfs/scripts"
+
+// ------------------------------------------------------------
+// v2.9.3: Wi-Fi provisioning, время, датчики, безопасность
+// ------------------------------------------------------------
+
+// Wi-Fi provisioning (SoftAP + captive portal)
+#define PROV_AP_SSID        "Automatika-Setup"
+// PoP по умолчанию — пустой (secure1 без PoP). Для «закрытого» AP задайте
+// PROV_POP_SECRET и текст PoP; длина PoP >= 8 символов (требование ESP-IDF).
+#define PROV_POP_SECRET     NULL
+#define PROV_POP_TEXT       "automatika"
+#define WIFI_STA_CONNECT_TIMEOUT_MS (60 * 1000u)  // fallback в AP через 60 с
+
+// SNTP
+#define SNTP_SERVER         "pool.ntp.org"
+#define SNTP_SYNC_TIMEOUT_MS (10 * 1000u)
+#define TZ_DEFAULT          "MSK-3"
+
+// Барометр BMP280 (I2C 0x77/0x76) — давление и коррекция кипения
+#define BARO_ENABLED        1
+#define BARO_I2C_ADDR       I2C_ADDR_BMP280
+#define BARO_POLL_MS        5000
+#define BOIL_CORRECTION_COEFF 0.035f   // °C на 1 гПа (Антуан, упрощённо)
+#define STANDARD_ATM_HPA    1013.25f
+
+// Датчик протока YF-S201 (PIN_FLOW_SENSOR = GPIO 2)
+#define FLOW_SENSOR_ENABLED 1
+#define FLOW_MIN_LPM        0.1f    // минимум воды при работающем нагреве
+#define FLOW_POLL_MS        1000
+
+// Давление в колонне (кПа): из барометра, если он есть, иначе из ADS1115.
+// SAFE_MAX_PRESSURE (бар) × 100 = кПа.
+#define COLUMN_PRESSURE_MAX_KPA 300.0f
+
+// Охлаждающий клапан: реле RELAY_WATER_VALVE (0 — закрыт).
+// Внешний ШИМ-пин не назначается: свободных GPIO нет (19/20 — USB, 21 — LCD CLK).
+
+// PID-автотюнинг (релейный, поверх AutoPID)
+#define PID_AUTOTUNE_MAX_MS (60 * 60 * 1000u)   // предел сеанса, 60 мин
+#define PID_KP_NVS_DEFAULT  PID_KP_DEFAULT
+#define PID_KI_NVS_DEFAULT  PID_KI_DEFAULT
+#define PID_KD_NVS_DEFAULT  PID_KD_DEFAULT
+
+// Фракции отбора (упрощённая логика, температура с поправкой на давление)
+#define FRAC_HEADS_END_T    78.5f
+#define FRAC_HEADS_MAX_ML   50.0f
+#define FRAC_BODY_END_T     83.0f
+#define FRAC_BODY_MAX_ML    2000.0f
+#define FRAC_TAILS_END_T    98.0f
+
+// Дефлегматор / reflux: серво PCA9685, канал 3 (HEADS=0, BODY=1, TAILS=2)
+#define REFLUX_VALVE_CHANNEL 3
+#define REFLUX_PERIOD_US     1000000LL
+#define REFLUX_RATIO_DEFAULT 3.0f
+#define REFLUX_RATIO_MAX     10.0f
+
+// Физический UI: статусные LED (питание/нагрев/авария) и buzzer.
+// Набор пинов настраивается под конкретную плату: -1 — линия не используется.
+#define LED_POWER_GPIO      -1
+#define LED_HEAT_GPIO       -1
+#define LED_ALARM_GPIO      -1
+#define BUZZER_GPIO         PIN_BUZZER
+#define LED_ACTIVE_HIGH     1
+
+// Подписанная OTA (secure boot v2, подпись через espsecure.py)
+#define OTA_SIGNED_ENABLED  0     // включится при наличии ключей подписи
+#define OTA_HTTPS_PINNING   1     // проверка сертификата через CA bundle
+
+// Устойчивость SD-карты
+#define SD_PROBE_MS         10000u   // как часто проверять отклик / переподключать
+#define SD_QUEUE_LEN        256      // очередь измерений при недоступной SD (в PSRAM)
+
+// Rate limiting API
+#define API_RATE_LIMIT_PER_S 10      // запросов в секунду на все /api/*
+#define API_RATE_LIMIT_BURST 20
+
+// mDNS
+#define MDNS_HOSTNAME       "automatika"
+
+// Отображение
+#define I18N_DEFAULT_LANG   0        // 0 — RU, 1 — EN

@@ -241,6 +241,12 @@ void ctrl_pid_autotune_start(void) {
     events_log(EVENT_INFO, "PID autotune started");
 }
 
+void ctrl_pid_autotune_stop(void) {
+    if (!p.at_active) return;
+    p.at_active = false;
+    events_log(EVENT_WARNING, "PID autotune stopped");
+}
+
 bool ctrl_pid_autotune_done(void) { return p.at_done; }
 
 void ctrl_pid_autotune_get(float *kp, float *ki, float *kd) {

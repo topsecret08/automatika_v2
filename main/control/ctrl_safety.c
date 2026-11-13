@@ -11,6 +11,9 @@
 #include "hal/hal_adc.h"
 #include "hal/hal_dac.h"
 #include "hal/hal_relay.h"
+#include "hal/baro.h"
+#include "hal/flow_sensor.h"
+#include "hal/pressure_sensor.h"
 #include "level/level_sensor.h"
 #include "web/telegram_notify.h"
 #include "config.h"
@@ -18,18 +21,23 @@
 #include "freertos/task.h"
 #include <string.h>
 
-// Период опроса безопасности: 100 мс на старой плате, можно поднять,
-// если добавить стабильные данные датчиков.
+// Период safety-задачи. Все проверки — неблокирующие: датчики читаются
+// из кэша (1-Wire опрашивается отдельной задачей), I2C-барометр — из
+// своей задачи, проток — из счётчика импульсов.
 #define SAFETY_PERIOD_MS 100
 
-static volatile bool s_ok = true;
+// Сколько времени без протока допускается при включённом нагреве.
+#define NO_FLOW_GRACE_MS 15000u
 
-/* edge-детекторы информационных уведомлений */
+static volatile bool s_ok = true;
+static uint32_t s_no_flow_ms = 0;
+
+/* edge-детекторы для уведомлений, чтобы не спамить Telegram */
 static bool s_level_low_last = false;
 static bool s_level_over_last = false;
 static bool s_run_done_notified = false;
 
-void ctrl_safety_init(void) { s_ok = true; }
+void ctrl_safety_init(void) { s_ok = true; s_no_flow_ms = 0; }
 
 bool ctrl_safety_ok(void) { return s_ok; }
 
@@ -44,6 +52,7 @@ void ctrl_safety_trigger(const char *reason) {
     process_state_t *st = state_get();
     st->emergency = true;
     strncpy(st->emergency_reason, reason, sizeof(st->emergency_reason) - 1);
+    st->emergency_reason[sizeof(st->emergency_reason) - 1] = '\0';
     st->is_running = false;
 
     events_log(EVENT_EMERGENCY, "SAFETY: %s", reason);
@@ -63,13 +72,14 @@ void ctrl_safety_reset(void) {
         return;
     }
     s_ok = true;
+    s_no_flow_ms = 0;
     st->emergency = false;
     st->emergency_reason[0] = '\0';
     events_log(EVENT_INFO, "Safety reset");
 }
 
-// Общая защита: защёлкнута ли авария сейчас. Вызывается и в безопасности,
-// и во всех путях включения нагрева (ctrl_heater_set_percent).
+// Кнопка E-STOP обрабатывается здесь, а не в ISR: ISR только фиксирует
+// фронт, а обесточивание исполнителей и уведомление выполняются в задаче.
 static bool s_estop_latched = false;
 
 bool ctrl_safety_estop_latched(void) { return s_estop_latched; }
@@ -81,57 +91,82 @@ void ctrl_safety_task(void *arg) {
     while (1) {
         WD_FEED("safety");
 
-        // ---- E-STOP: приоритет выше всех остальных проверок ----
+        // ---- E-STOP: наивысший приоритет проверки ----
         if (estop_is_pressed()) {
             if (!s_estop_latched) {
                 s_estop_latched = true;
                 events_log(EVENT_EMERGENCY, "SAFETY: E-STOP (hardware)");
-                telegram_notify_alert("АВАРИЯ", "Сработала кнопка E-STOP!");
+                telegram_notify_alert("АВАРИЯ", "Нажата кнопка E-STOP!");
             }
             ctrl_safety_trigger("E-STOP");
         } else if (s_estop_latched) {
-            // кнопка отпущена — снимаем защёлку, но авария остаётся до
-            // явного ctrl_safety_reset()
+            // Кнопку отпустили — снимаем защёлку, но система не запускается
+            // автоматически: требуется ctrl_safety_reset().
             s_estop_latched = false;
             events_log(EVENT_WARNING, "SAFETY: E-STOP released");
             telegram_notify_alert("ИНФО", "Кнопка E-STOP отпущена, нужен сброс аварии");
         }
 
-        // Быстрые значения из кэша: фоновая задача опрашивает DS18B20.
-        float cube = hal_1wire_read(0);
-        float col  = hal_1wire_read(1);
-        float pres = hal_adc_pressure_bar();
+        // Быстрые чтения из кэша; 1-Wire не блокирует safety-задачу.
+        float cube = hal_1wire_read_fast(0);
+        float col  = hal_1wire_read_fast(1);
+        float pres = column_pressure_bar();
         bool  running = state_get()->is_running;
 
-        if (cube > SAFE_MAX_CUBE_T)     ctrl_safety_trigger("OVERHEAT_CUBE");
-        if (col > SAFE_MAX_COLUMN_T)    ctrl_safety_trigger("OVERHEAT_COLUMN");
-        if (pres > SAFE_MAX_PRESSURE)   ctrl_safety_trigger("OVERPRESSURE");
+        if (cube > SAFE_MAX_CUBE_T)   ctrl_safety_trigger("OVERHEAT_CUBE");
+        if (col > SAFE_MAX_COLUMN_T)  ctrl_safety_trigger("OVERHEAT_COLUMN");
+        if (pres > SAFE_MAX_PRESSURE) ctrl_safety_trigger("OVERPRESSURE");
 
-        // -127 °C — нет связи с DS18B20; также ловим любой сбой датчика.
+        // -127 °C — нет ответа от DS18B20; при работающем процессе это
+        // означает потерю контроля температуры.
         if (running && (cube <= -50.0f || col <= -50.0f)) {
             ctrl_safety_trigger("SENSOR_FAIL");
         }
 
-        // Датчик разлития
+        // ---- Проток охлаждающей воды ----
+        // Проверяем только для процессов с водяным охлаждением и только
+        // если датчик сконфигурирован (плата без расходомера не должна
+        // уходить в аварию).
+        process_type_t ptype = state_get()->type;
+        bool water_cooled = (ptype == PROCESS_DISTILL || ptype == PROCESS_RECTIFY ||
+                             ptype == PROCESS_DOUBLE || ptype == PROCESS_GABRIEL);
+        if (water_cooled && flow_is_present()) {
+            if (running && ctrl_heater_get_percent() > 0.0f && !flow_is_ok()) {
+                s_no_flow_ms += SAFETY_PERIOD_MS;
+                if (s_no_flow_ms >= NO_FLOW_GRACE_MS) {
+                    ctrl_safety_trigger("NO_FLOW");
+                }
+            } else {
+                s_no_flow_ms = 0;
+            }
+        } else {
+            s_no_flow_ms = 0;
+        }
+
+        // ---- Пролив ----
         if (flags_get_by_key("spill_sensor")) {
             float spill = hal_adc_spill_voltage();
             if (spill > 2.5f) ctrl_safety_trigger("SPILL_DETECTED");
         }
 
-        // Насос охлаждения должен работать при нагреве
-        if (ctrl_heater_get_percent() > 0 && !hal_relay_get(RELAY_COOLING_PUMP)) {
-            if (state_get()->is_running)
-                ctrl_safety_trigger("COOLING_PUMP_OFF");
+        // ---- Насос охлаждения: нагрев без насоса недопустим ----
+        // Для процессов с водяным охлаждением safety сам включает насос,
+        // если режим этого не сделал (например, двойная перегонка).
+        if (water_cooled && state_get()->is_running &&
+            ctrl_heater_get_percent() > 0 &&
+            !hal_relay_get(RELAY_COOLING_PUMP)) {
+            hal_relay_set(RELAY_COOLING_PUMP, true);
+            events_log(EVENT_WARNING, "Cooling pump enabled by safety");
         }
 
-        // ---- Датчик уровня -------------------------------------------
+        // ---- Датчик уровня ----
         level_sensor_poll();
         if (level_is_too_low()) {
-            ctrl_heater_set_percent(0);       /* сухой ход: нагрев запрещён */
+            ctrl_heater_set_percent(0);       /* сухой ход: снимаем нагрев */
             if (s_level_low_last != true) {
                 s_level_low_last = true;
                 events_log(EVENT_WARNING, "LEVEL low: heating blocked");
-                telegram_notify_alert("ВНИМАНИЕ", "Низкий уровень жидкости — нагрев заблокирован");
+                telegram_notify_alert("ВНИМАНИЕ", "Уровень жидкости низкий — нагрев заблокирован");
             }
         } else {
             s_level_low_last = false;
@@ -139,17 +174,17 @@ void ctrl_safety_task(void *arg) {
         if (level_is_overflow()) {
             if (s_level_over_last != true) {
                 s_level_over_last = true;
-                telegram_notify_alert("АВАРИЯ", "Переполнение ёмкости — аварийный останов");
+                telegram_notify_alert("АВАРИЯ", "Переполнение ёмкости — процесс остановлен");
             }
             ctrl_safety_trigger("LEVEL_OVERFLOW");
         } else {
             s_level_over_last = false;
         }
 
-        // ---- Завершение отбора (информационное уведомление) ----------
+        // ---- Завершение процесса ----
         if (running && !state_get()->is_running && !s_run_done_notified) {
             s_run_done_notified = true;
-            telegram_notify_alert("ИНФО", "Процесс завершён");
+            telegram_notify_alert("ГОТОВО", "Процесс завершён");
         }
         if (running) s_run_done_notified = false;
 

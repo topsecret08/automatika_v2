@@ -26,6 +26,14 @@
 #include "core/recipes_db.h"
 #include "core/sd_content.h"
 #include "core/flash_fs.h"
+#include "core/i18n.h"
+#include "core/profiles.h"
+#include "core/sd_resilience.h"
+#include "core/session_recovery.h"
+
+#include "net/mdns_service.h"
+#include "net/time_sync.h"
+#include "net/wifi_prov.h"
 
 #include "hal/hal_i2c.h"
 #include "hal/hal_touch.h"
@@ -35,6 +43,9 @@
 #include "hal/hal_display.h"
 #include "hal/hal_hx711.h"
 #include "hal/hal_usb.h"
+#include "hal/baro.h"
+#include "hal/flow_sensor.h"
+#include "hal/pressure_sensor.h"
 
 #include "control/ctrl_safety.h"
 #include "control/ctrl_heater.h"
@@ -45,6 +56,8 @@
 #include "control/ctrl_scale.h"
 #include "control/ctrl_autolearn.h"
 #include "control/ctrl_sensor_calib.h"
+#include "control/pid_autotune.h"
+#include "control/reflux.h"
 
 #include "modes/mode_base.h"
 #include "modes/beer_recipe.h"
@@ -59,6 +72,7 @@
 #include "ui/ui.h"
 #include "ui/ui_anim.h"
 #include "ui/ui_fps.h"
+#include "ui/ui_physical.h"
 
 #include "db/db_manager.h"
 #include "db/db_logger.h"
@@ -70,6 +84,7 @@
 #include "web/samovar.h"
 #include "web/telegram_notify.h"
 #include "web/ws_telemetry.h"
+#include "web/tg_backup.h"
 #include "level/level_sensor.h"
 #include "script/lua_engine.h"
 #include "ota/ota_manager.h"
@@ -101,6 +116,7 @@ void app_main(void) {
 
     // 0. События/журнал и базовая конфигурация.
     events_init();
+    i18n_init();
     if (nvs_migration_run() != ESP_OK) {
         ESP_LOGW(TAG, "NVS migration skipped — settings may be at old schema");
     }
@@ -152,12 +168,25 @@ void app_main(void) {
         events_log(EVENT_ERROR, "1-Wire init failed: %s", esp_err_to_name(hw));
     }
 
+    // Барометр/давление/проток и часы: каждый модуль деградирует
+    // независимо, отсутствие датчика не блокирует запуск.
+    if (baro_init() != ESP_OK) {
+        ESP_LOGW(TAG, "barometer unavailable");
+    }
+    pressure_sensor_init();
+    if (flow_init() != ESP_OK) {
+        ESP_LOGW(TAG, "flow sensor unavailable");
+    }
+    time_sync_init();
+
     hal_dac_init();
     hal_relay_init();
     hal_display_init();
     hal_touch_init();
     storage_init();
     flash_fs_init();
+    profiles_init();
+    sd_resilience_init();
 
     sd_content_init();
     learning_init();
@@ -170,6 +199,9 @@ void app_main(void) {
     scale_init(PIN_HX711_DOUT, PIN_HX711_SCK);
     sensor_calib_init();
     ctrl_safety_init();
+    pid_autotune_init();
+    session_recovery_init();
+    reflux_init(REFLUX_RATIO_DEFAULT);
 
     db_init();
 
@@ -189,11 +221,19 @@ void app_main(void) {
     mqtt_init();
     samovar_init();
 
+    // Сеть: provisioning (SoftAP + captive portal), SNTP-задача и mDNS
+    // запускаются после инициализации netif.
+    if (wifi_prov_init() != ESP_OK) {
+        ESP_LOGE(TAG, "Wi-Fi/provisioning init failed");
+    }
+    tg_backup_init();
+
     // Приемник событий Telegram подписывается на журнал — стартует после
     // того, как журнал и учётные данные уже готовы.
     health_init();
 
     ui_init();
+    ui_physical_init();
     ui_anim_init();
     ui_fps_init();
 
@@ -209,6 +249,12 @@ void app_main(void) {
     // HTTP-обработчики /api/* и /api/diag/* регистрируются здесь же и
     // требуют X-API-Key (см. web/api_auth.h).
     SPAWN(web_start,          "web",       STACK_WEB,         PRIO_HTTP,         CORE_NETWORK_AI);
+    SPAWN(wifi_prov_task,     "wifi",      4096,              PRIO_WIFI,         CORE_NETWORK_AI);
+    SPAWN(time_sync_task,     "time",      3072,              2,                 CORE_NETWORK_AI);
+    SPAWN(baro_task,          "baro",      3072,              2,                 CORE_NETWORK_AI);
+    SPAWN(flow_task,          "flow",      3072,              3,                 CORE_NETWORK_AI);
+    SPAWN(pid_autotune_task,  "autotune",  3072,              2,                 CORE_NETWORK_AI);
+    SPAWN(sd_resilience_task, "sd_safe",   4096,              2,                 CORE_NETWORK_AI);
     SPAWN(ui_preloader_task,  "preloader", STACK_PRELOADER,   PRIO_PRELOADER,    CORE_NETWORK_AI);
     SPAWN(anomaly_task,       "anomaly",   STACK_ANOMALY,     PRIO_ANOMALY,      CORE_NETWORK_AI);
     SPAWN(autolearn_task,     "autolearn", STACK_AUTOLEARN,   PRIO_AUTOLEARN,    CORE_NETWORK_AI);
@@ -238,6 +284,9 @@ void app_main(void) {
     SPAWN(valve_calib_task,   "vcalib",    STACK_VALVE_CALIB, PRIO_VALVE_CALIB,  CORE_REALTIME_UI);
     SPAWN(events_task,        "events",    STACK_EVENTS,      PRIO_EVENTS,       CORE_REALTIME_UI);
     SPAWN(tiny_ml_task,       "tinyml",    STACK_TINYML,      PRIO_TINYML,       CORE_REALTIME_UI);
+    SPAWN(reflux_task,        "reflux",    3072,              3,                 CORE_REALTIME_UI);
+    SPAWN(ui_physical_task,   "ui_phys",   3072,              3,                 CORE_REALTIME_UI);
+    SPAWN(session_recovery_task, "session", 3072,             2,                 CORE_REALTIME_UI);
 
     ESP_LOGI(TAG, "=========== System started (dual-core) ===========");
     ESP_LOGI(TAG, "  CORE 0: web, preloader, anomaly, autolearn, dblog, usb, fota, wd, doser, samovar, mqtt, telegram, lua");

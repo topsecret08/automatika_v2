@@ -1,5 +1,6 @@
 #include "actuator_test.h"
 #include "api_auth.h"
+#include "rate_limit.h"
 
 #include "control/ctrl_dose.h"
 #include "control/ctrl_heater.h"
@@ -199,7 +200,7 @@ void actuator_test_register(httpd_handle_t srv) {
                        .handler = h_diag_service };
     httpd_uri_t u3 = { .uri = "/api/diag/status", .method = HTTP_GET,
                        .handler = h_diag_actuator_status };
-    httpd_register_uri_handler(srv, &u1);
-    httpd_register_uri_handler(srv, &u2);
-    httpd_register_uri_handler(srv, &u3);
+    rate_limit_register(srv, &u1);
+    rate_limit_register(srv, &u2);
+    rate_limit_register(srv, &u3);
 }

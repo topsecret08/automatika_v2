@@ -1,4 +1,5 @@
 #include "web_alice.h"
+#include "rate_limit.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "core/skill_auth.h"
@@ -85,5 +86,5 @@ static esp_err_t h_alice(httpd_req_t *r) {
 
 esp_err_t web_alice_register(httpd_handle_t srv) {
     httpd_uri_t u = { .uri="/alice", .method=HTTP_POST, .handler=h_alice };
-    return httpd_register_uri_handler(srv, &u);
+    return rate_limit_register(srv, &u);
 }

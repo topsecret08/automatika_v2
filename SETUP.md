@@ -1,4 +1,4 @@
-# Сборка и первичная настройка Automatika v2.9.2
+# Сборка и первичная настройка Automatika v2.9.3
 
 ## 1. Требования
 
@@ -44,6 +44,9 @@ cd esp-idf && ./install.sh esp32s3
   `main/control/autopid_glue.cpp`)
 - `joltwallet/littlefs ~1.14.8` (раздел `assets`)
 
+v2.9.3 **не добавляет** managed-компонентов: BMP280, YF-S201, mDNS и
+физический UI реализованы в `main/` на чистом C. `wifi_provisioning` и
+`esp_https_ota` входят в ESP-IDF и подключены через `REQUIRES`.
 SQLite поставляется локально: `components/esp_sqlite3` (3.54.1, MIT).
 Манифест обязан лежать в `main/idf_component.yml`.
 
@@ -69,7 +72,7 @@ $env:PYTHONUTF8=1
 ```
 
 Первая сборка скачивает компоненты и занимает несколько минут.
-Размер образа ≈ **2,31 МБ** из 3 МБ раздела.
+Размер образа ≈ **2,2 МБ** из 3 МБ раздела (v2.9.3).
 
 ### Очистка сборки
 
@@ -189,6 +192,19 @@ curl -X POST -H "X-API-Key: $KEY" \
 образ подтверждается; иначе автоматический откат на предыдущую прошивку.
 Статус: `GET /api/ota`.
 
+С v2.9.3 OTA работает **только по HTTPS**: сертификат сервера проверяется
+через `esp_crt_bundle` (`CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n`). Отдельный
+эндпоинт с явной проверкой схемы:
+
+```bash
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"url":"https://example.com/automatika_v2.bin"}' \
+     http://<IP>/api/ota/secure
+```
+
+Подписанная OTA (Secure Boot v2) выключена, пока не заданы ключи; порядок
+включения — в `README.md`, раздел «Аппаратное расширение v2.9.3».
+
 ### 6.7. Резервная копия и восстановление
 
 ```bash
@@ -205,12 +221,87 @@ curl -X POST -H "X-API-Key: $KEY" -d '{"path":"/sdcard/cfg.json"}' http://<IP>/a
 ```bash
 curl http://<IP>/api/health            # без ключа
 curl -H "X-API-Key: $KEY" "http://<IP>/api/events?limit=50"
+curl -H "X-API-Key: $KEY" http://<IP>/api/env
 ```
+
+### 6.9. Wi-Fi provisioning, время и mDNS
+
+При первом включении (или после `wifi_prov_reset()`) устройство поднимает
+точку доступа **`Automatika-Setup`**. Подключитесь к ней и передайте
+SSID/пароль домашней сети через ESP SoftAP Prov.
+
+- если STA не получил IP за 60 с, AP поднимается снова;
+- после получения IP запускаются SNTP (`pool.ntp.org`) и mDNS;
+- адрес в браузере: **`http://automatika.local/`**;
+- DS3231 (`0x68`) опционален: время из SNTP записывается в RTC и
+  восстанавливается после сбоя питания.
+
+### 6.10. Датчики давления и протока
+
+| Датчик | Подключение | Настройка |
+|---|---|---|
+| BMP280 | I2C SDA=8, SCL=9, адрес `0x77`/`0x76` | автоматически |
+| YF-S201 | GPIO 2, питание 5 В, выход через делитель | NVS `sensors/flow_present` |
+| Давление в колонне | BMP280 или аналоговый 4–20 мА | `pressure_sensor_rezero()` |
+| Охлаждающий клапан | `RELAY_WATER_VALVE` (индекс 1) | автоматически |
+
+Если расходомер **не установлен**, запишите `flow_present=0` сервисной
+командой — иначе нагрев без протока вызовет аварию `NO_FLOW` через 15 с.
+Проверка состояния:
+
+```bash
+curl -H "X-API-Key: $KEY" http://<IP>/api/env
+```
+
+### 6.11. Профили, автотюнинг, сессия, язык
+
+```bash
+# профили (файлы /lfs/profiles/<name>.json)
+curl -H "X-API-Key: $KEY" http://<IP>/api/profiles
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"name":"rye","profile":{"target_cube_t":92}}' http://<IP>/api/profiles
+curl -X DELETE -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"name":"rye"}' http://<IP>/api/profiles
+
+# PID-автотюнинг (только CONTROL_MODE_PID, не при аварии)
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"target":78.5}' http://<IP>/api/autotune
+
+# снимок сессии после сбоя питания
+curl -H "X-API-Key: $KEY" http://<IP>/api/session
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"action":"restore"}' http://<IP>/api/session
+
+# язык интерфейса
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"lang":"en"}' http://<IP>/api/i18n
+```
+
+### 6.12. Бэкап в Telegram
+
+```bash
+curl -X POST -H "X-API-Key: $KEY" http://<IP>/api/backup/telegram
+```
+
+Файл `automatika_backup.json` (без секретов) отправляется в чат из
+`telegram/chat`. Обратный импорт — штатный `POST /api/config/import`
+(бот не принимает файлы).
+
+### 6.13. Rate limiting и физический UI
+
+- API ограничен token bucket: **10 запросов/с**, burst 20; при превышении
+  сервер отвечает `429 Too Many Requests` с `Retry-After: 1`.
+  WebSocket-соединения не ограничиваются.
+- Статусные LED и buzzer включаются только если в `main/config.h` заданы
+  `LED_*_GPIO` (по умолчанию `-1` — не распаяны). Buzzer использует
+  существующий `PIN_BUZZER=45` и не блокирует control/safety.
 
 ## 7. Особенности
 
 - `factory`, `ota_0`, `ota_1` — по 3 МБ; `assets` (LittleFS) — 1 МБ;
   `storage` (SPIFFS) — 5,875 МБ (см. `partitions.csv`)
+- С v2.9.3 LittleFS смонтирован в `/lfs`, SPIFFS — в `/spiffs`; это
+  разные VFS-точки, профили и web UI лежат в LittleFS
 - SPIRAM: Octal, 80 МГц; крупные буферы (LVGL, Lua, AI) — в PSRAM
 - Задачи распределены по двум ядрам (`main/core/core_pinning.h`);
   safety/estop — ядро 1 с максимальным приоритетом, сеть/Lua/WS — ядро 0

@@ -10,8 +10,10 @@ static bool sd_ok = false;
 static bool lfs_ok = false;
 static sdmmc_card_t *s_card = NULL;
 
-void storage_init(void) {
-    // SD на SPI3_HOST (LCD на SPI2_HOST!)
+// ------------------------------------------------------------------
+// SD (SPI3_HOST; LCD живёт на SPI2_HOST)
+// ------------------------------------------------------------------
+static esp_err_t sd_mount(void) {
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     host.slot = SPI3_HOST;
 
@@ -26,6 +28,7 @@ void storage_init(void) {
     esp_err_t bus_err = spi_bus_initialize(SPI3_HOST, &bus, SPI_DMA_CH_AUTO);
     if (bus_err != ESP_OK && bus_err != ESP_ERR_INVALID_STATE) {
         ESP_LOGE("STORAGE", "SPI3 init failed: %s", esp_err_to_name(bus_err));
+        return bus_err;
     }
 
     sdspi_device_config_t slot = SDSPI_DEVICE_CONFIG_DEFAULT();
@@ -33,21 +36,40 @@ void storage_init(void) {
     slot.host_id = SPI3_HOST;
 
     esp_vfs_fat_sdmmc_mount_config_t mnt = {
-        // НЕ форматировать карту пользователя при ошибке монтирования:
-        // иначе одно плохое подключение уничтожит рецепты и историю.
+        // Не форматировать карту при сбое монтирования: иначе любая
+        // неисправность/помеха стирает пользовательские данные.
         .format_if_mount_failed = false,
         .max_files = 8,
         .allocation_unit_size = 16 * 1024,
     };
     esp_err_t r = esp_vfs_fat_sdspi_mount("/sdcard", &host, &slot, &mnt, &s_card);
     sd_ok = (r == ESP_OK);
-    ESP_LOGI("STORAGE", "SD: %s", sd_ok ? "OK" : "FAIL");
+    if (!sd_ok) s_card = NULL;
+    return r;
+}
 
+esp_err_t storage_remount(void) {
+    if (sd_ok) {
+        esp_vfs_fat_sdcard_unmount("/sdcard", s_card);
+        s_card = NULL;
+        sd_ok = false;
+    }
+    esp_err_t err = sd_mount();
+    ESP_LOGI("STORAGE", "SD remount: %s", err == ESP_OK ? "OK" : "FAIL");
+    return err;
+}
+
+void storage_init(void) {
+    esp_err_t r = sd_mount();
+    ESP_LOGI("STORAGE", "SD: %s", r == ESP_OK ? "OK" : "FAIL");
+
+    // SPIFFS-раздел "storage" монтируется отдельно от littlefs ("assets",
+    // точка /lfs), иначе два VFS не могут делить один mount point.
     esp_vfs_spiffs_conf_t lc = {
-        .base_path = "/lfs",
+        .base_path = "/spiffs",
         .partition_label = "storage",
         .max_files = 5,
-        .format_if_mount_failed = true,
+        .format_if_mount_failed = false,
     };
     lfs_ok = (esp_vfs_spiffs_register(&lc) == ESP_OK);
     ESP_LOGI("STORAGE", "SPIFFS: %s", lfs_ok ? "OK" : "FAIL");
@@ -60,9 +82,9 @@ sdmmc_card_t* storage_get_sd_card(void) { return s_card; }
 bool storage_write_file(const char *path, const void *data, size_t len) {
     FILE *f = fopen(path, "wb");
     if (!f) return false;
-    fwrite(data, 1, len, f);
+    size_t wr = fwrite(data, 1, len, f);
     fclose(f);
-    return true;
+    return wr == len;
 }
 
 size_t storage_read_file(const char *path, void *buf, size_t max) {

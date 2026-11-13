@@ -7,9 +7,9 @@
 #include "freertos/semphr.h"
 #include <string.h>
 
-// Safety, mode, ui, scale, fps, vcalib, events, tinyml, sensors, web,
-// preloader, anomaly, autolearn, dblog, usb, fota, wd, mqtt, telegram.
-#define WD_MAX_TASKS 24
+// v2.9.3: добавлены sensors/baro/flow/autotune/sd_safe/reflux/ui_phys/
+// session/mdns/wifi_mgr/time — увеличиваем ёмкость реестра.
+#define WD_MAX_TASKS 48
 static wd_task_t s_tasks[WD_MAX_TASKS];
 static int s_count = 0;
 static SemaphoreHandle_t s_mtx;

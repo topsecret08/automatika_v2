@@ -1,5 +1,71 @@
 # История
 
+## v2.9.3 — расширение аппаратной части и эксплуатационная доработка
+
+18 пунктов задания, все модули — на чистом C поверх ESP-IDF (без
+managed-компонентов, которых нет в офлайн-кэше).
+
+### Сеть и время
+1. **Wi-Fi provisioning** — `wifi_provisioning` (SoftAP `Automatika-Setup`,
+   scheme_softap, без PoP по умолчанию), тайм-аут STA и автоматический
+   fallback в AP (`net/wifi_prov.c`).
+2. **SNTP + RTC DS3231** — синхронизация при появлении IP, запись времени
+   в RTC и восстановление из него после сбоя питания (`net/time_sync.c`).
+3. **mDNS** — собственный A-responder `automatika.local`
+   (224.0.0.251:5353), без компонента `espressif/mdns`
+   (`net/mdns_service.c`).
+
+### Датчики и безопасность
+4. **BMP280** — сырой I2C-драйвер, компенсация Bosch, forced mode,
+   `baro_boiling_point_c()` (`hal/baro.c`).
+5. **Поправка точки кипения** — фракции и уставки считаются от давления
+   (`BOIL_CORRECTION_COEFF`).
+6. **YF-S201** — счёт импульсов в ISR, EMA л/мин, NVS-флаг наличия
+   (`hal/flow_sensor.c`), охлаждающий клапан `RELAY_WATER_VALVE`.
+7. **Давление в колонне** — разность с «нулём» BMP280, fallback на
+   аналоговый вход, автоперезейро (`hal/pressure_sensor.c`).
+8. **Safety** — E-STOP, перегрев, превышение давления, отказ датчика,
+   отсутствие протока (15 с grace), пролив, сухой ход/переполнение,
+   насос охлаждения; уведомления Telegram (`control/ctrl_safety.c`).
+
+### Управление процессом
+9. **Восстановление сессии** — снимок в NVS каждые 30 с, валиден 30 мин,
+   восстановление никогда не включает нагрев (`core/session_recovery.c`).
+10. **PID-автотюнинг** — релейный метод, тайм-аут 60 мин, сохранение
+    Kp/Ki/Kd в NVS, отмена по аварии (`control/pid_autotune.c`).
+11. **Логика фракций** — heads → body → tails → done по температуре
+    (с поправкой) и объёму (`control/fraction_logic.c`).
+12. **Флегмовое число** — PCA9685 канал 3, скважность `1/(1+ratio)`,
+    включается на теле/хвостах (`control/reflux.c`, `modes/mode_distill.c`).
+
+### Интерфейс и API
+13. **Физический UI** — статусные LED и неблокирующий buzzer
+    (`ui/ui_physical.c`); дисплей/тач/энкодер остаются на LVGL.
+14. **LittleFS web UI** — `/*`-обработчик отдаёт `/lfs/www` и `/lfs`
+    с MIME и защитой от traversal, встроенные ассеты сохранены
+    (`web/web_server.c`).
+15. **Rate limiting** — token bucket 10 rps / burst 20, реальный HTTP 429
+    (`web/rate_limit.c`, обёртка `rate_limit_register`).
+16. **Profiles API** — `/api/profiles` GET/POST/DELETE, файлы в
+    `/lfs/profiles/*.json`, имя санитизируется (`core/profiles.c`).
+17. **i18n** — RU/EN, `tr()`, NVS `ui/lang`, `/api/i18n`
+    (`core/i18n.c`).
+18. **Telegram backup** — `POST /api/backup/telegram`, экспорт без
+    секретов и `sendDocument` с проверкой сертификата (`web/tg_backup.c`).
+
+### Прочее
+- **Устойчивость SD** — probe/remount, очередь записей в PSRAM,
+  сброс в `/sdcard/logs/resilience.log` (`core/sd_resilience.c`).
+- **Безопасная OTA** — `esp_https_ota` + `esp_crt_bundle`, запрет
+  `http://`; подписанная OTA документирована и выключена
+  (`OTA_SIGNED_ENABLED=0`, `ota/secure_ota.c`), эндпоинт
+  `POST /api/ota/secure`.
+- SPIFFS-раздел `storage` перенесён на `/spiffs`, чтобы не конфликтовать
+  с LittleFS `/lfs`; `format_if_mount_failed=false`.
+- Новые эндпоинты: `/api/env`, `/api/profiles`, `/api/autotune`,
+  `/api/session`, `/api/i18n`, `/api/backup/telegram`.
+- `sdkconfig.defaults`: `CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n`.
+
 ## v2.9.2 — продуктивные модули и эксплуатационная готовность
 - OTA с автоматическим откатом: образ подтверждается только после
   health-check (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`), иначе

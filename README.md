@@ -1,4 +1,4 @@
-# Automatika v2.9.2
+# Automatika v2.9.3
 
 Универсальная система управления технологическими процессами на **ESP32-S3**:
 дистилляция, ректификация, пивоварение, ПВК, НБК, вакуумная и двойная
@@ -9,7 +9,7 @@
 480×320, из веб-интерфейса и по API.
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
-> (ESP-IDF v5.3.2, образ ≈2,31 МБ из 3 МБ раздела) без предупреждений;
+> (ESP-IDF v5.3.2, образ ≈2,29 МБ из 3 МБ раздела) без предупреждений;
 > тестовый проект `test/` (Unity) тоже собирается.
 > Работа на реальном оборудовании не проверялась.
 
@@ -20,6 +20,14 @@
 > health-check и модульные тесты. Подробности — раздел
 > [«Продуктивные модули v2.9.2»](#продуктивные-модули-v292) и
 > [`USER_GUIDE.md`](USER_GUIDE.md).
+
+> **v2.9.3 — аппаратное расширение:** Wi-Fi provisioning (SoftAP), SNTP и
+> RTC DS3231, mDNS `automatika.local`, BMP280 с поправкой точки кипения,
+> расходомер YF-S201 и охлаждающий клапан, давление в колонне, восстановление
+> сессии, PID-автотюнинг, логика фракций, флегмовое число, физические LED и
+> buzzer, устойчивость SD, rate limiting API, профили в LittleFS, RU/EN,
+> Telegram-бэкап и HTTPS-only OTA. Подробности — раздел
+> [«Аппаратное расширение v2.9.3»](#аппаратное-расширение-v293).
 
 ---
 
@@ -32,6 +40,7 @@
 - [Архитектура и задачи FreeRTOS](#архитектура-и-задачи-freertos)
 - [Новые модули v2.9.1](#новые-модули-v291)
 - [Продуктивные модули v2.9.2](#продуктивные-модули-v292)
+- [Аппаратное расширение v2.9.3](#аппаратное-расширение-v293)
 - [Безопасность REST API](#безопасность-rest-api)
 - [Настройки NVS](#настройки-nvs)
 - [Lua-сценарии](#lua-сценарии)
@@ -513,6 +522,130 @@ nvs_flash_init
 
 ---
 
+## Аппаратное расширение v2.9.3
+
+Ниже — 18 пунктов доработки и места их реализации. Все новые модули —
+чистый C поверх ESP-IDF; внешние managed-компоненты не добавлялись
+(см. комментарий в `main/idf_component.yml`).
+
+| № | Возможность | Реализация |
+|---:|---|---|
+| 1 | Wi-Fi provisioning SoftAP + captive portal | `net/wifi_prov.c` |
+| 2 | SNTP + RTC DS3231 | `net/time_sync.c` |
+| 3 | mDNS `automatika.local` | `net/mdns_service.c` |
+| 4 | BMP280 (I2C, компенсация Bosch) | `hal/baro.c` |
+| 5 | Поправка точки кипения по давлению | `hal/baro.c`, `config.h` |
+| 6 | Расходомер YF-S201 + охлаждающий клапан | `hal/flow_sensor.c` |
+| 7 | Давление в колонне | `hal/pressure_sensor.c` |
+| 8 | Safety: E-STOP/перегрев/давление/проток/пролив/уровень | `control/ctrl_safety.c` |
+| 9 | Восстановление сессии после сбоя питания | `core/session_recovery.c` |
+| 10 | PID-автотюнинг с сохранением gains | `control/pid_autotune.c` |
+| 11 | Логика фракций heads/body/tails | `control/fraction_logic.c` |
+| 12 | Флегмовое число (PCA9685, канал 3) | `control/reflux.c` |
+| 13 | Физический UI: LED + buzzer | `ui/ui_physical.c` |
+| 14 | LittleFS web UI (`/lfs/www`) | `web/web_server.c` |
+| 15 | Rate limiting API (HTTP 429) | `web/rate_limit.c` |
+| 16 | Профили `/lfs/profiles/*.json` | `core/profiles.c` |
+| 17 | i18n RU/EN | `core/i18n.c` |
+| 18 | Telegram-бэкап конфигурации | `web/tg_backup.c` |
+
+### Новые эндпоинты
+
+```bash
+curl -H "X-API-Key: $KEY" http://automatika.local/api/env
+curl -H "X-API-Key: $KEY" http://automatika.local/api/profiles
+curl -H "X-API-Key: $KEY" "http://automatika.local/api/profiles?name=rye"
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"name":"rye","profile":{"target_cube_t":92,"target_column_t":78}}' \
+     http://automatika.local/api/profiles
+curl -X DELETE -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"name":"rye"}' http://automatika.local/api/profiles
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"target":78.5}' http://automatika.local/api/autotune
+curl -H "X-API-Key: $KEY" http://automatika.local/api/session
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"action":"restore"}' http://automatika.local/api/session
+curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+     -d '{"lang":"en"}' http://automatika.local/api/i18n
+curl -X POST -H "X-API-Key: $KEY" http://automatika.local/api/backup/telegram
+```
+
+`/api/env` — только чтение, без секретов:
+
+```json
+{"baro":{"present":1,"hpa":1008.2,"boiling_c":99.82},
+ "column":{"kpa":0.0,"source":"bmp280"},
+ "flow":{"present":1,"lpm":0.0,"ok":0},
+ "fraction":"heads","reflux_ratio":3.0,"reflux":0}
+```
+
+`/api/session` возвращает `{"valid":false}`, если снимка нет; `restore`
+восстанавливает уставки и счётчики, но **никогда не включает нагрев** —
+после восстановления требуется обычный `/api/start` со всеми проверками.
+
+### Wi-Fi и время
+
+- Первый запуск без сохранённых credentials поднимает AP
+  `Automatika-Setup` (открытый, provisioning v1 без PoP). Подключитесь к
+  нему и укажите SSID/пароль домашней сети через ESP SoftAP Prov
+  (мобильное приложение или `idf.py`-утилита).
+- Если STA не получил IP за `WIFI_STA_CONNECT_TIMEOUT_MS` (60 с), снова
+  поднимается AP — устройство не «теряется» в сети.
+- После получения IP запускаются SNTP (`pool.ntp.org`) и mDNS.
+  `http://automatika.local/` работает без знания IP.
+- DS3231 (I2C `0x68`) опционален: время пишется в RTC после успешного
+  SNTP и читается при старте, пока сеть недоступна.
+
+### Датчики
+
+- **BMP280** (`0x77`/`0x76`) — forced mode, опрос 5 с. При потере датчика
+  давление считается стандартным (1013.25 гПа), в журнал пишется
+  предупреждение. Поправка: `+0.035 °C` на 1 гПа отклонения от 1013.25.
+- **YF-S201** — GPIO 2, 450 имп/л, EMA л/мин. Наличие датчика хранится в
+  NVS `sensors/flow_present` (по умолчанию `1`). Если расходомер не
+  установлен, запишите `0` (например, через сервисный API), иначе
+  отсутствие протока вызовет аварию через 15 с после включения нагрева.
+- **Давление в колонне** — относительное: текущее абсолютное давление
+  минус «нуль», снятый при старте. Аварийный порог — `SAFE_MAX_PRESSURE`
+  (3.0 бар). Без BMP280 используется аналоговый вход 4–20 мА.
+
+### Охлаждение и флегма
+
+- Охлаждающий клапан — `RELAY_WATER_VALVE` (индекс 1), включается на
+  старте дистилляции и выключается на `DONE`.
+- Флегмовое число задаётся `REFLUX_RATIO_DEFAULT` (3.0) и ограничено
+  `REFLUX_RATIO_MAX` (10). Клапан — PCA9685, канал 3; каналы 0–2
+  (головы/тело/хвосты) не затрагиваются. Флегма включается на теле и
+  хвостах, на головах — прямой отбор.
+
+### OTA и подпись
+
+- `ota/secure_ota.c` использует `esp_https_ota` + `esp_crt_bundle`:
+  сертификат сервера проверяется, `http://` запрещён
+  (`CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n`, `OTA_ALLOW_PLAIN_HTTP 0`).
+  Эндпоинт `POST /api/ota/secure` принимает `{"url":"https://..."}` и
+  запускает загрузку в отдельной задаче, отвечая `202 Accepted`;
+  прогресс/ошибка — в журнале и `GET /api/ota`.
+- Подписанная OTA (Secure Boot v2) **выключена** (`OTA_SIGNED_ENABLED 0`):
+  в репозитории нет ключей. Для включения:
+  1. сгенерируйте ключ `espsecure.py generate_signing_key`;
+  2. включите `CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME` и
+     `CONFIG_SECURE_BOOT`;
+  3. подписывайте образ `espsecure.py sign_data`;
+  4. только после этого ставьте `OTA_SIGNED_ENABLED 1`.
+
+### Ограничения и деградация
+
+- Любой из датчиков (BMP280, YF-S201, DS3231, PCA9685) может
+  отсутствовать: система стартует, пишет предупреждение и использует
+  безопасное значение по умолчанию.
+- LED/buzzer физического UI отключены, пока `LED_*_GPIO == -1`
+  (по умолчанию); `BUZZER_GPIO` совпадает с существующим `PIN_BUZZER`.
+- Профили и `backup.json` живут в LittleFS `/lfs`; SPIFFS-раздел
+  `storage` смонтирован отдельно в `/spiffs`, чтобы VFS не конфликтовали.
+
+---
+
 ## Безопасность REST API
 
 ```bash
@@ -730,17 +863,18 @@ idf.py fullclean            # полная очистка
 
 ### Wi-Fi
 
-Wi-Fi работает в режиме **STA**. Учётные данные пока задаются в коде:
+С v2.9.3 Wi-Fi настраивается через **provisioning**: при первом запуске
+устройство поднимает AP **`Automatika-Setup`**, куда передаются SSID и
+пароль домашней сети. Учётные данные хранятся в NVS (`nvs.net80211`),
+перепрошивка их не стирает.
 
-```c
-// main/web/web_server.c, wifi_start()
-strncpy((char*)cfg.sta.ssid, "YOUR_SSID", 32);
-strncpy((char*)cfg.sta.password, "YOUR_PASS", 64);
-```
-
-Замените `YOUR_SSID` / `YOUR_PASS` перед сборкой. В планах — хранение
-учётных данных в NVS и режим точки доступа. Флаг `wifi` включён по
-умолчанию; если он выключен, веб-сервер не стартует.
+- если STA не получил IP за 60 с, AP поднимается снова;
+- после подключения доступны `http://automatika.local/` (mDNS) и IP из
+  роутера (hostname `automatika`);
+- сброс Wi-Fi: `wifi_prov_reset()` (перезагрузка без сохранённых
+  credentials) — используйте только при необходимости;
+- флаг `wifi` включён по умолчанию; если он выключен, веб-сервер не
+  стартует, но provisioning остаётся доступен.
 
 ### Роли и PIN
 
@@ -1029,6 +1163,12 @@ SD-карты; аллокатор БД использует PSRAM.
 ищет его в каталоге компонента `main`, а не в корне проекта. Если положить
 файл в корень, `managed_components/` останется пустым.
 
+В v2.9.3 новые аппаратные модули (BMP280, YF-S201, mDNS, LED/buzzer)
+реализованы в дереве проекта и **не добавляют зависимостей**. Не пытайтесь
+заменить их компонентами из реестра: офлайн-сборка должна работать без
+сети. `wifi_provisioning` и `esp_https_ota` — штатные компоненты IDF,
+подключены через `REQUIRES` в `main/CMakeLists.txt`.
+
 После изменения манифеста удалите `dependencies.lock` и
 `managed_components/`, затем пересоберите проект.
 
@@ -1054,6 +1194,8 @@ CONFIG_HTTPD_WS_SUPPORT=y
 CONFIG_LUA_USE_PSRAM=y
 CONFIG_LUA_MAXSTACK=10000
 CONFIG_LITTLEFS_MAX_PARTITIONS=2
+# v2.9.3 — OTA только по HTTPS (сертификат через CA bundle)
+CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 ```
 
 > **Офлайн-сборка.** Если сеть недоступна, менеджер компонентов не в силах

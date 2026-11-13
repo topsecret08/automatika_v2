@@ -29,6 +29,7 @@ float ctrl_pid_compute(float input);
 
 // Автотюнинг (Ziegler–Nichols релейный) — как раньше.
 void  ctrl_pid_autotune_start(void);
+void  ctrl_pid_autotune_stop(void);
 bool  ctrl_pid_autotune_done(void);
 void  ctrl_pid_autotune_get(float *kp, float *ki, float *kd);
 
