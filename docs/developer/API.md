@@ -430,3 +430,19 @@ HTTP 403
 Скорость — `reg_baud`. Пины — `REG_UART_TX_GPIO`, `REG_UART_RX_GPIO`,
 `REG_SSR_GPIO` в `config.h`. UART подключается только через оптронную
 развязку; при `-1` драйвер не активируется.
+
+## 16. Верификация и теневой режим
+
+| Метод | Путь | Доступ | Описание |
+|---|---|---|---|
+| GET | `/api/verify/state` | 🔓 | этап, политика, прогоны, модули |
+| POST | `/api/verify/shadow` | 🔑 | `{"policy":0..3}` |
+| POST | `/api/verify/stage` | 🔑 | `{"stage":0..6}` |
+| POST | `/api/verify/action` | 🔑 | `run`, `step`, `cancel`, `clean` |
+| POST | `/api/verify/module` | 🔑 | `{"module":"...","verified":true}` |
+| POST | `/api/verify/replay` | 🔑 | `{"run_id":N}` |
+| POST | `/api/verify/fuzz` | 🔑 | TP/FP/FN детектора аномалий |
+
+Таблицы `verify_runs` и `verify_trace` создаются в `/sdcard/automatika.db`.
+Запись — через очередь и задачу на ядре 0; replay сравнивает пересчитанный
+выход с `value_shadow`. Полное описание — [`docs/verify.md`](../verify.md).

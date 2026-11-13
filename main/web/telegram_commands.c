@@ -16,6 +16,7 @@
 #include "control/fraction_periodic.h"
 #include "control/param_registry.h"
 #include "control/regulator_driver.h"
+#include "control/safety_gate.h"
 #include "control/alcohol_balance.h"
 #include "control/pid_autotune.h"
 
@@ -492,7 +493,7 @@ static void handle_command(const char *chat, const char *text) {
         float value = (float)atof(args);
         if (value < 0) value = 0;
         if (value > 100) value = 100;
-        ctrl_heater_set_percent(value);
+        safety_gate_apply("telegram_power", value);
         char buf[96];
         snprintf(buf, sizeof(buf), "Мощность задана: %.0f %%.", value);
         tg_send(chat, buf, NULL);

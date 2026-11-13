@@ -5,6 +5,7 @@
 #include "core/events.h"
 #include "core/watchdog.h"
 #include "control/ctrl_heater.h"
+#include "control/safety_gate.h"
 #include "control/ctrl_safety.h"
 #include "hal/hal_1wire.h"
 #include "modes/mode_base.h"
@@ -205,7 +206,7 @@ bool samovar_set_power_percent(float pct, const char *source) {
         return false;
     }
 
-    ctrl_heater_set_percent(pct);
+    safety_gate_apply("mqtt_power", pct);
     events_log(EVENT_USER_ACTION, "Samovar[%s]: power %.0f%%",
                source ? source : "?", pct);
     return true;

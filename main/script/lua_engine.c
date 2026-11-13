@@ -7,6 +7,7 @@
 #include "core/state.h"
 #include "core/watchdog.h"
 #include "control/ctrl_heater.h"
+#include "control/safety_gate.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_dose.h"
 #include "hal/hal_1wire.h"
@@ -94,7 +95,7 @@ static int l_set_percent(lua_State *l) {
         lua_pushstring(l, "safety/estop");
         return 2;
     }
-    ctrl_heater_set_percent((float)pct);
+    safety_gate_apply("lua_power", (float)pct);
     lua_pushboolean(l, 1);
     return 1;
 }

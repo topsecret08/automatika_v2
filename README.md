@@ -22,6 +22,11 @@
 > [«Внешние регуляторы»](#внешние-регуляторы-мощности) и
 > [`USER_GUIDE.md`](docs/user/USER_GUIDE.md).
 
+> **Верификация без риска:** теневой режим `manual/auto/step`, поэтапное
+> включение алгоритмов, SQLite `verify_trace`/`verify_runs`, replay,
+> PID-метрики, fuzzing детектора аномалий и единый `safety_gate` для всех
+> путей управления. Подробности — [`docs/verify.md`](docs/verify.md).
+
 ### Модули V0.5 alfa
 
 | Модуль | Файлы | Назначение |
@@ -33,7 +38,9 @@
 | Внешний регулятор | `main/control/regulator_driver.{h,c}` | KVIC, РМВ-К, SEM, SSR/ШИМ |
 | Настройки регулятора | `main/core/control_config.{h,c}` | тип, скорость UART, NVS |
 | Экран выбора | `main/ui/ui_screen_advanced.{h,c}` | алгоритм и регулятор на LCD |
-| Тесты | `test/main/test_sensor_pipeline.c`, `test_selection_logic.c`, `test_interface_conflicts.c` | Unity |
+| Тесты | `test/main/test_sensor_pipeline.c`, `test_selection_logic.c`, `test_interface_conflicts.c`, `test_pid_metrics.c`, `test_verify_fuzz.c` | Unity |
+| Верификация | `main/verify/verify_config.{h,c}`, `verify_db`, `shadow`, `pid_metrics`, `verify_fuzz` | этапы, SQLite, replay, метрики |
+| Safety gate | `main/control/safety_gate.{h,c}` | классы CRITICAL/QUALITY/EXPERIMENTAL |
 
 Проверка сборки и тестов:
 
@@ -69,6 +76,7 @@ idf.py -C test -p COM5 flash monitor
 - [Обработка датчиков](#обработка-датчиков)
 - [Алгоритмы отбора](#алгоритмы-отбора)
 - [Внешние регуляторы мощности](#внешние-регуляторы-мощности)
+- [Верификация и теневой режим](#верификация-и-теневой-режим)
 - [Безопасность REST API](#безопасность-rest-api)
 - [Настройки NVS](#настройки-nvs)
 - [Lua-сценарии](#lua-сценарии)
@@ -878,6 +886,43 @@ DS18B20:
 
 ---
 
+## Верификация и теневой режим
+
+Подсистема позволяет проверять сложные алгоритмы без управления железом.
+
+- **Политики:** `off`, `manual` (по команде), `auto` (непрерывно),
+  `step` (один расчёт). Реальный выход всегда остаётся от простого
+  регулятора.
+- **Этапы:** `simple_relay → pid_manual → pid_autotune → heads_detector →
+  body_tails_detector → alcohol_balance → predictive`. Переход — только
+  после 3 чистых прогонов; прыжок блокируется.
+- **SQLite:** `verify_runs` и `verify_trace` в `/sdcard/automatika.db`,
+  запись через очередь и задачу `shadow_wr` на ядре 0, replay по `run_id`.
+- **PID-метрики:** overshoot, settling, SSE, oscillation index с порогами
+  `pid_metrics.h`.
+- **Fuzzing:** детерминированные выбросы, обрыв и дрейф, подсчёт TP/FP/FN.
+- **Safety gate:** все пути (REST, Telegram, MQTT, Lua, UI) проходят через
+  `safety_gate_apply()` / `safety_gate_apply_valve()`. `QUALITY`/`EXPERIMENTAL`
+  без флага `verified` блокируются; `EXPERIMENTAL` дополнительно требует
+  shadow != off.
+- **menuconfig:** `CONFIG_VERIFY_ENABLE` отключает подсистему для релиза.
+
+REST:
+
+```bash
+GET  /api/verify/state
+POST /api/verify/shadow   {"policy":2}
+POST /api/verify/stage    {"stage":1}
+POST /api/verify/action   {"action":"run|step|cancel|clean"}
+POST /api/verify/module   {"module":"heads_detector","verified":true}
+POST /api/verify/replay   {"run_id":12}
+POST /api/verify/fuzz
+```
+
+Полное описание и примеры — [`docs/verify.md`](docs/verify.md).
+
+---
+
 ## Безопасность REST API
 
 ```bash
@@ -1113,7 +1158,7 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.5 alfa: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.5 alfa): **0x2A19D0 (~2,76 МБ)**, свободно ~12 % раздела.
+Текущий бинарник (V0.5 alfa): **0x2A3AC0 (~2,76 МБ)**, свободно ~12 % раздела.
 
 ### Полезные команды
 

@@ -1,5 +1,6 @@
 #include "ctrl_valve_control.h"
 #include "ctrl_valves.h"
+#include "safety_gate.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "core/watchdog.h"
@@ -16,6 +17,10 @@ void valve_control_init(void) {
 }
 
 void valve_set_pct(int idx, float pct) {
+    (void)safety_gate_apply_valve("valve_core", idx, pct);
+}
+
+void valve_set_pct_raw(int idx, float pct) {
     valve_config_t *v = valve_config_get(idx);
     if (!v) return;
     if (pct < 0) pct = 0;

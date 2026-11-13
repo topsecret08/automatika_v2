@@ -4,6 +4,7 @@
 #include "core/watchdog.h"
 #include "core/events.h"
 #include "control/ctrl_heater.h"
+#include "control/safety_gate.h"
 #include "control/ctrl_safety.h"
 #include "modes/mode_base.h"
 #include "mqtt_client.h"
@@ -83,7 +84,7 @@ static void mqtt_handle_cmd(const char *data, int len) {
             events_log(EVENT_WARNING, "MQTT power rejected: safety not OK");
             return;
         }
-        ctrl_heater_set_percent((float)atof(arg));
+        safety_gate_apply("mqtt_power", (float)atof(arg));
         events_log(EVENT_INFO, "MQTT: power %.0f%%", ctrl_heater_get_percent());
     } else {
         events_log(EVENT_WARNING, "MQTT: unknown command '%s'", cmd);

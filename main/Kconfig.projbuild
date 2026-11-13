@@ -1,0 +1,12 @@
+menu "Verification / shadow mode"
+
+    config VERIFY_ENABLE
+        bool "Enable shadow mode, staged flags and SQLite verification"
+        default y
+        help
+            Включает verify_config, shadow, verify_db, safety_gate и
+            REST /api/verify/*. Для релизной сборки можно выключить:
+            сложные алгоритмы не смогут применяться, останется только
+            критическая логика.
+
+endmenu

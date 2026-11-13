@@ -34,6 +34,11 @@
 #include "control/alcohol_balance.h"
 #include "control/param_registry.h"
 #include "control/regulator_driver.h"
+#include "control/safety_gate.h"
+#include "verify/verify_config.h"
+#include "verify/verify_db.h"
+#include "verify/shadow.h"
+#include "verify/verify_fuzz.h"
 #include "control/pid_autotune.h"
 #include "control/reflux.h"
 #include "level/level_sensor.h"
@@ -272,7 +277,9 @@ static esp_err_t h_power(httpd_req_t *r) {
     if (pct > 0 && estop_is_pressed())
         return send_err(r, "409 Conflict", "{\"error\":\"estop active\"}");
 
-    ctrl_heater_set_percent(pct);
+    esp_err_t gerr = safety_gate_apply("web_power", pct);
+    if (gerr != ESP_OK)
+        return send_err(r, "409 Conflict", "{\"error\":\"safety gate\"}");
     events_log(EVENT_INFO, "Web: power %.0f%%", pct);
     char out[64];
     snprintf(out, sizeof(out), "{\"power\":%.1f}", ctrl_heater_get_percent());
@@ -1717,6 +1724,173 @@ static esp_err_t h_fsel_algo(httpd_req_t *r) {
     return send_json(r, json);
 }
 
+static esp_err_t h_verify_state(httpd_req_t *r) {
+    char json[1536];
+    int off = snprintf(json, sizeof(json),
+        "{\"enabled\":%d,\"stage\":%d,\"stage_name\":\"%s\","
+        "\"shadow\":%d,\"shadow_name\":\"%s\",\"clean_runs\":%u,"
+        "\"run_id\":%lld,\"db\":%d,\"modules\":[",
+        verify_is_enabled() ? 1 : 0, (int)verify_get_stage(),
+        verify_stage_name(verify_get_stage()),
+        (int)verify_get_shadow_policy(),
+        verify_shadow_name(verify_get_shadow_policy()),
+        (unsigned)verify_get_clean_runs(verify_get_stage()),
+        (long long)shadow_current_run(),
+        verify_db_is_ready() ? 1 : 0);
+
+    for (int i = 0; i < safety_gate_module_count() &&
+                    off > 0 && off < (int)sizeof(json); i++) {
+        const char *name = safety_gate_module_name(i);
+        safety_class_t cls = safety_gate_class(name);
+        off += snprintf(json + off, sizeof(json) - (size_t)off,
+            "%s{\"name\":\"%s\",\"class\":\"%s\",\"verified\":%d}",
+            i ? "," : "", name, safety_gate_class_name(cls),
+            verify_is_module_verified(name) ? 1 : 0);
+    }
+    if (off > 0 && off < (int)sizeof(json) - 3) {
+        snprintf(json + off, sizeof(json) - (size_t)off, "]}");
+        return send_json(r, json);
+    }
+    return send_err(r, "500 Internal Server Error", "{\"error\":\"json\"}");
+}
+
+static esp_err_t h_verify_shadow(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[64];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty\"}");
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"json\"}");
+
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "policy");
+    int policy = cJSON_IsNumber(v) ? v->valueint : -1;
+    cJSON_Delete(root);
+    if (policy < 0 || policy > SHADOW_STEP)
+        return send_err(r, "400 Bad Request", "{\"error\":\"policy\"}");
+
+    esp_err_t err = verify_set_shadow_policy((shadow_policy_t)policy);
+    if (err != ESP_OK)
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+
+    if (policy == SHADOW_OFF) shadow_finish_run("{}");
+    else if (shadow_current_run() == 0) shadow_start_run("api");
+    return send_json(r, "{\"status\":\"ok\"}");
+}
+
+static esp_err_t h_verify_stage(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[64];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty\"}");
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"json\"}");
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "stage");
+    int stage = cJSON_IsNumber(v) ? v->valueint : -1;
+    cJSON_Delete(root);
+
+    esp_err_t err = verify_set_stage((verify_stage_t)stage);
+    if (err == ESP_ERR_INVALID_STATE)
+        return send_err(r, "409 Conflict",
+                        "{\"error\":\"need_clean_runs\"}");
+    if (err != ESP_OK)
+        return send_err(r, "400 Bad Request", "{\"error\":\"stage\"}");
+    return send_json(r, "{\"status\":\"ok\"}");
+}
+
+static esp_err_t h_verify_action(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[96];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty\"}");
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"json\"}");
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "action");
+    const char *action = cJSON_IsString(v) ? v->valuestring : "";
+    cJSON_Delete(root);
+
+    if (strcmp(action, "run") == 0) {
+        shadow_request_run();
+    } else if (strcmp(action, "step") == 0) {
+        shadow_request_step();
+    } else if (strcmp(action, "cancel") == 0) {
+        shadow_cancel();
+    } else if (strcmp(action, "clean") == 0) {
+        verify_report_clean_run();
+    } else {
+        return send_err(r, "400 Bad Request", "{\"error\":\"action\"}");
+    }
+    return send_json(r, "{\"status\":\"ok\"}");
+}
+
+static esp_err_t h_verify_module(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[128];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty\"}");
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"json\"}");
+
+    const cJSON *mv = cJSON_GetObjectItemCaseSensitive(root, "module");
+    const cJSON *vv = cJSON_GetObjectItemCaseSensitive(root, "verified");
+    const char *module = cJSON_IsString(mv) ? mv->valuestring : NULL;
+    bool verified = cJSON_IsBool(vv) ? cJSON_IsTrue(vv) : true;
+    cJSON_Delete(root);
+
+    if (!module)
+        return send_err(r, "400 Bad Request", "{\"error\":\"module\"}");
+
+    esp_err_t err = verified ? verify_mark_module_verified(module)
+                             : verify_clear_module_verified(module);
+    if (err != ESP_OK)
+        return send_err(r, "400 Bad Request", "{\"error\":\"nvs\"}");
+    return send_json(r, "{\"status\":\"ok\"}");
+}
+
+static esp_err_t h_verify_replay(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[96];
+    int n = recv_body(r, body, sizeof(body));
+    int64_t run_id = shadow_current_run();
+    if (n > 0) {
+        cJSON *root = cJSON_Parse(body);
+        if (root) {
+            const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "run_id");
+            if (cJSON_IsNumber(v)) run_id = (int64_t)v->valuedouble;
+            cJSON_Delete(root);
+        }
+    }
+    if (run_id <= 0)
+        return send_err(r, "400 Bad Request", "{\"error\":\"run_id\"}");
+
+    float max_err = 0.0f;
+    int rows = 0;
+    esp_err_t err = verify_db_replay(run_id, shadow_pid_preview, &max_err, &rows);
+
+    char json[160];
+    snprintf(json, sizeof(json),
+             "{\"ok\":%d,\"run_id\":%lld,\"rows\":%d,\"max_err\":%.6f}",
+             err == ESP_OK ? 1 : 0, (long long)run_id, rows,
+             (double)max_err);
+    return send_json(r, json);
+}
+
+static esp_err_t h_verify_fuzz(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    verify_fuzz_result_t res;
+    esp_err_t err = verify_fuzz_anomaly(&res);
+    char json[128];
+    snprintf(json, sizeof(json),
+             "{\"ok\":%d,\"tp\":%d,\"fp\":%d,\"fn\":%d,\"injected\":%d}",
+             err == ESP_OK ? 1 : 0, res.tp, res.fp, res.fn, res.injected);
+    return send_json(r, json);
+}
+
 static esp_err_t h_env(httpd_req_t *r) {
     char json[384];
     snprintf(json, sizeof(json),
@@ -1813,6 +1987,13 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/session/stop",        .method=HTTP_POST, .handler=h_session_stop },
         { .uri="/api/param",               .method=HTTP_GET,  .handler=h_param_get },
         { .uri="/api/param",               .method=HTTP_POST, .handler=h_param_post },
+        { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },
+        { .uri="/api/verify/shadow",       .method=HTTP_POST, .handler=h_verify_shadow },
+        { .uri="/api/verify/stage",        .method=HTTP_POST, .handler=h_verify_stage },
+        { .uri="/api/verify/action",       .method=HTTP_POST, .handler=h_verify_action },
+        { .uri="/api/verify/module",       .method=HTTP_POST, .handler=h_verify_module },
+        { .uri="/api/verify/replay",       .method=HTTP_POST, .handler=h_verify_replay },
+        { .uri="/api/verify/fuzz",         .method=HTTP_POST, .handler=h_verify_fuzz },
         { .uri="/api/env",                 .method=HTTP_GET,  .handler=h_env },
     };
     for (size_t i = 0; i < sizeof(extra)/sizeof(*extra); i++) {

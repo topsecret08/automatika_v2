@@ -17,9 +17,15 @@ idf_component_register(
         "test_sensor_pipeline.c"
         "test_selection_logic.c"
         "test_interface_conflicts.c"
+        "test_pid_metrics.c"
+        "test_verify_fuzz.c"
+        "test_alcohol_balance.c"
         "${PROD_DIR}/hal/temp_filter.c"
         "${PROD_DIR}/hal/sensor_pipeline.c"
         "${PROD_DIR}/control/select_algorithm.c"
+        "${PROD_DIR}/control/alcohol_balance.c"
+        "${PROD_DIR}/verify/pid_metrics.c"
+        "${PROD_DIR}/verify/verify_fuzz.c"
         "${PROD_DIR}/level/level_sensor.c"
         "${PROD_DIR}/core/event_log.c"
         "${PROD_DIR}/core/events.c"
@@ -31,10 +37,12 @@ idf_component_register(
         "${PROD_DIR}/hal"
         "${PROD_DIR}/level"
         "${PROD_DIR}/control"
+        "${PROD_DIR}/verify"
     PRIV_REQUIRES
         unity
         driver
         esp_timer
+        nvs_flash
         sdmmc
     WHOLE_ARCHIVE
 )

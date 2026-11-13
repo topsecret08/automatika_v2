@@ -1,5 +1,7 @@
 #include "ctrl_heater.h"
 #include "regulator_driver.h"
+#include "safety_gate.h"
+#include "verify/shadow.h"
 #include "hal/hal_dac.h"
 #include "hal/hal_1wire.h"
 #include "control/ctrl_safety.h"
@@ -38,7 +40,7 @@ static float trend_guard(float pct) {
     return pct;
 }
 
-void ctrl_heater_set_percent(float pct) {
+void ctrl_heater_set_raw(float pct) {
     if (pct < 0) pct = 0;
     if (pct > 100) pct = 100;
 
@@ -57,6 +59,11 @@ void ctrl_heater_set_percent(float pct) {
         hal_dac_set_percent(out);
     }
     state_get()->power_percent = out;
+    shadow_tick_heater(out);
+}
+
+void ctrl_heater_set_percent(float pct) {
+    (void)safety_gate_apply("heater_core", pct);
 }
 
 float ctrl_heater_get_percent(void) { return s_pct; }
@@ -64,19 +71,7 @@ float ctrl_heater_get_percent(void) { return s_pct; }
 bool ctrl_heater_trend_cut_active(void) { return s_trend_cut; }
 
 bool ctrl_heater_service_set(float pct) {
-    if (estop_is_pressed() || !ctrl_safety_ok()) return false;
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
-
-    s_pct = pct;
-    if (regulator_is_external()) {
-        hal_dac_set_percent(0);
-        regulator_set_power(pct);
-    } else {
-        hal_dac_set_percent(pct);
-    }
-    state_get()->power_percent = pct;
-    return true;
+    return safety_gate_apply("heater_service", pct) == ESP_OK;
 }
 
 void ctrl_heater_task(void *arg) {

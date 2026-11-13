@@ -80,6 +80,9 @@
 
 #include "db/db_manager.h"
 #include "db/db_logger.h"
+#include "verify/verify_config.h"
+#include "verify/verify_db.h"
+#include "verify/shadow.h"
 #include "web/web_server.h"
 #include "web/mqtt_app.h"
 #include "web/telegram_bot.h"
@@ -207,6 +210,7 @@ void app_main(void) {
     sensor_calib_init();
     ctrl_safety_init();
     fsel_init();
+    verify_config_init();
     alcohol_init_t abv_cfg;
     abv_config_load(&abv_cfg);
     abv_init(&abv_cfg);
@@ -215,6 +219,8 @@ void app_main(void) {
     reflux_init(REFLUX_RATIO_DEFAULT);
 
     db_init();
+    verify_db_init();
+    shadow_init();
 
     cache_init(2 * 1024 * 1024);
     predictor_init();

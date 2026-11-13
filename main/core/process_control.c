@@ -9,6 +9,7 @@
 #include "control/ctrl_safety.h"
 #include "control/alcohol_balance.h"
 #include "control/fraction_periodic.h"
+#include "verify/shadow.h"
 #include "modes/mode_base.h"
 
 #include <string.h>
@@ -76,6 +77,8 @@ esp_err_t process_control_start(const char *mode_id) {
     s->is_running = true;
     s->is_paused = false;
     session_note_process_running(true);
+    if (verify_get_shadow_policy() != SHADOW_OFF)
+        shadow_start_run(m->id ? m->id : "process");
 
     events_log(EVENT_INFO, "Process start: %s", m->id ? m->id : "?");
     return ESP_OK;
@@ -90,6 +93,7 @@ void process_control_stop(void) {
     s->is_running = false;
     s->is_paused = false;
     session_note_process_running(false);
+    shadow_finish_run("{}");
 
     events_log(EVENT_INFO, "Process stop");
 }
