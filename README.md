@@ -272,7 +272,7 @@ NVS flash
 | Авторизация REST | `web/api_auth.{h,c}` | Заголовок `X-API-Key`, сравнение за постоянное время |
 | Фильтр сигнала | `hal/temp_filter.{h,c}` | окно `FILTER_WINDOW`, среднее, линейный тренд °C/мин, `temp_filter_is_rising()` |
 | Регулятор | `control/ctrl_pid.c`, `control/autopid_glue.cpp`, `control/autopid_c.h` | режимы PID (AutoPID) и PWM/bang-bang (`HYS`) |
-| Дозатор отбора | `control/ctrl_dose.{h,c}` | шаговый насос (`PUMP_STEP_GPIO`/`PUMP_EN_GPIO`) или клапан |
+| Дозатор отбора | `control/ctrl_dose.{h,c}`, `control/pump_doser.{h,c}` | шаговый насос (`PUMP_STEP_GPIO`/`PUMP_EN_GPIO`) или клапан; `pump_dose_volume()` — фасад с очередью |
 | E-STOP | `core/estop.{h,c}` | аппаратная кнопка `ESTOP_GPIO`, ISR + опрос, защёлка |
 | Lua | `script/lua_engine.{h,c}` | Lua 5.5.1, задача на ядре 0, лимиты, белый список |
 | Диагностика исполнителей | `web/actuator_test.{h,c}` | `/api/diag/*`, только в сервисном режиме |
@@ -329,7 +329,7 @@ NVS flash
 `control_config_get_output_device()` (`NVS automatika/out_dev`):
 
 - **PUMP** — `ctrl_dose_process()` из режимов копит объём и запускает
-  `ctrl_dose_volume()`, шаги выдаёт задача `doser`;
+  `pump_dose_volume()` (фасад) → `ctrl_dose_volume()`, шаги выдаёт задача `doser`;
 - **VALVE** — доля открытия = `rate / flow_mlmin` (калиброванный расход).
   Для соленоида предусмотрен ШИМ-выход (`ctrl_dose_enable_solenoid_pwm()`,
   `SOLENOID_PWM_GPIO=-1` — нет свободного пина, задаётся вручную).
@@ -659,6 +659,46 @@ curl -X POST -H "X-API-Key: <KEY>" -d '{"power":55}' http://192.168.1.50/api/pow
 `GET /api/state` без ключа отвечает **200** только если ключ не задан
 (первичный сервисный режим); как только ключ задан — все запросы без него
 получают `401 {"error":"unauthorized"}`. Лог отказов — событие `API 401`.
+
+### E-STOP
+
+```bash
+# статус
+curl -H "X-API-Key: $KEY" http://192.168.1.50/api/estop
+# подтвердить отпускание кнопки (снять защёлку ISR)
+curl -X POST -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+     -d '{"action":"ack"}' http://192.168.1.50/api/estop
+# сбросить защиту после устранения причины
+curl -X POST -H "X-API-Key: $KEY" http://192.168.1.50/api/safety
+```
+
+Кнопка E-STOP — **NC-контакт на GND** (`ESTOP_GPIO`, дребезг 50 мс).
+Нажатие обрабатывает ISR, защёлка живёт в `ctrl_safety`: нагрев и реле
+обесточиваются, процесс останавливается. `ack` срабатывает только когда
+кнопка физически отпущена; `POST /api/safety` дополнительно требует
+остановленный процесс и нулевую мощность нагрева.
+
+### Сервисные эндпоинты
+
+```bash
+# сервисный режим (без него /api/diag/actuators отвечает 403)
+curl -X POST -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+     -d '{"enabled":true}' http://192.168.1.50/api/diag/service
+
+# проверка исполнительных механизмов
+curl -X POST -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+     -d '{"actuator":"valve","action":"open"}' http://192.168.1.50/api/diag/actuators
+curl -X POST -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+     -d '{"actuator":"pump","action":"dose","ml":10,"rate":60}' http://192.168.1.50/api/diag/actuators
+curl -X POST -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+     -d '{"actuator":"heater","action":"on","pct":20,"seconds":5}' http://192.168.1.50/api/diag/actuators
+```
+
+`pump_dose_volume()` (`control/pump_doser.c`) — публичный фасад дозатора:
+проверяет `steps_per_ml`/`max_steps`, ставит объём в очередь задачи `doser`
+(ядро 0, приоритет 4) и не блокирует HTTP-поток. Выбор «клапан или насос» —
+`control_config_get_output_device()` (NVS `out_dev`): для клапана
+используется `flow_mlmin`, для насоса — `steps_per_ml`.
 
 ---
 

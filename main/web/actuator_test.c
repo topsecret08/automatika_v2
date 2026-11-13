@@ -3,6 +3,7 @@
 #include "rate_limit.h"
 
 #include "control/ctrl_dose.h"
+#include "control/pump_doser.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_valve_control.h"
@@ -97,7 +98,7 @@ static esp_err_t h_diag_actuators(httpd_req_t *req) {
             if (cJSON_IsNumber(j)) ml = j->valuedouble;
             j = cJSON_GetObjectItemCaseSensitive(root, "rate");
             if (cJSON_IsNumber(j)) rate = j->valuedouble;
-            ok = ctrl_dose_volume((float)ml, (float)rate);
+            ok = (pump_dose_volume((float)ml, (float)rate) == ESP_OK);
             if (!ok) {
                 prehandled = true;
                 httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,

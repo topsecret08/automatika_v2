@@ -19,7 +19,7 @@ idf_component_register(
         "hal/hal_sd.c" "hal/hal_hx711.c" "hal/hal_usb.c"
         "hal/baro.c" "hal/flow_sensor.c" "hal/pressure_sensor.c"
         "control/ctrl_safety.c" "control/ctrl_pid.c" "control/autopid_glue.cpp"
-        "control/ctrl_heater.c" "control/ctrl_dose.c"
+        "control/ctrl_heater.c" "control/ctrl_dose.c" "control/pump_doser.c"
         "control/ctrl_valves.c" "control/ctrl_valve_control.c"
         "control/ctrl_forecast.c" "control/valve_calibration.c"
         "control/ctrl_scale.c" "control/ctrl_autolearn.c"

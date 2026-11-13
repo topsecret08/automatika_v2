@@ -54,6 +54,12 @@ managed-компонентов, которых нет в офлайн-кэше).
     секретов и `sendDocument` с проверкой сертификата (`web/tg_backup.c`).
 
 ### Прочее
+- `control/pump_doser.{h,c}` — публичный фасад дозатора
+  (`pump_calib_load/save`, `pump_dose_volume`); `/api/dose` и
+  `/api/diag/actuators` используют его, работа идёт через очередь `doser`
+  и не блокирует HTTP-поток.
+- Все POST-обработчики проверяют `api_check_auth()` (кроме webhook
+  `/alice` с `X-Skill-Token` и telegram-webhook с секретом).
 - **Устойчивость SD** — probe/remount, очередь записей в PSRAM,
   сброс в `/sdcard/logs/resilience.log` (`core/sd_resilience.c`).
 - **Безопасная OTA** — `esp_https_ota` + `esp_crt_bundle`, запрет

@@ -26,6 +26,7 @@
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_dose.h"
+#include "control/pump_doser.h"
 #include "control/ctrl_pid.h"
 #include "control/fraction_logic.h"
 #include "control/pid_autotune.h"
@@ -354,7 +355,13 @@ static esp_err_t h_dose(httpd_req_t *r) {
     cJSON_Delete(root);
 
     if (ml <= 0.0f) return send_err(r, "400 Bad Request", "{\"error\":\"volume_ml\"}");
-    if (!ctrl_dose_volume(ml, rm))
+    esp_err_t derr = pump_dose_volume(ml, rm);
+    if (derr == ESP_ERR_INVALID_SIZE)
+        return send_err(r, "400 Bad Request",
+                        "{\"error\":\"volume exceeds DOSER_MAX_DOSE_ML\"}");
+    if (derr == ESP_ERR_INVALID_ARG)
+        return send_err(r, "400 Bad Request", "{\"error\":\"invalid volume/rate\"}");
+    if (derr != ESP_OK)
         return send_err(r, "409 Conflict", "{\"error\":\"dose rejected\"}");
 
     return send_json(r, "{\"status\":\"ok\"}");
