@@ -3,11 +3,11 @@
 // Версия кэша привязана к прошивке: при обновлении FW_VERSION меняйте
 // CACHE_NAME, иначе браузер продолжит отдавать старый app shell.
 // API и WebSocket не кэшируются принципиально: это живые данные.
-const CACHE_NAME = 'automatika-v293-ios-1';
+const CACHE_NAME = 'automatika-v293-ios-2';
 const STATIC_ASSETS = [
   '/', '/index.html',
   '/css/tokens.css', '/css/components.css',
-  '/js/app.js',
+  '/js/app.js', '/js/menu.js',
   '/offline.html', '/manifest.json',
   '/icons/icon-192.png', '/icons/icon-512.png',
   '/icons/icon-maskable-512.png', '/icons/apple-touch-icon.png'

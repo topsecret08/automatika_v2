@@ -16,8 +16,9 @@
     { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Дашборд", "url": "/?page=dashboard", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Журнал", "url": "/?page=log", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Настройки", "url": "/?page=settings", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Работа", "url": "/?tab=work", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Подготовка", "url": "/?tab=prepare", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Диагностика", "url": "/?tab=diagnose", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Система", "url": "/?tab=system", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

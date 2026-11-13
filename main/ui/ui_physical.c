@@ -1,5 +1,6 @@
 #include "ui_physical.h"
 #include "config.h"
+#include "ui_menu.h"
 
 #include "core/events.h"
 #include "core/state.h"
@@ -8,6 +9,7 @@
 
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -47,6 +49,32 @@ void ui_physical_init(void) {
     led_init(LED_POWER_GPIO);
     led_init(LED_HEAT_GPIO);
     led_init(LED_ALARM_GPIO);
+
+#if ENCODER_A_GPIO >= 0 && ENCODER_B_GPIO >= 0
+    if (ENCODER_A_GPIO >= 0 && ENCODER_B_GPIO >= 0) {
+        gpio_config_t enc = {
+            .pin_bit_mask = (1ULL << ENCODER_A_GPIO) | (1ULL << ENCODER_B_GPIO),
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_ENABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        gpio_config(&enc);
+        ESP_LOGI(TAG, "encoder A=%d B=%d", ENCODER_A_GPIO, ENCODER_B_GPIO);
+    }
+#endif
+#if ENCODER_BTN_GPIO >= 0
+    if (ENCODER_BTN_GPIO >= 0) {
+        gpio_config_t btn = {
+            .pin_bit_mask = 1ULL << ENCODER_BTN_GPIO,
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_ENABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        gpio_config(&btn);
+    }
+#endif
 
     if (BUZZER_GPIO >= 0) {
         gpio_config_t io = {
@@ -89,6 +117,40 @@ void ui_physical_set_led_heat(bool on) {
 void ui_physical_set_led_alarm(bool on) {
     s_alarm_led = on;
     led_write(LED_ALARM_GPIO, on);
+}
+
+// Квадратурный энкодер: таблица переходов (prev<<2 | curr).
+// 0 — нет движения, +1/-1 — детент. Дребезг не критичен: один детент
+// может дать несколько шагов, поэтому шаг ограничен одним вызовом.
+void ui_physical_poll_encoder(void) {
+    if (ENCODER_A_GPIO < 0 || ENCODER_B_GPIO < 0) return;
+
+    static const int8_t table[16] = {
+        0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0
+    };
+    static int prev_state = 0;
+    static bool btn_prev = false;
+    static int64_t press_us = 0;
+
+    int state = (gpio_get_level((gpio_num_t)ENCODER_A_GPIO) << 1) |
+                gpio_get_level((gpio_num_t)ENCODER_B_GPIO);
+    int delta = table[(prev_state << 2) | state];
+    prev_state = state;
+    if (delta != 0) ui_menu_encoder_rotate(delta);
+
+    if (ENCODER_BTN_GPIO >= 0) {
+        bool down = gpio_get_level((gpio_num_t)ENCODER_BTN_GPIO) == 0;
+        int64_t now = esp_timer_get_time();
+
+        if (down && !btn_prev) {
+            press_us = now;
+        } else if (!down && btn_prev) {
+            int64_t held_ms = (now - press_us) / 1000;
+            if (held_ms >= ENCODER_LONG_PRESS_MS) ui_menu_encoder_long_press();
+            else ui_menu_encoder_press();
+        }
+        btn_prev = down;
+    }
 }
 
 void ui_physical_task(void *arg) {

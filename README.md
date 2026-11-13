@@ -1045,6 +1045,9 @@ UI построен на LVGL 8.3: 480×320, сенсорный ввод, рус
 `main/ui/fonts/lv_font_cyr_16/24.c`: встроенный LVGL Montserrat не содержит
 кириллицу. Шрифты сгенерированы из Segoe UI; при публикации проекта
 замените их на OFL-шрифт с тем же набором глифов.
+Меню сгруппировано по задачам: **Работа** (дашборд, фракция),
+**Подготовка** (профили, калибровка, PID, датчики), **Диагностика**
+(журнал, приводы, health, сеть), **Система** (OTA, API, язык, о проекте).
 Главное меню содержит **25 разделов**:
 
 | Раздел | Что внутри |
@@ -1085,9 +1088,11 @@ UI построен на LVGL 8.3: 480×320, сенсорный ввод, рус
 После подключения к Wi-Fi откройте `http://<IP-устройства>/` (или
 `https://automatika.local/` для PWA).
 
-Встроенные файлы: `index.html`, `js/app.js`, `css/tokens.css`,
-`css/components.css`, `charts.js`, `api.js`, `ws.js`, `recipes.js`,
-`settings.js`, `manifest.json`, `sw.js`, `offline.html`, `icons/*.png`.
+Встроенные файлы: `index.html`, `js/app.js`, `js/menu.js`,
+`css/tokens.css`, `css/components.css`, `charts.js`, `api.js`, `ws.js`,
+`recipes.js`, `settings.js`, `manifest.json`, `sw.js`, `offline.html`,
+`icons/*.png`. Меню сгруппировано по задачам: **Работа**, **Подготовка**,
+**Диагностика**, **Система** — одинаково в PWA, на LCD и в Telegram.
 Интерфейс оформлен в стиле iOS / Liquid Glass: 8pt-сетка, tap-target
 44 px, радиусы 12/20, стекло только в шапке и нижней навигации.
 Те же файлы лежат в `littlefs/` и собираются в образ раздела `assets`;
@@ -1213,6 +1218,8 @@ WebSocket `/ws` отправляет текстовые кадры:
   контролы, поля, tab bar, toast, журнал.
 - `littlefs/js/app.js` — роутер, WebSocket-телеметрия, график, API-ключ,
   генерация первого ключа, установка PWA.
+- `littlefs/js/menu.js` — единая карта из 4 групп задач и рендер
+  таб-бара/субменю; используется и роутером PWA.
 - `littlefs/icons/*.png` — иконки 192, 512, maskable 512, apple-touch 180.
 - `littlefs/offline.html` — заглушка при недоступном устройстве.
 

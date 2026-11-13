@@ -4,6 +4,8 @@
 #include "ui_anim.h"
 #include "ui_ios_theme.h"
 #include "ui_screen_ios.h"
+#include "ui_menu.h"
+#include "ui_physical.h"
 #include "hal/hal_display.h"
 #include "core/menu_engine.h"
 #include "core/menu_tree.h"
@@ -44,7 +46,7 @@ static void cb_restart_process(lv_event_t *e) {
 
 static void cb_back_to_menu(lv_event_t *e) {
     (void)e;
-    ui_main_menu();
+    ui_menu_show_root(0);
 }
 
 static void cb_toast_timer(lv_timer_t *t) {
@@ -73,6 +75,11 @@ static void clear_screen(void) {
 }
 
 void ui_main_menu(void) {
+    // Старое меню по функциям заменено на 4 группы по задачам.
+    // Оставляем функцию как точку совместимости для старых экранов.
+    ui_menu_show_root(0);
+    return;
+
     ui_navigate(SCR_MAIN_MENU);
     clear_screen();
     menu_engine_init(&g_menu, &MENU_ROOT, NULL);
@@ -166,6 +173,18 @@ void ui_screen_dashboard_ios_create(void) {
     ui_screen_dashboard_ios_build(g_screen);
 }
 
+void ui_menu_show_root(int selected_tab) {
+    ui_menu_set_state(selected_tab, 0, 0);
+    clear_screen();
+    ui_menu_build_root(g_screen, selected_tab);
+}
+
+void ui_menu_show_group(int tab, int selected_item) {
+    ui_menu_set_state(tab, 1, selected_item);
+    clear_screen();
+    ui_menu_build_group(g_screen, tab, selected_item);
+}
+
 void ui_task(void *arg) {
     (void)arg;
     wd_register("ui", 2000, false);
@@ -179,6 +198,7 @@ void ui_task(void *arg) {
     while (1) {
         WD_FEED("ui");
         hal_display_lock();
+        ui_physical_poll_encoder();
         lv_timer_handler();
         hal_display_unlock();
 

@@ -311,6 +311,17 @@
 #define WEB_CERT_PEM_MAX        2048
 #define WEB_KEY_PEM_MAX         1024
 
+// ------------------------------------------------------------
+// Физический энкодер (KY-040 / EC11)
+// ------------------------------------------------------------
+// На текущей ревизии платы энкодер не разведён, поэтому -1 = выключен.
+// Если добавите: укажите GPIO A/B/кнопки, ui_physical_poll_encoder()
+// начнёт передавать события в ui_menu_encoder_*.
+#define ENCODER_A_GPIO          -1
+#define ENCODER_B_GPIO          -1
+#define ENCODER_BTN_GPIO        -1
+#define ENCODER_LONG_PRESS_MS   600
+
 // mDNS
 #define MDNS_HOSTNAME       "automatika"
 

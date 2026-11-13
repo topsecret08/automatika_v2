@@ -4,6 +4,7 @@
 #include "core/events.h"
 #include "core/estop.h"
 #include "core/flags.h"
+#include "core/health.h"
 #include "core/process_control.h"
 #include "core/profiles.h"
 #include "core/state.h"
@@ -11,11 +12,14 @@
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/fraction_logic.h"
+#include "control/pid_autotune.h"
 
 #include "cJSON.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -31,11 +35,47 @@ static const char *TAG = "TG_BOT";
 
 static const char *KEYBOARD_MAIN =
     "{\"inline_keyboard\":["
+    "[{\"text\":\"▶ Работа\",\"callback_data\":\"menu_work\"}],"
+    "[{\"text\":\"⚙ Подготовка\",\"callback_data\":\"menu_prepare\"}],"
+    "[{\"text\":\"🔍 Диагностика\",\"callback_data\":\"menu_diagnose\"}],"
+    "[{\"text\":\"🛠 Система\",\"callback_data\":\"menu_system\"}]"
+    "]}";
+
+static const char *KEYBOARD_WORK =
+    "{\"inline_keyboard\":["
+    "[{\"text\":\"Дашборд\",\"callback_data\":\"status\"}],"
+    "[{\"text\":\"Текущая фракция\",\"callback_data\":\"fraction\"}],"
     "[{\"text\":\"Запуск\",\"callback_data\":\"run\"},"
     "{\"text\":\"Стоп\",\"callback_data\":\"stop\"}],"
-    "[{\"text\":\"Статус\",\"callback_data\":\"status\"},"
-    "{\"text\":\"Журнал\",\"callback_data\":\"log\"}],"
-    "[{\"text\":\"Сбросить E-STOP\",\"callback_data\":\"estop_ack\"}]"
+    "[{\"text\":\"Сбросить E-STOP\",\"callback_data\":\"estop_ack\"}],"
+    "[{\"text\":\"← Назад\",\"callback_data\":\"menu_main\"}]"
+    "]}";
+
+static const char *KEYBOARD_PREPARE =
+    "{\"inline_keyboard\":["
+    "[{\"text\":\"Профили\",\"callback_data\":\"profiles\"}],"
+    "[{\"text\":\"Калибровка насоса\",\"callback_data\":\"calibrate\"}],"
+    "[{\"text\":\"PID-автотюн\",\"callback_data\":\"autotune\"}],"
+    "[{\"text\":\"Проверка датчиков\",\"callback_data\":\"sensors\"}],"
+    "[{\"text\":\"← Назад\",\"callback_data\":\"menu_main\"}]"
+    "]}";
+
+static const char *KEYBOARD_DIAGNOSE =
+    "{\"inline_keyboard\":["
+    "[{\"text\":\"Журнал событий\",\"callback_data\":\"log\"}],"
+    "[{\"text\":\"Проверка приводов\",\"callback_data\":\"actuators\"}],"
+    "[{\"text\":\"Состояние\",\"callback_data\":\"health\"}],"
+    "[{\"text\":\"Сеть\",\"callback_data\":\"network\"}],"
+    "[{\"text\":\"← Назад\",\"callback_data\":\"menu_main\"}]"
+    "]}";
+
+static const char *KEYBOARD_SYSTEM =
+    "{\"inline_keyboard\":["
+    "[{\"text\":\"Обновление\",\"callback_data\":\"ota\"}],"
+    "[{\"text\":\"API-ключ\",\"callback_data\":\"api\"}],"
+    "[{\"text\":\"Язык\",\"callback_data\":\"lang\"}],"
+    "[{\"text\":\"О устройстве\",\"callback_data\":\"about\"}],"
+    "[{\"text\":\"← Назад\",\"callback_data\":\"menu_main\"}]"
     "]}";
 
 // ------------------------------------------------------------------
@@ -204,18 +244,85 @@ static char *tg_get_updates(const char *token, long long offset) {
 static void send_help(const char *chat) {
     const char *text =
         "Automatika v2.9.3\n\n"
-        "Команды:\n"
-        "/status — телеметрия\n"
-        "/run — запуск процесса\n"
-        "/stop — остановка\n"
-        "/pause, /resume — пауза\n"
-        "/power 50 — мощность нагрева, %\n"
-        "/fraction — текущая фракция\n"
-        "/setpoint 83.0 — порог куба, °C\n"
-        "/log — последние события\n"
-        "/profile — список профилей\n\n"
-        "Команды принимаются только из этого чата.";
+        "Выберите задачу. Внутри группы — действия; текстовые команды\n"
+        "/status, /run, /stop, /power, /log сохранены для совместимости.";
     tg_send(chat, text, KEYBOARD_MAIN);
+}
+
+static void send_work_menu(const char *chat) {
+    tg_send(chat, "Работа\nУправление процессом:", KEYBOARD_WORK);
+}
+
+static void send_prepare_menu(const char *chat) {
+    tg_send(chat, "Подготовка\nНастройка перед запуском:", KEYBOARD_PREPARE);
+}
+
+static void send_diagnose_menu(const char *chat) {
+    tg_send(chat, "Диагностика\nПроверка состояния:", KEYBOARD_DIAGNOSE);
+}
+
+static void send_system_menu(const char *chat) {
+    tg_send(chat, "Система\nОбслуживание и доступ:", KEYBOARD_SYSTEM);
+}
+
+static void send_sensors(const char *chat) {
+    process_state_t *s = state_get();
+    char buf[320];
+    snprintf(buf, sizeof(buf),
+             "Проверка датчиков\n"
+             "Куб: %.1f °C\n"
+             "Пар: %.1f °C\n"
+             "Давление: %.3f бар\n"
+             "Проток: %.2f л/мин",
+             s->cube_temp, s->column_temp, s->pressure_bar, s->flow_lpm);
+    tg_send(chat, buf, KEYBOARD_PREPARE);
+}
+
+static void send_health(const char *chat) {
+    char buf[320];
+    snprintf(buf, sizeof(buf),
+             "Состояние: %s\nПричина: %s\nE-STOP: %s\nSafety: %s",
+             health_level_name(),
+             health_last_reason()[0] ? health_last_reason() : "—",
+             estop_is_pressed() ? "активен" : "нет",
+             ctrl_safety_ok() ? "ok" : "сработала");
+    tg_send(chat, buf, KEYBOARD_DIAGNOSE);
+}
+
+static void send_network(const char *chat) {
+    int rssi = 0;
+    cJSON *root = cJSON_Parse(health_json());
+    if (root) {
+        cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "wifi_rssi");
+        if (cJSON_IsNumber(v)) rssi = v->valueint;
+        cJSON_Delete(root);
+    }
+    char buf[160];
+    snprintf(buf, sizeof(buf), "Wi-Fi RSSI: %d dBm\nMQTT/Telegram — в веб-интерфейсе.", rssi);
+    tg_send(chat, buf, KEYBOARD_DIAGNOSE);
+}
+
+static void send_autotune_status(const char *chat) {
+    process_state_t *s = state_get();
+    char buf[220];
+    snprintf(buf, sizeof(buf),
+             "PID-автотюн: %s\nKp %.3f / Ki %.4f / Kd %.3f\n\n"
+             "Запуск и остановка — в PWA: Подготовка → PID-автотюн.",
+             pid_autotune_is_running() ? "выполняется" :
+             (pid_autotune_done() ? "готово" : "ожидание"),
+             s->pid_kp, s->pid_ki, s->pid_kd);
+    tg_send(chat, buf, KEYBOARD_PREPARE);
+}
+
+static void send_about(const char *chat) {
+    int64_t uptime = esp_timer_get_time() / 1000000;
+    char buf[220];
+    snprintf(buf, sizeof(buf),
+             "%s\nВерсия: %s\nUptime: %lld ч %lld мин\nHeap: %u КБ",
+             FW_NAME, FW_VERSION,
+             (long long)(uptime / 3600), (long long)((uptime % 3600) / 60),
+             (unsigned)(esp_get_free_heap_size() / 1024));
+    tg_send(chat, buf, KEYBOARD_SYSTEM);
 }
 
 static void send_status(const char *chat) {
@@ -426,7 +533,61 @@ static void handle_callback(cJSON *callback) {
 
     tg_answer(callback_id, "");
 
-    if (strcmp(data, "run") == 0) {
+    if (strcmp(data, "menu_main") == 0) {
+        send_help(chat);
+    } else if (strcmp(data, "menu_work") == 0) {
+        send_work_menu(chat);
+    } else if (strcmp(data, "fraction") == 0) {
+        send_fraction(chat);
+    } else if (strcmp(data, "menu_prepare") == 0) {
+        send_prepare_menu(chat);
+    } else if (strcmp(data, "menu_diagnose") == 0) {
+        send_diagnose_menu(chat);
+    } else if (strcmp(data, "menu_system") == 0) {
+        send_system_menu(chat);
+    } else if (strcmp(data, "profiles") == 0) {
+        send_profiles(chat, "");
+    } else if (strcmp(data, "calibrate") == 0) {
+        tg_send(chat,
+            "Калибровка насоса:\n"
+            "1. Трубка в мерный цилиндр.\n"
+            "2. Доза 10 мл.\n"
+            "3. steps = old × факт / 10.\n"
+            "4. Сохраните steps_per_ml в PWA.",
+            KEYBOARD_PREPARE);
+    } else if (strcmp(data, "autotune") == 0) {
+        send_autotune_status(chat);
+    } else if (strcmp(data, "sensors") == 0) {
+        send_sensors(chat);
+    } else if (strcmp(data, "actuators") == 0) {
+        tg_send(chat,
+            "Проверка приводов выполняется в PWA: Диагностика → Проверка приводов. "
+            "Требуется сервисный режим и подтверждение.",
+            KEYBOARD_DIAGNOSE);
+    } else if (strcmp(data, "health") == 0) {
+        send_health(chat);
+    } else if (strcmp(data, "network") == 0) {
+        send_network(chat);
+    } else if (strcmp(data, "ota") == 0) {
+        tg_send(chat,
+            "OTA: PWA → Система → Обновление. Нужен HTTPS-URL на .bin.",
+            KEYBOARD_SYSTEM);
+    } else if (strcmp(data, "api") == 0) {
+        tg_send(chat,
+            "API-ключ: PWA → Система → API-ключ. Бот использует chat_id, "
+            "но не хранит REST-ключ.",
+            KEYBOARD_SYSTEM);
+    } else if (strcmp(data, "lang") == 0) {
+        tg_send(chat, "Язык: PWA → Система → Язык.", KEYBOARD_SYSTEM);
+    } else if (strcmp(data, "about") == 0) {
+        send_about(chat);
+    } else if (strcmp(data, "frac_0") == 0 || strcmp(data, "frac_1") == 0 ||
+               strcmp(data, "frac_2") == 0) {
+        tg_send(chat,
+            "Ручной выбор фракции не поддерживается: переключение делает "
+            "автоматика по температуре и объёму.",
+            KEYBOARD_WORK);
+    } else if (strcmp(data, "run") == 0 || strcmp(data, "start") == 0) {
         esp_err_t err = process_control_start(NULL);
         tg_send(chat, err == ESP_OK ? "Процесс запущен." :
                 "Запуск запрещён: E-STOP или защита.", KEYBOARD_MAIN);

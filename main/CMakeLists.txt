@@ -49,6 +49,7 @@ idf_component_register(
         "ai/cache_manager.c" "ai/ui_preloader.c"
         "ai/nn_pie.c" "ai/screen_serialize.c"
         "ui/ui.c" "ui/ui_theme.c" "ui/ui_ios_theme.c" "ui/ui_screen_ios.c"
+        "ui/ui_menu.c"
         "ui/fonts/lv_font_cyr_16.c" "ui/fonts/lv_font_cyr_24.c"
         "ui/ui_builder.c"
         "ui/ui_screens.c" "ui/ui_screens_full.c" "ui/ui_welcome.c"
@@ -84,7 +85,7 @@ idf_component_register(
     # офлайн-страница и иконки. Символы _binary_*_start/end не меняются,
     # потому что IDF берёт только basename файла.
     EMBED_FILES
-        "${WEB_DIR}/index.html" "${WEB_DIR}/js/app.js"
+        "${WEB_DIR}/index.html" "${WEB_DIR}/js/app.js" "${WEB_DIR}/js/menu.js"
         "${WEB_DIR}/css/tokens.css" "${WEB_DIR}/css/components.css"
         "${WEB_DIR}/charts.js" "${WEB_DIR}/api.js" "${WEB_DIR}/ws.js"
         "${WEB_DIR}/recipes.js" "${WEB_DIR}/settings.js"

@@ -32,6 +32,8 @@ extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 extern const uint8_t app_js_start[]     asm("_binary_app_js_start");
 extern const uint8_t app_js_end[]       asm("_binary_app_js_end");
+extern const uint8_t menu_js_start[]    asm("_binary_menu_js_start");
+extern const uint8_t menu_js_end[]      asm("_binary_menu_js_end");
 extern const uint8_t tokens_css_start[] asm("_binary_tokens_css_start");
 extern const uint8_t tokens_css_end[]   asm("_binary_tokens_css_end");
 extern const uint8_t components_css_start[] asm("_binary_components_css_start");
@@ -107,6 +109,10 @@ static esp_err_t h_index(httpd_req_t *r) {
 static esp_err_t h_appjs(httpd_req_t *r) {
     return send_embedded(r, "/js/app.js", "application/javascript; charset=utf-8",
                          app_js_start, app_js_end);
+}
+static esp_err_t h_menujs(httpd_req_t *r) {
+    return send_embedded(r, "/js/menu.js", "application/javascript; charset=utf-8",
+                         menu_js_start, menu_js_end);
 }
 static esp_err_t h_tokens(httpd_req_t *r) {
     return send_embedded(r, "/css/tokens.css", "text/css; charset=utf-8",
@@ -318,6 +324,7 @@ static void register_static(httpd_handle_t srv) {
         { .uri="/",              .method=HTTP_GET, .handler=h_index },
         { .uri="/index.html",    .method=HTTP_GET, .handler=h_index },
         { .uri="/js/app.js",     .method=HTTP_GET, .handler=h_appjs },
+        { .uri="/js/menu.js",    .method=HTTP_GET, .handler=h_menujs },
         { .uri="/app.js",        .method=HTTP_GET, .handler=h_appjs },
         { .uri="/css/tokens.css",     .method=HTTP_GET, .handler=h_tokens },
         { .uri="/css/components.css", .method=HTTP_GET, .handler=h_components },

@@ -197,7 +197,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | Путь | Тип | Кэш |
 |---|---|---|
 | `/` | `text/html` | `no-cache` |
-| `/js/app.js`, `/css/tokens.css`, `/css/components.css` | JS/CSS | `public, max-age=86400` |
+| `/js/app.js`, `/js/menu.js`, `/css/tokens.css`, `/css/components.css` | JS/CSS | `public, max-age=86400` |
 | `/app.js`, `/style.css` | алиасы совместимости | `public, max-age=86400` |
 | `/manifest.json` | `application/manifest+json` | `public, max-age=3600` |
 | `/sw.js` | JS + `Service-Worker-Allowed: /` | `no-cache` |

@@ -1,6 +1,7 @@
 #include "ui_screen_ios.h"
 #include "ui.h"
 #include "ui_ios_theme.h"
+#include "ui_menu.h"
 
 #include "core/estop.h"
 #include "core/process_control.h"
@@ -105,7 +106,7 @@ static void stop_cb(lv_event_t *event) {
 
 static void menu_cb(lv_event_t *event) {
     (void)event;
-    ui_main_menu();
+    ui_menu_show_root(0);
 }
 
 static lv_obj_t *make_caption(lv_obj_t *parent, const char *text) {

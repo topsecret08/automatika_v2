@@ -14,6 +14,10 @@
 void ui_physical_init(void);
 void ui_physical_task(void *arg);
 
+// Опрос энкодера (A/B/кнопка). Вызывать из задачи UI под hal_display_lock(),
+// частота 20–50 мс. Если ENCODER_*_GPIO == -1, функция ничего не делает.
+void ui_physical_poll_encoder(void);
+
 // Неблокирующий запрос звукового сигнала (0 — игнорировать).
 void ui_physical_beep(int ms);
 

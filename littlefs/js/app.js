@@ -7,6 +7,14 @@
 // Телеметрия — /ws/telemetry. Никаких несуществующих /api/fraction
 // и /api/sensors/* здесь нет.
 
+import {
+  MENU,
+  groupForPage,
+  pageTitle,
+  renderTabBar,
+  renderSubMenu
+} from './menu.js';
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -219,41 +227,74 @@ function volumeMl() {
 // Роутер
 // ------------------------------------------------------------------
 const PAGES = {
-  dashboard: { title: 'Дистилляция', render: renderDashboard },
-  fractions: { title: 'Фракции', render: renderFractions },
-  settings: { title: 'Настройки', render: renderSettings },
-  log: { title: 'Журнал', render: renderLog }
+  dashboard: { render: renderDashboard },
+  fraction: { render: renderFraction },
+  profiles: { render: renderProfiles },
+  calibration: { render: renderCalibration },
+  autotune: { render: renderAutotune },
+  sensors: { render: renderSensors },
+  log: { render: renderLog },
+  actuators: { render: renderActuators },
+  health: { render: renderHealth },
+  network: { render: renderNetwork },
+  ota: { render: renderOta },
+  api: { render: renderApi },
+  lang: { render: renderLang },
+  about: { render: renderAbout }
 };
 
-function pageFromLocation() {
+function currentRoute() {
   const params = new URLSearchParams(location.search);
-  const query = params.get('page');
-  const hash = (location.hash || '').replace('#', '');
-  const page = query || hash || 'dashboard';
-  return PAGES[page] ? page : 'dashboard';
+  const page = params.get('page');
+  const tab = params.get('tab');
+  if (page && PAGES[page]) return { type: 'page', value: page };
+  if (tab && MENU[tab]) return { type: 'group', value: tab };
+  return { type: 'page', value: 'dashboard' };
 }
 
-function navigate(page, push = true) {
+function setHistory(params) {
+  const url = new URL(location.href);
+  url.search = '';
+  url.hash = '';
+  for (const [key, value] of Object.entries(params)) {
+    if (value) url.searchParams.set(key, value);
+  }
+  history.pushState(params, '', url.toString());
+}
+
+function showPage(page, push = true) {
   if (!PAGES[page]) page = 'dashboard';
   currentPage = page;
-  if (push) {
-    const url = new URL(location.href);
-    url.searchParams.set('page', page);
-    url.hash = '';
-    history.pushState({ page }, '', url.toString());
-  }
+  const group = groupForPage(page);
+
+  if (push) setHistory({ page });
+  renderTabBar(group);
   const title = $('#page-title');
-  if (title) title.textContent = PAGES[page].title;
-  $$('.tab-bar a').forEach((a) => {
-    a.classList.toggle('active', a.dataset.page === page);
-  });
+  if (title) title.textContent = pageTitle(page);
+
   chart = null;
   PAGES[page].render();
   renderLiveValues();
 }
 
+function showGroup(group, push = true) {
+  if (!MENU[group]) group = 'work';
+  currentPage = 'group:' + group;
+
+  if (push) setHistory({ tab: group });
+  renderTabBar(group);
+  const title = $('#page-title');
+  if (title) title.textContent = MENU[group].label;
+
+  const app = $('#app');
+  if (app) app.innerHTML = renderSubMenu(group);
+  renderLiveValues();
+}
+
 function router() {
-  navigate(pageFromLocation(), false);
+  const route = currentRoute();
+  if (route.type === 'group') showGroup(route.value, false);
+  else showPage(route.value, false);
 }
 
 // ------------------------------------------------------------------
@@ -515,7 +556,7 @@ async function runAction(action) {
   if (!path) return;
 
   if (!apiKey()) {
-    toast('Сначала задайте API-ключ в Настройках');
+    toast('Сначала задайте API-ключ: Система → API-ключ');
     return;
   }
 
@@ -540,7 +581,7 @@ async function runAction(action) {
 // ------------------------------------------------------------------
 // Фракции
 // ------------------------------------------------------------------
-function renderFractions() {
+function renderFraction() {
   const fraction = fractionFromStage(state.stage);
   const app = $('#app');
   if (!app) return;
@@ -605,7 +646,7 @@ function renderFractions() {
 }
 
 function updateFractionsLive() {
-  if (currentPage !== 'fractions') return;
+  if (currentPage !== 'fraction') return;
 
   const fraction = fractionFromStage(state.stage);
   const name = $('#fraction-name');
@@ -620,33 +661,11 @@ function updateFractionsLive() {
 // ------------------------------------------------------------------
 // Настройки
 // ------------------------------------------------------------------
-function renderSettings() {
+function renderCalibration() {
   const app = $('#app');
   if (!app) return;
 
   app.innerHTML = `
-    <section class="section">
-      <div class="section-title">Доступ</div>
-      <div class="card">
-        <div class="field">
-          <label class="field-label" for="api-key">API-ключ (X-API-Key)</label>
-          <input id="api-key" class="input" type="password" autocomplete="off"
-                 placeholder="32 hex-символа">
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" type="button" id="key-save">Сохранить</button>
-          <button class="btn btn-secondary" type="button" id="key-generate">Сгенерировать</button>
-        </div>
-        <div class="btn-row mt-8">
-          <button class="btn btn-secondary btn-block" type="button" id="key-clear">Забыть ключ</button>
-        </div>
-        <p class="hint mt-8">
-          Ключ хранится только в localStorage этого браузера. Пока ключ не создан,
-          устройство разрешает bootstrap-генерацию один раз.
-        </p>
-      </div>
-    </section>
-
     <section class="section">
       <div class="section-title">Регулирование</div>
       <form id="control-form" class="card">
@@ -686,6 +705,580 @@ function renderSettings() {
     </section>
 
     <section class="section">
+      <div class="section-title">Проверка дозатора</div>
+      <div class="card">
+        <p class="hint">
+          Поставьте трубку в мерный цилиндр. После дозы замерьте объём:
+          шаги = старые шаги × факт / 10. Сохраните новое значение выше.
+        </p>
+        <div class="btn-row mt-8">
+          <button class="btn btn-secondary" type="button" data-dose="10">10 мл</button>
+          <button class="btn btn-secondary" type="button" data-dose="50">50 мл</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  $$('[data-dose]', app).forEach((button) => {
+    button.addEventListener('click', async () => {
+      const volume = Number(button.dataset.dose || 10);
+      try {
+        const response = await postJson('/api/dose', {
+          volume_ml: volume,
+          rate_mlmin: Number($('#rate')?.value || 60)
+        });
+        if (!response.ok) throw new Error(String(response.status));
+        toast('Дозирование ' + volume + ' мл запущено');
+      } catch (_) {
+        toast('Не удалось запустить дозатор');
+      }
+    });
+  });
+
+  bindSegmented('#ctrl-seg');
+  bindSegmented('#out-seg');
+
+  $('#control-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const body = {
+      ctrl_mode: Number($('#ctrl-seg .active')?.dataset.val || 0),
+      out_dev: Number($('#out-seg .active')?.dataset.val || 0),
+      rate_mlmin: Number($('#rate')?.value || 0),
+      hys: Number($('#hys')?.value || 0),
+      steps_per_ml: Number($('#steps')?.value || 1)
+    };
+    try {
+      const response = await postJson('/api/control', body);
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Настройки сохранены');
+    } catch (_) {
+      toast('Не удалось сохранить настройки');
+    }
+  });
+
+  loadControlSettings();
+}
+
+async function renderProfiles() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="section-title">Сохранённые профили</div>
+      <div id="profile-list" class="card"><div class="empty">Загрузка…</div></div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Создать / изменить</div>
+      <form id="profile-form" class="card">
+        <div class="field">
+          <label class="field-label" for="profile-name">Имя профиля</label>
+          <input id="profile-name" class="input" type="text" maxlength="31" placeholder="default">
+        </div>
+        <div class="field">
+          <label class="field-label" for="profile-json">JSON профиля</label>
+          <textarea id="profile-json" class="input profile-json" rows="7" spellcheck="false">{}</textarea>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Сохранить профиль</button>
+        <p class="hint mt-8">
+          Профиль — JSON с уставками. Выбор профиля для процесса выполняется
+          на устройстве; здесь можно создать, прочитать и удалить файл.
+        </p>
+      </form>
+    </section>
+  `;
+
+  $('#profile-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = ($('#profile-name')?.value || '').trim();
+    const raw = ($('#profile-json')?.value || '').trim();
+    if (!name) { toast('Укажите имя профиля'); return; }
+    let profile;
+    try { profile = JSON.parse(raw || '{}'); } catch (_) {
+      toast('JSON некорректен'); return;
+    }
+    if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
+      toast('Профиль должен быть JSON-объектом'); return;
+    }
+    try {
+      const response = await postJson('/api/profiles', { name, profile });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Профиль сохранён');
+      loadProfiles();
+    } catch (_) {
+      toast('Не удалось сохранить профиль');
+    }
+  });
+
+  loadProfiles();
+}
+
+async function loadProfiles() {
+  const list = $('#profile-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty">Загрузка…</div>';
+
+  try {
+    const response = await api('/api/profiles');
+    if (!response.ok) {
+      const message = response.status === 401
+        ? 'Нужен API-ключ: Система → API-ключ'
+        : 'Ошибка ' + response.status;
+      list.innerHTML = `<div class="empty">${message}</div>`;
+      return;
+    }
+    const names = await response.json();
+    if (!Array.isArray(names) || names.length === 0) {
+      list.innerHTML = '<div class="empty">Профилей нет</div>';
+      return;
+    }
+
+    list.textContent = '';
+    names.forEach((name) => {
+      const row = document.createElement('div');
+      row.className = 'card-row';
+
+      const main = document.createElement('div');
+      main.className = 'card-row-main';
+      const title = document.createElement('div');
+      title.className = 'card-row-title';
+      title.textContent = name;
+      main.appendChild(title);
+
+      const actions = document.createElement('div');
+      actions.className = 'row';
+
+      const load = document.createElement('button');
+      load.className = 'btn btn-ghost';
+      load.type = 'button';
+      load.textContent = 'Открыть';
+      load.addEventListener('click', async () => {
+        try {
+          const r = await api('/api/profiles?name=' + encodeURIComponent(name));
+          if (!r.ok) throw new Error(String(r.status));
+          const data = await r.json();
+          const input = $('#profile-name');
+          const json = $('#profile-json');
+          if (input) input.value = name;
+          if (json) json.value = JSON.stringify(data, null, 2);
+          toast('Профиль загружен в редактор');
+        } catch (_) {
+          toast('Не удалось прочитать профиль');
+        }
+      });
+
+      const remove = document.createElement('button');
+      remove.className = 'btn btn-ghost text-danger';
+      remove.type = 'button';
+      remove.textContent = 'Удалить';
+      remove.addEventListener('click', async () => {
+        if (!window.confirm('Удалить профиль «' + name + '»?')) return;
+        try {
+          const r = await api('/api/profiles', {
+            method: 'DELETE',
+            body: JSON.stringify({ name })
+          });
+          if (!r.ok) throw new Error(String(r.status));
+          toast('Профиль удалён');
+          loadProfiles();
+        } catch (_) {
+          toast('Не удалось удалить профиль');
+        }
+      });
+
+      actions.appendChild(load);
+      actions.appendChild(remove);
+      row.appendChild(main);
+      row.appendChild(actions);
+      list.appendChild(row);
+    });
+  } catch (_) {
+    list.innerHTML = '<div class="empty">Нет связи с устройством</div>';
+  }
+}
+
+async function renderAutotune() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="card">
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Статус</div>
+            <div class="card-row-sub" id="autotune-status">Загрузка…</div>
+          </div>
+          <span class="card-row-value" id="autotune-values">Kp — / Ki — / Kd —</span>
+        </div>
+        <div class="field mt-16">
+          <label class="field-label" for="autotune-target">Уставка куба, °C</label>
+          <input id="autotune-target" class="input" type="number" min="20" max="120" step="0.1" value="80">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" id="autotune-start">Запустить</button>
+          <button class="btn btn-secondary" type="button" id="autotune-stop">Остановить</button>
+        </div>
+        <p class="hint mt-8">
+          Автотюн занимает 30–60 минут, требует заполненного куба и работающего
+          охлаждения. При E-STOP или защите отменяется.
+        </p>
+      </div>
+    </section>
+  `;
+
+  const refresh = async () => {
+    try {
+      const response = await api('/api/autotune');
+      if (!response.ok) {
+        $('#autotune-status').textContent = 'Нужен API-ключ';
+        return;
+      }
+      const data = await response.json();
+      const status = data.running ? 'Выполняется' : (data.done ? 'Готово' : 'Ожидание');
+      $('#autotune-status').textContent = status;
+      $('#autotune-values').textContent =
+        `Kp ${Number(data.kp || 0).toFixed(3)} / Ki ${Number(data.ki || 0).toFixed(4)} / Kd ${Number(data.kd || 0).toFixed(3)}`;
+    } catch (_) {}
+  };
+
+  $('#autotune-start')?.addEventListener('click', async () => {
+    const target = Number($('#autotune-target')?.value || 80);
+    try {
+      const response = await postJson('/api/autotune', { action: 'start', target });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Автотюн запущен');
+      refresh();
+    } catch (_) { toast('Не удалось запустить автотюн'); }
+  });
+
+  $('#autotune-stop')?.addEventListener('click', async () => {
+    try {
+      const response = await postJson('/api/autotune', { action: 'stop' });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Автотюн остановлен');
+      refresh();
+    } catch (_) { toast('Не удалось остановить автотюн'); }
+  });
+
+  refresh();
+  setInterval(() => {
+    if (currentPage === 'autotune' && !document.hidden) refresh();
+  }, 3000);
+}
+
+async function renderSensors() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div id="sensor-list" class="card"><div class="empty">Загрузка…</div></div>
+      <p class="hint mt-8">
+        Значения приходят из /api/env и /api/state. Если датчик не
+        установлен, его поля будут нулевыми или present:0.
+      </p>
+    </section>
+  `;
+
+  try {
+    const [envResponse, stateResponse] = await Promise.all([
+      fetch('/api/env'), fetch('/api/state')
+    ]);
+    const env = envResponse.ok ? await envResponse.json() : {};
+    const st = stateResponse.ok ? await stateResponse.json() : {};
+    const baro = env.baro || {};
+    const flow = env.flow || {};
+    const column = env.column || {};
+
+    const rows = [
+      ['Куб', Number(st.cube || 0).toFixed(1) + ' °C'],
+      ['Пар / царга', Number(st.col || 0).toFixed(1) + ' °C'],
+      ['Давление', Number(baro.hpa || 0).toFixed(1) + ' гПа'],
+      ['Кипение', Number(baro.boiling_c || 0).toFixed(1) + ' °C'],
+      ['Колонна', Number(column.kpa || 0).toFixed(2) + ' кПа'],
+      ['Проток', Number(flow.lpm || 0).toFixed(2) + ' л/мин'],
+      ['Фракция', env.fraction || '—']
+    ];
+
+    const list = $('#sensor-list');
+    list.innerHTML = rows.map(([label, value]) => `
+      <div class="card-row">
+        <span class="card-row-title">${label}</span>
+        <span class="card-row-value">${value}</span>
+      </div>
+    `).join('');
+  } catch (_) {
+    $('#sensor-list').innerHTML = '<div class="empty">Нет связи с устройством</div>';
+  }
+}
+
+async function renderActuators() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="card">
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Сервисный режим</div>
+            <div class="card-row-sub" id="service-status">Проверка…</div>
+          </div>
+          <button class="btn btn-secondary" type="button" id="service-toggle">Включить</button>
+        </div>
+      </div>
+      <p class="hint">
+        Прямые команды приводам выполняются только в сервисном режиме.
+        Действия опасны: подтверждайте каждое.
+      </p>
+    </section>
+
+    <section class="section">
+      <div class="card">
+        <div class="btn-row">
+          <button class="btn btn-danger" type="button" data-act="heater_on">Нагрев 20 % / 5 с</button>
+          <button class="btn btn-secondary" type="button" data-act="heater_off">Нагрев off</button>
+        </div>
+        <div class="btn-row mt-8">
+          <button class="btn btn-secondary" type="button" data-act="valve_open">Клапан open</button>
+          <button class="btn btn-secondary" type="button" data-act="valve_close">Клапан close</button>
+        </div>
+        <div class="btn-row mt-8">
+          <button class="btn btn-secondary" type="button" data-act="pump_10">Насос 10 мл</button>
+          <button class="btn btn-secondary" type="button" data-act="relay_on">Реле 0 on</button>
+          <button class="btn btn-secondary" type="button" data-act="relay_off">Реле 0 off</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  let service = false;
+
+  const refresh = async () => {
+    try {
+      const response = await api('/api/diag/status');
+      if (!response.ok) {
+        $('#service-status').textContent = 'Нужен API-ключ';
+        return;
+      }
+      const data = await response.json();
+      service = !!data.service;
+      $('#service-status').textContent = service ? 'Включён' : 'Выключен';
+      $('#service-toggle').textContent = service ? 'Выключить' : 'Включить';
+    } catch (_) {}
+  };
+
+  $('#service-toggle')?.addEventListener('click', async () => {
+    try {
+      const response = await postJson('/api/diag/service', { enabled: !service });
+      if (!response.ok) throw new Error(String(response.status));
+      service = !service;
+      toast(service ? 'Сервисный режим включён' : 'Сервисный режим выключен');
+      refresh();
+    } catch (_) { toast('Не удалось переключить режим'); }
+  });
+
+  $$('[data-act]', app).forEach((button) => {
+    button.addEventListener('click', async () => {
+      if (!service) { toast('Сначала включите сервисный режим'); return; }
+      const action = button.dataset.act;
+      if (!window.confirm('Выполнить «' + button.textContent.trim() + '»?')) return;
+
+      const commands = {
+        heater_on: { actuator: 'heater', action: 'on', pct: 20, seconds: 5 },
+        heater_off: { actuator: 'heater', action: 'off' },
+        valve_open: { actuator: 'valve', action: 'open' },
+        valve_close: { actuator: 'valve', action: 'close' },
+        pump_10: { actuator: 'pump', action: 'dose', ml: 10, rate: 60 },
+        relay_on: { actuator: 'relay', action: 'set', ch: 0, state: 1 },
+        relay_off: { actuator: 'relay', action: 'set', ch: 0, state: 0 }
+      };
+      try {
+        const response = await postJson('/api/diag/actuators', commands[action]);
+        if (!response.ok) throw new Error(String(response.status));
+        toast('Команда принята');
+      } catch (_) { toast('Команда отклонена'); }
+    });
+  });
+
+  refresh();
+}
+
+async function renderHealth() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `<section class="section"><div id="health-list" class="card"><div class="empty">Загрузка…</div></div></section>`;
+
+  try {
+    const response = await fetch('/api/health');
+    if (!response.ok) throw new Error(String(response.status));
+    const data = await response.json();
+    const rows = [
+      ['Уровень', data.level || '—'],
+      ['Причина', data.reason || '—'],
+      ['Версия', data.version || '—'],
+      ['Uptime', `${Math.floor(Number(data.uptime_s || 0) / 60)} мин`],
+      ['Free heap', `${Math.round(Number(data.free_heap || 0) / 1024)} КБ`],
+      ['Min heap', `${Math.round(Number(data.min_free_heap || 0) / 1024)} КБ`],
+      ['PSRAM', `${Math.round(Number(data.free_psram || 0) / 1024)} КБ`],
+      ['Wi-Fi RSSI', `${data.wifi_rssi || 0} dBm`],
+      ['SD', data.sd ? 'есть' : 'нет'],
+      ['Датчики', String(data.sensors || 0)],
+      ['Safety', data.safety ? 'ok' : 'сработала'],
+      ['E-STOP', data.estop ? 'активен' : 'нет']
+    ];
+    $('#health-list').innerHTML = rows.map(([label, value]) => `
+      <div class="card-row">
+        <span class="card-row-title">${label}</span>
+        <span class="card-row-value">${value}</span>
+      </div>
+    `).join('');
+  } catch (_) {
+    $('#health-list').innerHTML = '<div class="empty">Нет связи с устройством</div>';
+  }
+}
+
+async function renderNetwork() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="card">
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Wi-Fi</div>
+            <div class="card-row-sub" id="wifi-status">Загрузка…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Подключить Wi-Fi</div>
+      <form id="wifi-form" class="card">
+        <div class="field">
+          <label class="field-label" for="wifi-ssid">SSID (2.4 ГГц)</label>
+          <input id="wifi-ssid" class="input" type="text" maxlength="31" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label" for="wifi-pass">Пароль</label>
+          <input id="wifi-pass" class="input" type="password" maxlength="63" autocomplete="off">
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Подключиться</button>
+      </form>
+      <p class="hint mt-8">
+        MQTT, Telegram и статический IP настраиваются через соответствующие
+        API; этот экран меняет только Wi-Fi STA.
+      </p>
+    </section>
+  `;
+
+  try {
+    const response = await fetch('/api/health');
+    const data = await response.json();
+    $('#wifi-status').textContent = `${data.wifi_rssi || 0} dBm · ${data.level || '—'}`;
+  } catch (_) {
+    $('#wifi-status').textContent = 'Нет данных';
+  }
+
+  $('#wifi-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const ssid = ($('#wifi-ssid')?.value || '').trim();
+    const pass = $('#wifi-pass')?.value || '';
+    if (!ssid) { toast('Укажите SSID'); return; }
+    try {
+      const response = await postJson('/api/wifi', { ssid, pass });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Устройство переподключается к Wi-Fi');
+    } catch (_) { toast('Не удалось изменить Wi-Fi'); }
+  });
+}
+
+async function renderOta() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="card">
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Текущая прошивка</div>
+            <div class="card-row-sub" id="ota-status">Загрузка…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Обновление по URL</div>
+      <form id="ota-form" class="card">
+        <div class="field">
+          <label class="field-label" for="ota-url">HTTPS-ссылка на .bin</label>
+          <input id="ota-url" class="input" type="url" placeholder="https://example.com/automatika_v2.bin">
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Проверить и обновить</button>
+        <p class="hint mt-8">
+          Нужен HTTPS с валидным сертификатом. После перезагрузки прошивка
+          проходит самодиагностику; при ошибке загрузчик откатится.
+        </p>
+      </form>
+    </section>
+  `;
+
+  try {
+    const response = await fetch('/api/ota');
+    const data = await response.json();
+    $('#ota-status').textContent = data.version ? `Версия ${data.version}` : JSON.stringify(data);
+  } catch (_) {
+    $('#ota-status').textContent = 'Нет данных';
+  }
+
+  $('#ota-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const url = ($('#ota-url')?.value || '').trim();
+    if (!url) { toast('Укажите URL'); return; }
+    if (!window.confirm('Запустить обновление прошивки?')) return;
+    try {
+      const response = await postJson('/api/ota/url', { url });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Обновление запущено');
+    } catch (_) { toast('Не удалось запустить обновление'); }
+  });
+}
+
+function renderApi() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="section-title">Доступ</div>
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="api-key">API-ключ (X-API-Key)</label>
+          <input id="api-key" class="input" type="password" autocomplete="off"
+                 placeholder="32 hex-символа">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" id="key-save">Сохранить</button>
+          <button class="btn btn-secondary" type="button" id="key-generate">Сгенерировать</button>
+        </div>
+        <div class="btn-row mt-8">
+          <button class="btn btn-secondary btn-block" type="button" id="key-clear">Забыть ключ</button>
+        </div>
+        <p class="hint mt-8">
+          Ключ хранится только в localStorage этого браузера. Пока ключ не создан,
+          устройство разрешает bootstrap-генерацию один раз.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
       <div class="section-title">Приложение</div>
       <div class="card">
         <div class="card-row">
@@ -713,41 +1306,85 @@ function renderSettings() {
     setApiKey((keyInput?.value || '').trim());
     toast('Ключ сохранён');
   });
-
   $('#key-clear')?.addEventListener('click', () => {
     setApiKey('');
     if (keyInput) keyInput.value = '';
     toast('Ключ удалён из браузера');
   });
-
   $('#key-generate')?.addEventListener('click', generateKey);
-
   $('#install-settings')?.addEventListener('click', promptInstall);
 
-  bindSegmented('#ctrl-seg');
-  bindSegmented('#out-seg');
-
-  $('#control-form')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const body = {
-      ctrl_mode: Number($('#ctrl-seg .active')?.dataset.val || 0),
-      out_dev: Number($('#out-seg .active')?.dataset.val || 0),
-      rate_mlmin: Number($('#rate')?.value || 0),
-      hys: Number($('#hys')?.value || 0),
-      steps_per_ml: Number($('#steps')?.value || 1)
-    };
-    try {
-      const response = await postJson('/api/control', body);
-      if (!response.ok) throw new Error(String(response.status));
-      toast('Настройки сохранены');
-    } catch (_) {
-      toast('Не удалось сохранить настройки');
-    }
-  });
-
-  loadControlSettings();
   loadFirmwareVersion();
   updateInstallHint();
+}
+
+async function renderLang() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="card">
+        <div class="field">
+          <span class="field-label">Язык интерфейса устройства</span>
+          <div class="segmented" id="lang-seg">
+            <button type="button" data-lang="ru" class="active">Русский</button>
+            <button type="button" data-lang="en">English</button>
+          </div>
+        </div>
+        <p class="hint">Язык меняет экран устройства; веб-интерфейс пока русскоязычный.</p>
+      </div>
+    </section>
+  `;
+
+  try {
+    const response = await api('/api/i18n');
+    if (response.ok) {
+      const data = await response.json();
+      $$('#lang-seg button').forEach((button) => {
+        button.classList.toggle('active', button.dataset.lang === data.lang);
+      });
+    }
+  } catch (_) {}
+
+  $$('#lang-seg button').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        const response = await postJson('/api/i18n', { lang: button.dataset.lang });
+        if (!response.ok) throw new Error(String(response.status));
+        $$('#lang-seg button').forEach((b) => b.classList.remove('active'));
+        button.classList.add('active');
+        toast('Язык сохранён');
+      } catch (_) { toast('Не удалось изменить язык'); }
+    });
+  });
+}
+
+async function renderAbout() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="card">
+        <div class="card-row"><span class="card-row-title">Устройство</span><span class="card-row-value">Automatika</span></div>
+        <div class="card-row"><span class="card-row-title">Платформа</span><span class="card-row-value">ESP32-S3</span></div>
+        <div class="card-row"><span class="card-row-title">Прошивка</span><span class="card-row-value" id="about-version">—</span></div>
+        <div class="card-row"><span class="card-row-title">Uptime</span><span class="card-row-value" id="about-uptime">—</span></div>
+        <div class="card-row"><span class="card-row-title">Free heap</span><span class="card-row-value" id="about-heap">—</span></div>
+        <div class="card-row"><span class="card-row-title">Интерфейс</span><span class="card-row-value mono">${APP_VERSION}</span></div>
+      </div>
+      <p class="hint mt-8">ESP-IDF 5.3.2 · LVGL 8.3 · PWA</p>
+    </section>
+  `;
+
+  try {
+    const response = await fetch('/api/health');
+    const data = await response.json();
+    $('#about-version').textContent = data.version || '—';
+    $('#about-uptime').textContent = `${Math.floor(Number(data.uptime_s || 0) / 60)} мин`;
+    $('#about-heap').textContent = `${Math.round(Number(data.free_heap || 0) / 1024)} КБ`;
+  } catch (_) {}
 }
 
 function bindSegmented(selector) {
@@ -865,7 +1502,7 @@ async function loadLog() {
   list.innerHTML = '<div class="empty">Загрузка…</div>';
 
   if (!apiKey()) {
-    list.innerHTML = '<div class="empty">Укажите API-ключ в Настройках.</div>';
+    list.innerHTML = '<div class="empty">Укажите API-ключ: Система → API-ключ.</div>';
     return;
   }
 
@@ -945,18 +1582,25 @@ window.addEventListener('appinstalled', () => {
 // Инициализация
 // ------------------------------------------------------------------
 function init() {
-  $$('.tab-bar a').forEach((link) => {
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      navigate(link.dataset.page || 'dashboard');
-    });
-  });
-
   $('#install-btn')?.addEventListener('click', promptInstall);
 
   window.addEventListener('popstate', router);
 
   document.addEventListener('click', (event) => {
+    const tabLink = event.target.closest('[data-tab]');
+    if (tabLink) {
+      event.preventDefault();
+      showGroup(tabLink.dataset.tab);
+      return;
+    }
+
+    const pageLink = event.target.closest('[data-page-link]');
+    if (pageLink) {
+      event.preventDefault();
+      showPage(pageLink.dataset.pageLink);
+      return;
+    }
+
     const button = event.target.closest('[data-action]');
     if (button) runAction(button.dataset.action);
   });
@@ -982,7 +1626,7 @@ function init() {
   // Обновляем производные значения (объём, фракция) на открытой странице.
   setInterval(() => {
     if (document.hidden) return;
-    if (currentPage === 'fractions') updateFractionsLive();
+    if (currentPage === 'fraction') updateFractionsLive();
     else renderLiveValues();
   }, 1000);
 }
