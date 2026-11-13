@@ -58,7 +58,7 @@ static proc_stage_t b_update(float dt) {
     return ST_RUNNING;
 }
 
-static void b_stop(void) { ctrl_heater_set_percent(0); }
+static void b_stop(void) { ctrl_heater_force_off(); }
 
 const process_mode_t MODE_BEER = {
     .name = "Пивоварня", .id = "beer",

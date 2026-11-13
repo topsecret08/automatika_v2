@@ -288,12 +288,16 @@
 #define TREND_DECREMENT_C_PER_MIN     0.1f
 #define TREND_WINDOW_SEC              60.0f
 
-// Внешний регулятор мощности. Пины по умолчанию не назначены: при -1
-// драйвер не активируется, нагрев идёт через внутренний DAC.
+// Внешний регулятор мощности. UART-пины по умолчанию не назначены.
+// SSR/ШИМ: GPIO 22 свободен на текущей плате (см. docs/hardware/pinout.md),
+// но ОБЯЗАТЕЛЬНО проверьте свою разводку. Для другого оборудования
+// измените REG_SSR_GPIO. Частота зависит от типа SSR: 5 кГц подходит
+// только для подходящего MOSFET/DC-драйвера, для AC SSR нужна своя.
 #define REG_UART_NUM                  1
 #define REG_UART_TX_GPIO             -1
 #define REG_UART_RX_GPIO             -1
-#define REG_SSR_GPIO                 -1
+#define REG_SSR_GPIO                 22
+#define REG_PWM_FREQ_HZ              5000
 
 // Начальные параметры расчёта остатка спирта (abv/cfg в NVS).
 #define ABV_VOLUME_START_ML           20000.0f

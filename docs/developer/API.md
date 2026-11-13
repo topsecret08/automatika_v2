@@ -71,7 +71,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | POST | `/api/start` | 🔑 | запуск по текущей конфигурации |
 | POST | `/api/pause` | 🔑 | пауза |
 | POST | `/api/stop` | 🔑 | остановка, нагрев снимается |
-| POST | `/api/power` | 🔑 | `{"power":0..100}` |
+| POST | `/api/power` | 🔑 | `{"power":0..100}` — ручной режим; `{"mode":"auto"}` — авто |
 | POST | `/api/safety` | 🔑 | сброс программной защёлки safety |
 | POST | `/api/estop` | 🔑 | программная фиксация E-STOP |
 | POST | `/api/dose` | 🔑 | `{"volume_ml":10,"rate_mlmin":60}` |
@@ -226,6 +226,14 @@ curl -s -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
 
 curl -s -H "X-API-Key: $KEY" "http://automatika.local/api/events?limit=20"
 ```
+
+`POST /api/power` возвращает
+`{"power","power_auto","power_manual","regulator_ready","regulator_gpio","pwm_freq_hz"}`.
+Числовое значение включает ручной override; `{"mode":"auto"}` возвращает
+управление режиму/PID. При неготовом регуляторе — `409`.
+
+`GET /api/state` дополнительно содержит `power_auto`, `power_manual`,
+`regulator`, `regulator_ready`, `regulator_gpio`, `pwm_freq_hz`.
 
 ## 12. Telegram-бот
 

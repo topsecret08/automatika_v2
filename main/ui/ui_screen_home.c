@@ -1,6 +1,7 @@
 #include "ui_screen_home.h"
 #include "ui.h"
 #include "ui_glass_theme.h"
+#include "ui_power_control.h"
 #include "ui_menu.h"
 
 #include "core/estop.h"
@@ -259,6 +260,7 @@ void ui_screen_home_build(lv_obj_t *parent) {
 
     s_cube = make_kpi(kpi_row, "КУБ");
     s_power = make_kpi(kpi_row, "МОЩНОСТЬ");
+    ui_power_control_attach(lv_obj_get_parent(s_power));
 
     // Кнопки. flex_grow делит ширину поровну.
     lv_obj_t *buttons = lv_obj_create(parent);

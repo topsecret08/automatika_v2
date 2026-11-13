@@ -55,7 +55,7 @@ static proc_stage_t n_update(float dt) {
 }
 
 static void n_stop(void) {
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     ctrl_dose_stop();
     ctrl_valves_close_all();
     hal_relay_all_off();

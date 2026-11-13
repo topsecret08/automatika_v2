@@ -117,7 +117,7 @@ static proc_stage_t r_update(float dt) {
         break;
 
     case ST_COOLDOWN:
-        ctrl_heater_set_percent(0);
+        ctrl_heater_force_off();
         ctrl_valves_close_all();
         if (cube < 40.0f) s_stage = ST_DONE;
         break;
@@ -134,7 +134,7 @@ static proc_stage_t r_update(float dt) {
 }
 
 static void r_stop(void) {
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     ctrl_dose_stop();
     ctrl_valves_close_all();
     hal_relay_all_off();

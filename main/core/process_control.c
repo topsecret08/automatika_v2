@@ -78,6 +78,8 @@ esp_err_t process_control_start(const char *mode_id) {
     s->type = type;
     s->is_running = true;
     s->is_paused = false;
+    ctrl_heater_force_off();
+    ctrl_heater_set_auto();
     session_note_process_running(true);
     if (control_config_get_adaptive_pid()) {
         adaptive_pid_run_reset(adaptive_pid_global());
@@ -91,7 +93,7 @@ esp_err_t process_control_start(const char *mode_id) {
 }
 
 void process_control_stop(void) {
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     ctrl_dose_stop();
     if (mode_get() && mode_get()->stop) mode_get()->stop();
 

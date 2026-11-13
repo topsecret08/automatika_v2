@@ -184,7 +184,7 @@ static bool process_start(const char *source) {
 }
 
 static bool process_stop(const char *source) {
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     if (mode_get() && mode_get()->stop) mode_get()->stop();
 
     process_state_t *st = state_get();

@@ -784,7 +784,7 @@ bool fsel_mode_tick(process_state_t *st, float power_heads,
     hal_relay_set(RELAY_COOLING_PUMP, true);
 
     if (!ctrl_safety_ok()) {
-        ctrl_heater_set_percent(0.0f);
+        ctrl_heater_force_off();
         if (fsel_is_active()) fsel_stop();
         st->stage = ST_ERROR;
         return true;
@@ -808,7 +808,7 @@ bool fsel_mode_tick(process_state_t *st, float power_heads,
         break;
     case FSEL_STAGE_DONE:
     default:
-        ctrl_heater_set_percent(0.0f);
+        ctrl_heater_force_off();
         ctrl_dose_stop();
         reflux_enable(false);
         st->stage = ST_DONE;

@@ -25,6 +25,7 @@
 | 17 | LCD BL | output | подсветка, ШИМ |
 | 18 | LCD MOSI | output | ST7796 (из-за него E-STOP не на 18) |
 | 21 | LCD CLK | output | ST7796 |
+| 22 | SSR PWM | output | `REG_SSR_GPIO` по умолчанию, 5 кГц; проверить, что GPIO свободен на вашей плате |
 | 25 | Pump STEP | output | A4988 |
 | 26 | Pump ENABLE | output | A4988, активный низкий |
 | 27 | **E-STOP** | input, pull-up | НЗ-кнопка на GND, антидребезг 50 мс |

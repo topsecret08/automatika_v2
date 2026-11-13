@@ -52,7 +52,7 @@ static proc_stage_t p_update(float dt) {
     return ST_RUNNING;
 }
 
-static void p_stop(void) { ctrl_heater_set_percent(0); }
+static void p_stop(void) { ctrl_heater_force_off(); }
 
 const process_mode_t MODE_PVK = {
     .name = "ПВК", .id = "pvk",

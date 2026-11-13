@@ -487,15 +487,30 @@ static void handle_command(const char *chat, const char *text) {
     }
     if (strcmp(command, "power") == 0) {
         if (!args[0]) {
-            tg_send(chat, "Формат: /power 50", NULL);
+            tg_send(chat, "Формат: /power 50 или /power auto", NULL);
             return;
         }
-        float value = (float)atof(args);
-        if (value < 0) value = 0;
-        if (value > 100) value = 100;
-        safety_gate_apply("telegram_power", value);
-        char buf[96];
-        snprintf(buf, sizeof(buf), "Мощность задана: %.0f %%.", value);
+        char buf[128];
+        if (strcmp(args, "auto") == 0) {
+            ctrl_heater_set_auto();
+            snprintf(buf, sizeof(buf), "Мощность: авто, %.0f %%.",
+                     (double)ctrl_heater_get_percent());
+        } else {
+            float value = (float)atof(args);
+            if (value < 0) value = 0;
+            if (value > 100) value = 100;
+            esp_err_t err = ctrl_heater_manual_set(value);
+            if (err == ESP_ERR_INVALID_STATE) {
+                tg_send(chat, "Регулятор не готов или активна защита.", NULL);
+                return;
+            }
+            if (err != ESP_OK) {
+                tg_send(chat, "Не удалось задать мощность.", NULL);
+                return;
+            }
+            snprintf(buf, sizeof(buf), "Ручная мощность: %.0f %%.",
+                     (double)ctrl_heater_get_percent());
+        }
         tg_send(chat, buf, NULL);
         return;
     }
@@ -555,8 +570,7 @@ static void handle_command(const char *chat, const char *text) {
         else if (strcmp(args, "rmvk") == 0) type = REGULATOR_RMVK;
         else if (strcmp(args, "sem") == 0) type = REGULATOR_SEM_AVR;
         else if (strcmp(args, "ssr") == 0) type = REGULATOR_SSR_PWM;
-        esp_err_t err = control_config_set_regulator(type);
-        if (err == ESP_OK) regulator_init_from_config();
+        esp_err_t err = regulator_select(type);
         char buf[96];
         snprintf(buf, sizeof(buf), "Регулятор: %s",
                  control_config_regulator_name(type));

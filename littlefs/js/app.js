@@ -36,6 +36,12 @@ const state = {
   tc: NaN,
   ts: NaN,
   power: 0,
+  powerAuto: 0,
+  powerManual: false,
+  regulator: 0,
+  regulatorReady: false,
+  regulatorGpio: -1,
+  pwmFreq: 0,
   rate: 0,
   level: 0,
   stage: 0,
@@ -209,6 +215,12 @@ async function pollState() {
     if (typeof data.tc !== 'undefined') state.tc = data.cube;
     if (typeof data.col !== 'undefined') state.ts = data.col;
     if (typeof data.power !== 'undefined') state.power = data.power;
+    if (typeof data.power_auto !== 'undefined') state.powerAuto = data.power_auto;
+    if (typeof data.power_manual !== 'undefined') state.powerManual = !!data.power_manual;
+    if (typeof data.regulator !== 'undefined') state.regulator = data.regulator;
+    if (typeof data.regulator_ready !== 'undefined') state.regulatorReady = !!data.regulator_ready;
+    if (typeof data.regulator_gpio !== 'undefined') state.regulatorGpio = data.regulator_gpio;
+    if (typeof data.pwm_freq_hz !== 'undefined') state.pwmFreq = data.pwm_freq_hz;
     if (typeof data.stage !== 'undefined') state.stage = data.stage;
     if (typeof data.running !== 'undefined') state.running = data.running;
     if (typeof data.paused !== 'undefined') state.paused = data.paused;
@@ -391,6 +403,11 @@ function renderDashboard() {
           <input id="power-slider" type="range" min="0" max="100" step="1" value="0"
                  aria-label="Мощность нагрева, проценты">
         </div>
+        <div class="row mt-8">
+          <span id="power-mode" class="card-row-sub">Авто</span>
+          <button class="btn btn-secondary" type="button" id="power-auto">Авто</button>
+        </div>
+        <p id="power-hint" class="hint mt-8 hidden"></p>
       </div>
     </section>
 
@@ -507,22 +524,36 @@ function renderDashboard() {
     slider.addEventListener('change', async () => {
       powerDragging = false;
       try {
-        const response = await postJson('/api/param', {
-          name: 'power',
-          value: Number(slider.value)
+        const response = await postJson('/api/power', {
+          power: Number(slider.value)
         });
-        if (response.status === 403) {
-          haptic('error');
-          toast('Мощность в PID-режиме управляется регулятором');
-          return;
-        }
-        if (!response.ok) throw new Error(String(response.status));
-        toast('Мощность: ' + slider.value + '%');
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || String(response.status));
+
+        state.power = Number(data.power || 0);
+        state.powerManual = Boolean(data.power_manual);
+        state.regulatorReady = Boolean(data.regulator_ready);
+        toast('Ручная мощность: ' + Math.round(state.power) + '%');
+        renderLiveValues();
       } catch (_) {
+        haptic('error');
         toast('Не удалось изменить мощность');
       }
     });
   }
+
+  $('#power-auto')?.addEventListener('click', async () => {
+    try {
+      const response = await postJson('/api/power', { mode: 'auto' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || String(response.status));
+      state.powerManual = false;
+      toast('Мощность управляется рабочим режимом');
+      pollState();
+    } catch (_) {
+      toast('Не удалось включить автоматический режим');
+    }
+  });
 
   initChart();
   renderLiveValues();
@@ -543,6 +574,23 @@ function renderLiveValues() {
 
   const power = $('#power-value');
   if (power) power.textContent = String(Math.round(state.power || 0));
+
+  const powerMode = $('#power-mode');
+  if (powerMode) powerMode.textContent = state.powerManual ? 'Ручной' : 'Авто';
+
+  const powerHint = $('#power-hint');
+  if (powerHint) {
+    const bad = state.regulator !== 0 && !state.regulatorReady;
+    powerHint.classList.toggle('hidden', !bad);
+    if (bad) {
+      powerHint.textContent = state.regulatorGpio >= 0
+        ? `Регулятор не готов (GPIO ${state.regulatorGpio}). Выход 0.`
+        : 'Регулятор не готов: GPIO/драйвер не настроен. Выход 0.';
+    }
+  }
+
+  const autoBtn = $('#power-auto');
+  if (autoBtn) autoBtn.disabled = !state.powerManual;
 
   const rate = $('#rate-value');
   if (rate) rate.textContent = state.rate > 0 ? state.rate.toFixed(1) : '--';
@@ -1092,6 +1140,7 @@ function renderCalibration() {
             UART-регуляторы подключайте только через оптронную развязку.
             Земли контроллера и силовой части не соединяйте.
           </p>
+          <p id="reg-status" class="hint"></p>
         </div>
 
         <div class="field">
@@ -2178,6 +2227,17 @@ async function loadControlSettings() {
     setActive('#reg-seg', data.regulator);
     if ($('#reg-baud')) $('#reg-baud').value = data.reg_baud || 9600;
     if ($('#ad-pid')) $('#ad-pid').checked = !!data.adaptive_pid;
+    const regStatus = $('#reg-status');
+    if (regStatus) {
+      if (data.regulator === 0) {
+        regStatus.textContent = 'Выход: внутренний DAC.';
+      } else {
+        regStatus.textContent =
+          `Тип: ${data.regulator_name || '?'} · ${data.regulator_ready ? 'готов' : 'НЕ ГОТОВ'}` +
+          ` · GPIO ${data.regulator_gpio ?? '—'}` +
+          (data.pwm_freq_hz ? ` · ${data.pwm_freq_hz} Гц` : '');
+      }
+    }
 
     if ($('#rate')) $('#rate').value = Number(data.rate_mlmin || 0).toFixed(1);
     if ($('#hys')) $('#hys').value = Number(data.hys || 0).toFixed(1);

@@ -10,7 +10,6 @@
 #include "core/watchdog.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_adc.h"
-#include "hal/hal_dac.h"
 #include "hal/hal_relay.h"
 #include "hal/baro.h"
 #include "hal/flow_sensor.h"
@@ -47,7 +46,7 @@ void ctrl_safety_trigger(const char *reason) {
     if (!s_ok) return;
     s_ok = false;
 
-    hal_dac_set_percent(0);
+    ctrl_heater_force_off();
     hal_relay_all_off();
     ctrl_dose_stop();
 
@@ -164,7 +163,7 @@ void ctrl_safety_task(void *arg) {
         // ---- Датчик уровня ----
         level_sensor_poll();
         if (level_is_too_low()) {
-            ctrl_heater_set_percent(0);       /* сухой ход: снимаем нагрев */
+            ctrl_heater_force_off();       /* сухой ход: снимаем нагрев */
             if (s_level_low_last != true) {
                 s_level_low_last = true;
                 events_log(EVENT_WARNING, "LEVEL low: heating blocked");

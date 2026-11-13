@@ -41,7 +41,7 @@ static float p_reflux_get(void) { return reflux_get_ratio(); }
 static void  p_reflux_set(float v) { reflux_set_ratio(v); }
 
 static float p_power_get(void) { return ctrl_heater_get_percent(); }
-static void  p_power_set(float v) { ctrl_heater_set_percent(v); }
+static void  p_power_set(float v) { (void)ctrl_heater_manual_set(v); }
 
 static float p_setpoint_get(void) { return state_get()->target_cube_t; }
 static void  p_setpoint_set(float v) { state_get()->target_cube_t = v; }
@@ -107,11 +107,6 @@ bool param_is_locked(param_id_t id) {
 
     if (!p->editable_running) return true;
 
-    // В PID-режиме мощность принадлежит регулятору.
-    if (id == PARAM_POWER &&
-        control_config_get_mode() != CONTROL_MODE_PWM_BANG_BANG) {
-        return true;
-    }
     return false;
 }
 
@@ -131,6 +126,8 @@ bool param_write(param_id_t id, float value) {
 
     if (value < p->min) value = p->min;
     if (value > p->max) value = p->max;
+    if (id == PARAM_POWER)
+        return ctrl_heater_manual_set(value) == ESP_OK;
     p->set(value);
     return true;
 }

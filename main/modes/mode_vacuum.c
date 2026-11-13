@@ -37,7 +37,7 @@ static proc_stage_t v_update(float dt) {
 }
 
 static void v_stop(void) {
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     hal_relay_set(RELAY_EXTRA, false);
     ctrl_valves_close_all();
 }

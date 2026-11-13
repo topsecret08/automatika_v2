@@ -40,7 +40,7 @@ static proc_stage_t db_update(float dt) {
 }
 
 static void db_stop(void) {
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     ctrl_valves_close_all();
 }
 

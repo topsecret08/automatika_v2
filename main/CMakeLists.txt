@@ -65,6 +65,7 @@ idf_component_register(
         "ui/ui.c" "ui/ui_theme.c" "ui/ui_glass_theme.c" "ui/ui_screen_home.c"
         "ui/ui_menu.c" "ui/ui_gestures.c" "ui/haptic.c"
         "ui/ui_session_indicator.c"
+        "ui/ui_power_control.c"
         "ui/ui_screen_advanced.c"
         "ui/ui_screen_selection.c"
         "ui/fonts/lv_font_cyr_16.c" "ui/fonts/lv_font_cyr_24.c"

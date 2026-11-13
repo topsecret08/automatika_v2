@@ -27,9 +27,13 @@ typedef struct {
 
 esp_err_t regulator_init(const regulator_config_t *cfg);
 esp_err_t regulator_init_from_config(void);
+esp_err_t regulator_select(regulator_type_t type);
 void      regulator_deinit(void);
 esp_err_t regulator_set_power(float percent);
+void      regulator_emergency_off(void);
 float     regulator_get_power(void);
 bool      regulator_is_ready(void);
 bool      regulator_is_external(void);
 regulator_type_t regulator_get_type(void);
+int       regulator_get_gpio(void);
+int       regulator_get_pwm_freq(void);

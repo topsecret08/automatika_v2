@@ -130,23 +130,31 @@ static const char* json_string(const cJSON *root, const char *key) {
 // ============================================================
 static esp_err_t h_state(httpd_req_t *r) {
     process_state_t *s = state_get();
-    char json[768];
+    char json[896];
     snprintf(json, sizeof(json),
         "{\"type\":%d,\"stage\":%d,\"cube\":%.2f,\"col\":%.2f,"
-        "\"power\":%.1f,\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
+        "\"power\":%.1f,\"power_auto\":%.1f,\"power_manual\":%d,"
+        "\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
         "\"pressure\":%.2f,\"vacuum\":%.0f,\"running\":%d,"
         "\"paused\":%d,\"elapsed\":%u,\"safety\":%d,"
         "\"estop\":%d,\"slope0\":%.2f,\"rising0\":%d,"
-        "\"mode\":\"%s\",\"ctrl_mode\":%d,\"out_dev\":%d}",
+        "\"mode\":\"%s\",\"ctrl_mode\":%d,\"out_dev\":%d,"
+        "\"regulator\":%d,\"regulator_ready\":%d,"
+        "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d}",
         (int)s->type, (int)s->stage, s->cube_temp, s->column_temp,
-        s->power_percent, s->heads_collected_ml, s->body_collected_ml,
+        ctrl_heater_get_percent(), ctrl_heater_get_auto_percent(),
+        ctrl_heater_manual_active() ? 1 : 0,
+        s->heads_collected_ml, s->body_collected_ml,
         s->tails_collected_ml, s->pressure_bar, s->vacuum_mbar,
         s->is_running ? 1 : 0, s->is_paused ? 1 : 0, (unsigned)s->elapsed_sec,
         ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0,
         hal_1wire_slope(0), hal_1wire_rising(0) ? 1 : 0,
         mode_get() ? mode_get()->id : "none",
         (int)control_config_get_mode(),
-        (int)control_config_get_output_device());
+        (int)control_config_get_output_device(),
+        (int)control_config_get_regulator(),
+        regulator_is_ready() ? 1 : 0,
+        regulator_get_gpio(), regulator_get_pwm_freq());
     return send_json(r, json);
 }
 
@@ -225,7 +233,7 @@ static esp_err_t h_start(httpd_req_t *r) {
 
 static esp_err_t h_stop(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     ctrl_dose_stop();
     if (mode_get() && mode_get()->stop) mode_get()->stop();
     state_get()->is_running = false;
@@ -252,10 +260,14 @@ static esp_err_t h_power(httpd_req_t *r) {
     int n = recv_body(r, body, sizeof(body));
     if (n < 0) return send_err(r, "400 Bad Request", "{\"error\":\"bad body\"}");
 
-    float pct = 0;
+    bool auto_mode = false;
+    float pct = 0.0f;
     if (n > 0) {
         cJSON *root = cJSON_Parse(body);
         if (root) {
+            const cJSON *mv = cJSON_GetObjectItemCaseSensitive(root, "mode");
+            if (cJSON_IsString(mv) && strcmp(mv->valuestring, "auto") == 0)
+                auto_mode = true;
             const cJSON *pv = cJSON_GetObjectItemCaseSensitive(root, "power");
             if (cJSON_IsNumber(pv)) pct = (float)pv->valuedouble;
             else {
@@ -270,20 +282,31 @@ static esp_err_t h_power(httpd_req_t *r) {
         return send_err(r, "400 Bad Request", "{\"error\":\"power required\"}");
     }
 
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
+    if (auto_mode) {
+        ctrl_heater_set_auto();
+        events_log(EVENT_USER_ACTION, "Web: power auto");
+    } else {
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
 
-    if (pct > 0 && !ctrl_safety_ok())
-        return send_err(r, "409 Conflict", "{\"error\":\"safety lock active\"}");
-    if (pct > 0 && estop_is_pressed())
-        return send_err(r, "409 Conflict", "{\"error\":\"estop active\"}");
+        esp_err_t err = safety_gate_apply("web_power", pct);
+        if (err == ESP_ERR_INVALID_STATE)
+            return send_err(r, "409 Conflict",
+                            "{\"error\":\"regulator not ready or safety active\"}");
+        if (err != ESP_OK)
+            return send_err(r, "400 Bad Request", "{\"error\":\"invalid power\"}");
+        events_log(EVENT_USER_ACTION, "Web: manual power %.0f%%", pct);
+    }
 
-    esp_err_t gerr = safety_gate_apply("web_power", pct);
-    if (gerr != ESP_OK)
-        return send_err(r, "409 Conflict", "{\"error\":\"safety gate\"}");
-    events_log(EVENT_INFO, "Web: power %.0f%%", pct);
-    char out[64];
-    snprintf(out, sizeof(out), "{\"power\":%.1f}", ctrl_heater_get_percent());
+    char out[192];
+    snprintf(out, sizeof(out),
+             "{\"power\":%.1f,\"power_auto\":%.1f,"
+             "\"power_manual\":%d,\"regulator_ready\":%d,"
+             "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d}",
+             ctrl_heater_get_percent(), ctrl_heater_get_auto_percent(),
+             ctrl_heater_manual_active() ? 1 : 0,
+             regulator_is_ready() ? 1 : 0,
+             regulator_get_gpio(), regulator_get_pwm_freq());
     return send_json(r, out);
 }
 
@@ -301,12 +324,13 @@ static esp_err_t h_safety(httpd_req_t *r) {
 // --- установки управления (control_config) ----------------------------
 static esp_err_t h_control(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
-        char json[320];
+        char json[512];
         snprintf(json, sizeof(json),
                  "{\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
                  "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
                  "\"regulator\":%d,\"regulator_name\":\"%s\",\"reg_baud\":%u,"
-                 "\"adaptive_pid\":%d}",
+                 "\"regulator_ready\":%d,\"regulator_gpio\":%d,"
+                 "\"pwm_freq_hz\":%d,\"adaptive_pid\":%d}",
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
                  control_config_get_hys(),
@@ -316,6 +340,8 @@ static esp_err_t h_control(httpd_req_t *r) {
                  (int)control_config_get_regulator(),
                  control_config_regulator_name(control_config_get_regulator()),
                  (unsigned)control_config_get_regulator_baud(),
+                 regulator_is_ready() ? 1 : 0,
+                 regulator_get_gpio(), regulator_get_pwm_freq(),
                  control_config_get_adaptive_pid() ? 1 : 0);
         return send_json(r, json);
     }
@@ -349,10 +375,8 @@ static esp_err_t h_control(httpd_req_t *r) {
     if (err == ESP_OK && cJSON_IsNumber(v))
         err = control_config_set_steps_per_ml((uint32_t)v->valueint);
     v = cJSON_GetObjectItemCaseSensitive(root, "regulator");
-    if (err == ESP_OK && cJSON_IsNumber(v)) {
-        err = control_config_set_regulator((regulator_type_t)v->valueint);
-        if (err == ESP_OK) regulator_init_from_config();
-    }
+    if (err == ESP_OK && cJSON_IsNumber(v))
+        err = regulator_select((regulator_type_t)v->valueint);
     v = cJSON_GetObjectItemCaseSensitive(root, "reg_baud");
     if (err == ESP_OK && cJSON_IsNumber(v)) {
         err = control_config_set_regulator_baud((uint32_t)v->valueint);
@@ -1694,6 +1718,9 @@ static esp_err_t h_param_post(httpd_req_t *r) {
     cJSON_Delete(root);
 
     if (!ok) {
+        if (strcmp(def->id, "power") == 0)
+            return send_err(r, "409 Conflict",
+                            "{\"ok\":false,\"error\":\"regulator_not_ready\"}");
         return send_err(r, "403 Forbidden",
                         "{\"ok\":false,\"error\":\"locked_while_running\"}");
     }

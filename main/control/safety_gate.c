@@ -78,6 +78,14 @@ bool safety_gate_can_apply(const char *module) {
     return true;
 }
 
+static bool is_manual_module(const char *name) {
+    return strcmp(name, "web_power") == 0 ||
+           strcmp(name, "telegram_power") == 0 ||
+           strcmp(name, "mqtt_power") == 0 ||
+           strcmp(name, "lua_power") == 0 ||
+           strcmp(name, "ui_power") == 0;
+}
+
 esp_err_t safety_gate_apply(const char *module, float value) {
     const module_reg_t *m = find(module);
     if (!m) {
@@ -87,7 +95,7 @@ esp_err_t safety_gate_apply(const char *module, float value) {
 
     // Safety и E-STOP имеют безусловный приоритет.
     if (!ctrl_safety_ok() || estop_is_pressed()) {
-        ctrl_heater_set_raw(0.0f);
+        ctrl_heater_force_off();
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -109,7 +117,14 @@ esp_err_t safety_gate_apply(const char *module, float value) {
         }
     }
 
-    ctrl_heater_set_raw(value);
+    if (strcmp(m->name, "heater_service") == 0)
+        return ctrl_heater_service_set(value) ? ESP_OK : ESP_ERR_INVALID_STATE;
+
+    if (is_manual_module(m->name))
+        return ctrl_heater_manual_set(value);
+
+    // Все автоматические источники (PID, adaptive, режимы) — auto-уставка.
+    ctrl_heater_set_percent(value);
     return ESP_OK;
 }
 

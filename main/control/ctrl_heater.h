@@ -1,21 +1,25 @@
 #pragma once
+
 #include <stdbool.h>
+#include "esp_err.h"
 
-void  ctrl_heater_init(void);
+void ctrl_heater_init(void);
 
-// Задание мощности 0..100 %. Единственная точка включения нагрева:
-// внутри проверяются авария (ctrl_safety_ok) и E-STOP, а при росте
-// температуры мощность ограничивается на HEATER_TREND_CUT.
-void  ctrl_heater_set_percent(float pct);
-// Внутренний выход в обход модульного гейта: только safety-задача,
-// safety_gate и сервисный режим. Не вызывать из прикладного кода.
-void  ctrl_heater_set_raw(float pct);
+/* Автоматическая уставка от режима, PID или BANG-BANG. */
+void ctrl_heater_set_percent(float pct);
+
+/* Ручная уставка от PWA/LCD/Telegram/MQTT/Samovar/Lua. */
+esp_err_t ctrl_heater_manual_set(float pct);
+void      ctrl_heater_set_auto(void);
+bool      ctrl_heater_manual_active(void);
+
+/* Фактическая и автоматическая уставки для телеметрии. */
 float ctrl_heater_get_percent(void);
+float ctrl_heater_get_auto_percent(void);
 
-// Сработал ли трендовый ограничитель на последнем вызове.
-bool  ctrl_heater_trend_cut_active(void);
+/* Безусловное отключение DAC, UART-регулятора и PWM/SSR. */
+void ctrl_heater_force_off(void);
 
-// Пишет в DAC без трендового ограничения (но не в обход безопасности).
-bool  ctrl_heater_service_set(float pct);
-
-void  ctrl_heater_task(void *arg);
+bool ctrl_heater_trend_cut_active(void);
+bool ctrl_heater_service_set(float pct);
+void ctrl_heater_task(void *arg);

@@ -52,11 +52,10 @@ static void algo_cb(lv_event_t *event) {
 static void regulator_cb(lv_event_t *event) {
     regulator_type_t type =
         (regulator_type_t)(intptr_t)lv_event_get_user_data(event);
-    if (control_config_set_regulator(type) == ESP_OK) {
-        regulator_init_from_config();
+    if (regulator_select(type) == ESP_OK) {
         ui_toast("Регулятор сохранён");
     } else {
-        ui_toast("Не удалось сохранить регулятор");
+        ui_toast("Регулятор не готов; выход 0");
     }
     ui_screen_advanced_create();
 }
@@ -112,6 +111,20 @@ void ui_screen_advanced_create(void) {
                 regulator_cb, REGULATOR_SEM_AVR);
     make_choice(card, "SSR (ШИМ 5 кГц)", reg == REGULATOR_SSR_PWM,
                 regulator_cb, REGULATOR_SSR_PWM);
+
+    lv_obj_t *status = lv_label_create(card);
+    lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(status, lv_pct(100));
+    char sbuf[128];
+    snprintf(sbuf, sizeof(sbuf), "%s · %s · GPIO %d · %d Гц",
+             control_config_regulator_name(reg),
+             regulator_is_ready() ? "готов" : "НЕ ГОТОВ",
+             regulator_get_gpio(), regulator_get_pwm_freq());
+    lv_label_set_text(status, sbuf);
+    lv_obj_set_style_text_font(status, &lv_font_cyr_16, 0);
+    lv_obj_set_style_text_color(status,
+        regulator_is_ready() || reg == REGULATOR_NONE
+            ? UI_GLASS_TEXT_2 : UI_GLASS_RED, 0);
 
     lv_obj_t *hint = lv_label_create(card);
     lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);

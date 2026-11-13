@@ -70,7 +70,7 @@ static void mqtt_handle_cmd(const char *data, int len) {
         st->is_paused = false;
         events_log(EVENT_INFO, "MQTT: start");
     } else if (strncmp(cmd, "stop", 4) == 0) {
-        ctrl_heater_set_percent(0);
+        ctrl_heater_force_off();
         if (mode_get() && mode_get()->stop) mode_get()->stop();
         st->is_running = false;
         events_log(EVENT_INFO, "MQTT: stop");

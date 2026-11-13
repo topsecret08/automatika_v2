@@ -63,7 +63,7 @@ static esp_err_t h_alice(httpd_req_t *r) {
                 snprintf(text, sizeof(text), "Запускаю процесс");
             }
         } else if (strstr(c, "стоп") || strstr(c, "останови")) {
-            ctrl_heater_set_percent(0);
+            ctrl_heater_force_off();
             ctrl_dose_stop();
             if (mode_get() && mode_get()->stop) mode_get()->stop();
             state_get()->is_running = false;

@@ -185,7 +185,7 @@ static proc_stage_t d_update(float dt) {
         break;
 
     case ST_COOLDOWN:
-        ctrl_heater_set_percent(0);
+        ctrl_heater_force_off();
         ctrl_dose_stop();
         ctrl_valves_close_all();
         reflux_enable(false);
@@ -207,7 +207,7 @@ static proc_stage_t d_update(float dt) {
 }
 
 static void d_stop(void) {
-    ctrl_heater_set_percent(0);
+    ctrl_heater_force_off();
     ctrl_dose_stop();
     ctrl_valves_close_all();
     reflux_enable(false);
