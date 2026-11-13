@@ -18,6 +18,7 @@ idf_component_register(
         "level/level_sensor.c"
         "core/state.c" "core/events.c" "core/roles.c" "core/flags.c"
         "core/storage.c" "core/watchdog.c" "core/valve_config.c"
+        "core/process_control.c"
         "core/menu_engine.c" "core/menu_tree.c"
         "core/menu_callbacks.c" "core/menu_validator.c"
         "core/help_db.c" "core/learning.c" "core/recipes_db.c"
@@ -47,7 +48,8 @@ idf_component_register(
         "ai/action_predictor.c" "ai/anomaly.c" "ai/tinyml_predict.c"
         "ai/cache_manager.c" "ai/ui_preloader.c"
         "ai/nn_pie.c" "ai/screen_serialize.c"
-        "ui/ui.c" "ui/ui_theme.c" "ui/ui_builder.c"
+        "ui/ui.c" "ui/ui_theme.c" "ui/ui_ios_theme.c" "ui/ui_screen_ios.c"
+        "ui/ui_builder.c"
         "ui/ui_screens.c" "ui/ui_screens_full.c" "ui/ui_welcome.c"
         "ui/ui_graph_sqlite.c"
         "ui/ui_beer_editor.c" "ui/ui_beer_editor_callbacks.c"
@@ -65,7 +67,7 @@ idf_component_register(
         "web/web_server.c" "web/web_api.c" "web/web_alice.c" "web/api_auth.c"
         "web/actuator_test.c" "web/rate_limit.c" "web/tg_backup.c"
         "web/qr_wifi.c" "web/brewfather.c" "web/calendar.c"
-        "web/mqtt_client.c" "web/telegram_bot.c"
+        "web/mqtt_client.c" "web/telegram_bot.c" "web/telegram_commands.c"
         "web/telegram_notify.c" "web/ws_telemetry.c"
         "web/samovar.c" "web/samovar_blynk.c" "web/samovar_mqtt.c"
         "web/ws_handler.c" "web/http_handlers.c"
@@ -81,7 +83,8 @@ idf_component_register(
     # офлайн-страница и иконки. Символы _binary_*_start/end не меняются,
     # потому что IDF берёт только basename файла.
     EMBED_FILES
-        "${WEB_DIR}/index.html" "${WEB_DIR}/app.js" "${WEB_DIR}/style.css"
+        "${WEB_DIR}/index.html" "${WEB_DIR}/js/app.js"
+        "${WEB_DIR}/css/tokens.css" "${WEB_DIR}/css/components.css"
         "${WEB_DIR}/charts.js" "${WEB_DIR}/api.js" "${WEB_DIR}/ws.js"
         "${WEB_DIR}/recipes.js" "${WEB_DIR}/settings.js"
         "${WEB_DIR}/manifest.json" "${WEB_DIR}/sw.js" "${WEB_DIR}/offline.html"

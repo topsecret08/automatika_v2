@@ -2,6 +2,8 @@
 #include "ui_fps.h"
 #include "ui_theme.h"
 #include "ui_anim.h"
+#include "ui_ios_theme.h"
+#include "ui_screen_ios.h"
 #include "hal/hal_display.h"
 #include "core/menu_engine.h"
 #include "core/menu_tree.h"
@@ -156,9 +158,24 @@ void ui_init(void) {
     ui_main_menu();
 }
 
+// Дашборд в стиле iOS. Живёт в ui.c, потому что использует статический
+// g_screen/clear_screen: иначе после смены экрана остался бы висячий указатель.
+void ui_screen_dashboard_ios_create(void) {
+    clear_screen();
+    ui_ios_theme_apply(lv_disp_get_default());
+    ui_screen_dashboard_ios_build(g_screen);
+}
+
 void ui_task(void *arg) {
     (void)arg;
     wd_register("ui", 2000, false);
+
+    // Первый кадр — iOS-дашборд. Делаем это в задаче UI (ядро 1, prio 8),
+    // а не в app_main, чтобы все обращения к LVGL шли из одного контекста.
+    hal_display_lock();
+    ui_screen_dashboard_ios_create();
+    hal_display_unlock();
+
     while (1) {
         WD_FEED("ui");
         hal_display_lock();

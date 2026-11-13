@@ -1,0 +1,141 @@
+/* Automatika — iOS/Liquid Glass design tokens.
+ *
+ * 8pt-сетка, концентрические радиусы, системный шрифт SF Pro.
+ * Тёмная тема включается через prefers-color-scheme.
+ */
+:root {
+  /* 8pt grid */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+
+  /* Corner radii — concentric system */
+  --radius-btn: 12px;
+  --radius-card: 20px;
+  --radius-badge: 8px;
+  --radius-capsule: 9999px;
+
+  /* Typography — SF Pro stack */
+  --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+
+  /* Colors — Light */
+  --bg-primary: #f2f2f7;
+  --bg-card: rgba(255, 255, 255, 0.72);
+  --bg-card-solid: #ffffff;
+  --text-primary: #000000;
+  --text-secondary: rgba(60, 60, 67, 0.6);
+  --text-tertiary: rgba(60, 60, 67, 0.3);
+  --separator: rgba(60, 60, 67, 0.29);
+  --accent: #007aff;
+  --accent-secondary: #5856d6;
+  --red: #ff3b30;
+  --orange: #ff9500;
+  --green: #34c759;
+  --yellow: #ffcc00;
+
+  /* Glass */
+  --glass-blur: blur(20px) saturate(180%);
+  --glass-border: 0.5px solid rgba(0, 0, 0, 0.1);
+  --glass-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-spring: cubic-bezier(0.4, 0, 0.2, 1.4);
+  --duration: 300ms;
+
+  /* iOS tap target */
+  --tap-target: 44px;
+
+  /* Layout */
+  --content-max: 720px;
+  --header-height: 56px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #000000;
+    --bg-card: rgba(28, 28, 30, 0.7);
+    --bg-card-solid: #1c1c1e;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(235, 235, 245, 0.6);
+    --text-tertiary: rgba(235, 235, 245, 0.3);
+    --separator: rgba(84, 84, 88, 0.65);
+    --accent: #0a84ff;
+    --glass-border: 0.5px solid rgba(255, 255, 255, 0.15);
+    --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-stack);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  padding-bottom: calc(var(--tap-target) + var(--space-32) + env(safe-area-inset-bottom));
+  overscroll-behavior-y: none;
+}
+
+/* Typography */
+.large-title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+}
+.headline {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+.body {
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.011em;
+  line-height: 1.5;
+}
+.callout {
+  font-size: 16px;
+  font-weight: 400;
+}
+.caption {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.caption-2 {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+/* Stat numbers — rounded design */
+.stat-number {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.stat-number-small {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}

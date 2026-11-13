@@ -17,3 +17,11 @@ void telegram_get_credentials(char *token, size_t token_len,
 // используется telegram_notify() из telegram_notify.h (очередь).
 void telegram_send_legacy(const char *msg);
 void telegram_task(void *arg);
+
+// Polling getUpdates + команды и inline-кнопки.
+// Задача работает на ядре 0 (приоритет 3), отдельно от telegram_task
+// (пересылка аварий в очередь уведомлений).
+//
+// Безопасность: команды принимаются только из chat_id, сохранённого в NVS
+// через POST /api/telegram. Чужие чаты игнорируются без ответа.
+void telegram_bot_task(void *arg);

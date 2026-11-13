@@ -271,6 +271,7 @@ void app_main(void) {
     if (flags_get_by_key("mqtt"))
         SPAWN(mqtt_task,      "mqtt",      4096,              PRIO_HTTP,         CORE_NETWORK_AI);
     SPAWN(telegram_task,      "telegram",  4096,              PRIO_HTTP,         CORE_NETWORK_AI);
+    SPAWN(telegram_bot_task,  "tg_bot",    8192,              3,                 CORE_NETWORK_AI);
 
     ESP_LOGI(TAG, "Starting CORE 1 tasks (realtime/UI)...");
     // safety и estop — максимальный приоритет на ядре 1.

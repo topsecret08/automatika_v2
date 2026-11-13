@@ -197,7 +197,8 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | Путь | Тип | Кэш |
 |---|---|---|
 | `/` | `text/html` | `no-cache` |
-| `/app.js`, `/style.css`, `/charts.js`, `/api.js`, `/ws.js` | JS/CSS | `public, max-age=86400` |
+| `/js/app.js`, `/css/tokens.css`, `/css/components.css` | JS/CSS | `public, max-age=86400` |
+| `/app.js`, `/style.css` | алиасы совместимости | `public, max-age=86400` |
 | `/manifest.json` | `application/manifest+json` | `public, max-age=3600` |
 | `/sw.js` | JS + `Service-Worker-Allowed: /` | `no-cache` |
 | `/offline.html` | HTML | `no-cache` |
@@ -220,3 +221,32 @@ curl -s -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
 
 curl -s -H "X-API-Key: $KEY" "http://automatika.local/api/events?limit=20"
 ```
+
+## 12. Telegram-бот
+
+Бот работает через long polling `getUpdates` в задаче `tg_bot`
+(ядро 0, приоритет 3). Токен и chat_id хранятся в NVS и задаются через
+`POST /api/telegram`.
+
+**Авторизация:** команды и callback-кнопки принимаются только из chat_id,
+сохранённого в NVS. Сообщения из других чатов игнорируются без ответа.
+
+| Команда | Действие |
+|---|---|
+| `/start`, `/help` | справка и inline-клавиатура |
+| `/status` | режим, этап, температуры, мощность, фракция, E-STOP |
+| `/run` | запуск через `process_control_start()` |
+| `/stop` | остановка, нагрев снимается |
+| `/pause`, `/resume` | пауза/продолжение |
+| `/power N` | мощность 0–100 %, через `ctrl_heater_set_percent()` |
+| `/fraction` | текущая фракция и пороги |
+| `/setpoint N` | `target_cube_t`, °C (порог хвостов) |
+| `/log` | последние 8 событий |
+| `/profile` | список профилей; `load` не поддерживается |
+
+Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
+`estop_ack` сбрасывает защёлку только если физическая кнопка отпущена;
+`ctrl_safety_reset()` вызывается после успешного подтверждения.
+
+Ограничения: загрузка профиля и смена режима из бота не реализованы —
+это меняет уставки и требует подтверждения в веб-интерфейсе.

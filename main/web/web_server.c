@@ -32,8 +32,10 @@ extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[]   asm("_binary_index_html_end");
 extern const uint8_t app_js_start[]     asm("_binary_app_js_start");
 extern const uint8_t app_js_end[]       asm("_binary_app_js_end");
-extern const uint8_t style_css_start[]  asm("_binary_style_css_start");
-extern const uint8_t style_css_end[]    asm("_binary_style_css_end");
+extern const uint8_t tokens_css_start[] asm("_binary_tokens_css_start");
+extern const uint8_t tokens_css_end[]   asm("_binary_tokens_css_end");
+extern const uint8_t components_css_start[] asm("_binary_components_css_start");
+extern const uint8_t components_css_end[]   asm("_binary_components_css_end");
 extern const uint8_t charts_js_start[]  asm("_binary_charts_js_start");
 extern const uint8_t charts_js_end[]    asm("_binary_charts_js_end");
 extern const uint8_t api_js_start[]     asm("_binary_api_js_start");
@@ -103,12 +105,16 @@ static esp_err_t h_index(httpd_req_t *r) {
                          index_html_start, index_html_end);
 }
 static esp_err_t h_appjs(httpd_req_t *r) {
-    return send_embedded(r, "/app.js", "application/javascript; charset=utf-8",
+    return send_embedded(r, "/js/app.js", "application/javascript; charset=utf-8",
                          app_js_start, app_js_end);
 }
-static esp_err_t h_css(httpd_req_t *r) {
-    return send_embedded(r, "/style.css", "text/css; charset=utf-8",
-                         style_css_start, style_css_end);
+static esp_err_t h_tokens(httpd_req_t *r) {
+    return send_embedded(r, "/css/tokens.css", "text/css; charset=utf-8",
+                         tokens_css_start, tokens_css_end);
+}
+static esp_err_t h_components(httpd_req_t *r) {
+    return send_embedded(r, "/css/components.css", "text/css; charset=utf-8",
+                         components_css_start, components_css_end);
 }
 static esp_err_t h_charts(httpd_req_t *r) {
     return send_embedded(r, "/charts.js", "application/javascript; charset=utf-8",
@@ -311,8 +317,11 @@ static void register_static(httpd_handle_t srv) {
     httpd_uri_t uris[] = {
         { .uri="/",              .method=HTTP_GET, .handler=h_index },
         { .uri="/index.html",    .method=HTTP_GET, .handler=h_index },
+        { .uri="/js/app.js",     .method=HTTP_GET, .handler=h_appjs },
         { .uri="/app.js",        .method=HTTP_GET, .handler=h_appjs },
-        { .uri="/style.css",     .method=HTTP_GET, .handler=h_css },
+        { .uri="/css/tokens.css",     .method=HTTP_GET, .handler=h_tokens },
+        { .uri="/css/components.css", .method=HTTP_GET, .handler=h_components },
+        { .uri="/style.css",          .method=HTTP_GET, .handler=h_components },
         { .uri="/charts.js",     .method=HTTP_GET, .handler=h_charts },
         { .uri="/api.js",        .method=HTTP_GET, .handler=h_apijs },
         { .uri="/ws.js",         .method=HTTP_GET, .handler=h_wsjs },
@@ -368,8 +377,9 @@ void web_start(void *arg) {
 
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     // Обработчиков стало больше (PWA + HTTPS-дубль), поэтому запас по слотам.
+    // Сокеты: 4 HTTP + 3 HTTPS + Telegram/MQTT оставляют запас в LWIP (10).
     cfg.max_uri_handlers = 96;
-    cfg.max_open_sockets = 5;
+    cfg.max_open_sockets = 4;
     cfg.stack_size = 8192;
     cfg.lru_purge_enable = true;
 

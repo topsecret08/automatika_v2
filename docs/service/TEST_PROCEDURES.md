@@ -149,7 +149,7 @@ curl -s http://$HOST/api/health
    - ярлыки «Дашборд», «Журнал», «Настройки» работают;
    - при отключении Wi-Fi показывается offline-страница, затем
      восстанавливается соединение.
-5. DevTools → Application → Cache Storage: кэш `automatika-v293-1`
+5. DevTools → Application → Cache Storage: кэш `automatika-v293-ios-1`
    содержит оболочку.
 
 ## 12. Регрессия после прошивки

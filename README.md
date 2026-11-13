@@ -455,9 +455,9 @@ ws.onmessage = e => console.log(JSON.parse(e.data));
 Клиенты хранятся в реестре под мьютексом; «мёртвый» сокет удаляется
 сразу (`httpd_sess_trigger_close`), иначе fd достаётся следующему клиенту.
 
-### 5. Telegram-уведомления
+### 5. Telegram: уведомления и бот
 
-Файлы: `main/web/telegram_notify.{h,c}` (очередь, задача `tg_notify`, ядро 0).
+Уведомления: `main/web/telegram_notify.{h,c}` (очередь, задача `tg_notify`, ядро 0).
 
 - токен и chat_id — **только в NVS** (`POST /api/telegram`), секретов в коде нет;
 - `telegram_notify()` неблокирующий: safety-задача (приоритет 19) кладёт
@@ -465,6 +465,21 @@ ws.onmessage = e => console.log(JSON.parse(e.data));
 - троттлинг `TELEGRAM_MIN_INTERVAL_MS` (2 с), очередь 8 сообщений,
   переполнение фиксируется в журнале;
 - проверка: `POST /api/telegram/test`.
+
+Бот: `main/web/telegram_commands.c` (задача `tg_bot`, ядро 0, приоритет 3,
+long polling `getUpdates`).
+
+- команды принимаются **только** из chat_id, сохранённого в NVS; чужие чаты
+  игнорируются;
+- `/status`, `/run`, `/stop`, `/pause`, `/resume`, `/power N`,
+  `/fraction`, `/setpoint N`, `/log`, `/profile`;
+- inline-кнопки: «Запуск», «Стоп», «Статус», «Журнал», «Сбросить E-STOP»;
+- `/run` использует общий `process_control_start()` с проверками E-STOP и
+  safety; `/power` проходит через `ctrl_heater_set_percent()` и не может
+  обойти защиту;
+- `/setpoint` меняет `target_cube_t` (порог хвостов), а не PID-уставку;
+- загрузка профиля из бота не поддерживается: это меняет режим и уставки,
+  поэтому остаётся в веб-интерфейсе.
 
 События: E-STOP, авария (`ctrl_safety_trigger`), низкий уровень,
 завершение процесса, этапы OTA.
@@ -1022,7 +1037,11 @@ python generate_sdcard.py
 ## Интерфейс и меню
 
 UI построен на LVGL 8.3: 480×320, сенсорный ввод, русский язык, карточки,
-списки, графики и анимации. Главное меню содержит **25 разделов**:
+списки, графики и анимации. Стартовый экран — iOS-дашборд
+(`main/ui/ui_screen_ios.c`): скорр. температура пара, куб, мощность,
+отбор, объём, фракция, кнопки «Старт/Стоп» и переход в меню. Тема
+применяется из задачи `ui` (ядро 1, приоритет 8), чтобы все вызовы LVGL
+шли из одного контекста. Главное меню содержит **25 разделов**:
 
 | Раздел | Что внутри |
 |---|---|
@@ -1062,12 +1081,15 @@ UI построен на LVGL 8.3: 480×320, сенсорный ввод, рус
 После подключения к Wi-Fi откройте `http://<IP-устройства>/` (или
 `https://automatika.local/` для PWA).
 
-Встроенные файлы: `index.html`, `app.js`, `style.css`, `charts.js`,
-`api.js`, `ws.js`, `recipes.js`, `settings.js`, `manifest.json`, `sw.js`,
-`offline.html`, `icons/*.png`. Те же файлы лежат в `littlefs/` и собираются
-в образ раздела `assets`; встроенная копия работает даже без смонтированного
-`/lfs`. Интерфейс устанавливается как PWA — см. раздел
-[«PWA и HTTPS»](#pwa-и-https); основной способ интеграции — REST API.
+Встроенные файлы: `index.html`, `js/app.js`, `css/tokens.css`,
+`css/components.css`, `charts.js`, `api.js`, `ws.js`, `recipes.js`,
+`settings.js`, `manifest.json`, `sw.js`, `offline.html`, `icons/*.png`.
+Интерфейс оформлен в стиле iOS / Liquid Glass: 8pt-сетка, tap-target
+44 px, радиусы 12/20, стекло только в шапке и нижней навигации.
+Те же файлы лежат в `littlefs/` и собираются в образ раздела `assets`;
+встроенная копия работает даже без смонтированного `/lfs`. Интерфейс
+устанавливается как PWA — см. раздел [«PWA и HTTPS»](#pwa-и-https);
+основной способ интеграции — REST API.
 
 ### Эндпоинты
 
@@ -1181,8 +1203,12 @@ WebSocket `/ws` отправляет текстовые кадры:
 - `littlefs/sw.js` — cache-first для статики, network-only для `/api/*`
   и `/ws*`, offline-страница, обработка push (клиентская часть).
 - `littlefs/index.html` — метаданные PWA, нижняя навигация, вкладки.
-- `littlefs/app.js` — WebSocket-телеметрия, статус Online/Offline,
-  установка приложения, хранение API-ключа, генерация первого ключа.
+- `littlefs/css/tokens.css` — токены iOS: 8pt-сетка, радиусы, SF Pro,
+  светлая/тёмная темы, Liquid Glass.
+- `littlefs/css/components.css` — карточки, KPI, сегментированные
+  контролы, поля, tab bar, toast, журнал.
+- `littlefs/js/app.js` — роутер, WebSocket-телеметрия, график, API-ключ,
+  генерация первого ключа, установка PWA.
 - `littlefs/icons/*.png` — иконки 192, 512, maskable 512, apple-touch 180.
 - `littlefs/offline.html` — заглушка при недоступном устройстве.
 
