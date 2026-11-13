@@ -135,8 +135,9 @@ void ws_telemetry_push_state(void) {
     ws_telemetry_push(json);
 }
 
-/* Задача телеметрии: ядро 0 (сеть), приоритет PRIO_TELEMETRY.
- * Публикует кадр раз в WS_TELEMETRY_PERIOD_MS, только если есть клиенты. */
+/* Задача телеметрии: ядро 1 (realtime), приоритет PRIO_TELEMETRY = 8.
+ * Отправка кадра асинхронная — сетевой ввод-вывод делает задача web на
+ * ядре 0, поэтому публикатор не блокирует safety/mode. */
 void ws_telemetry_task(void *arg) {
     (void)arg;
     wd_register("ws_tel", 5000, false);

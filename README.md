@@ -9,7 +9,7 @@
 480×320, из веб-интерфейса и по API.
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
-> (ESP-IDF v5.3.2, образ ≈2,29 МБ из 3 МБ раздела) без предупреждений;
+> (ESP-IDF v5.3.2, образ ≈2,30 МБ из 3 МБ раздела) без предупреждений;
 > тестовый проект `test/` (Unity) тоже собирается.
 > Работа на реальном оборудовании не проверялась.
 
@@ -72,13 +72,29 @@
 - **Экспорт/импорт конфигурации в JSON** на SD или LittleFS; импорт по белому
   списку ключей с валидацией.
 - **WebSocket-телеметрия** `/ws/telemetry` — кадр раз в секунду, до 4 клиентов.
+  Публикатор `ws_tel` работает на ядре 1 (приоритет 8), отправка кадра
+  асинхронная — сетевой ввод-вывод остаётся в задаче `web` на ядре 0.
 - **Telegram-уведомления** при E-STOP, авариях, низком уровне, завершении
   процесса и обновлении прошивки; очередь + троттлинг, safety не блокируется.
 - **Датчик уровня** (поплавок на GPIO 28): защита от сухого хода.
 - **Журнал событий в JSON** — `GET /api/events` (кольцо 200 записей).
 - **Health-check** `GET /api/health` без ключа (память, uptime, SD/БД, датчики,
   watchdog).
-- **Модульные тесты** (Unity) для фильтра, уровня и журнала.
+- **Модульные тесты** (Unity) для фильтра, уровня, журнала и фасада дозатора.
+
+#### Где что лежит (production-модули)
+
+| Требование | Файлы | Задача / эндпоинт |
+|---|---|---|
+| OTA + анти-брик | `ota/ota_manager.{h,c}` | `ota_mgr` (ядро 0), `POST /api/ota/url`, `POST /api/ota/confirm` |
+| Миграция NVS | `core/nvs_migration.{h,c}` | выполняется в `app_main()` до задач |
+| Бэкап конфигурации | `core/config_backup.{h,c}` | `POST /api/config/export`, `/api/config/import` |
+| WS-телеметрия | `web/ws_telemetry.{h,c}` | `ws_tel` (ядро 1, приоритет 8), `/ws/telemetry` |
+| Telegram | `web/telegram_notify.{h,c}` | `tg_notify` (ядро 0, приоритет 3) |
+| Датчик уровня | `level/level_sensor.{h,c}` | `safety` (ядро 1), GPIO 28 |
+| Журнал событий | `core/event_log.c`, `core/events.c` | `GET /api/events` |
+| Health-check | `core/health.{h,c}` | `GET /api/health` (без ключа) |
+| Тесты | `test/` | отдельный Unity-проект, см. `SETUP.md` |
 
 ### Управление процессами
 
@@ -231,6 +247,7 @@ I2C-адреса: `ADS1115 0x48`, `MCP4725 0x60`, `Grove SSR 0x11`,
 | `safety` | 15 | 4096 | Аварийная защита, опрос датчиков |
 | `mode` | 10 | 8192 | Конечный автомат процесса |
 | `ui` | 8 | 8192 | LVGL, сенсор |
+| `ws_tel` | 8 | 4096 | Публикатор телеметрии `/ws/telemetry`, 1 Гц (v2.9.3) |
 | `scale` | 6 | 4096 | HX711 |
 | `fps` | 4 | 3072 | FPS-монитор |
 | `vcalib` | 3 | 3072 | Калибровка клапанов |
@@ -375,6 +392,12 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 Открытый `http://` разрешается только при `OTA_ALLOW_PLAIN_HTTP=1` в `config.h`
 (для отладки).
 
+Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
+указаны слоты по 2 МБ, но образ v2.9.3 занимает ~2,3 МБ (`0x24BCC0`),
+поэтому 2 МБ физически не хватает; 3 МБ дают ~23 % запаса. Уменьшать слоты
+можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
+`partitions.csv`).
+
 ### 2. Миграция NVS (schema v1 → v3)
 
 Файлы: `main/core/nvs_migration.{h,c}`.
@@ -415,7 +438,9 @@ curl -X POST -H "X-API-Key: $KEY" -d '{"path":"/sdcard/cfg.json"}' \
 
 ### 4. WebSocket-телеметрия
 
-Файлы: `main/web/ws_telemetry.{h,c}`. Задача `ws_tel` — ядро 0, 1 Гц.
+Файлы: `main/web/ws_telemetry.{h,c}`. Задача `ws_tel` — ядро 1, приоритет 8,
+1 Гц; `httpd_ws_send_frame_async()` только ставит кадр в очередь HTTP-задачи
+(ядро 0), поэтому публикатор не блокирует realtime-ядро.
 
 ```javascript
 const ws = new WebSocket('ws://192.168.1.50/ws/telemetry');
@@ -489,9 +514,12 @@ curl http://192.168.1.50/api/health
 
 ### 9. Модульные тесты (Unity)
 
-Каталог `test/` — отдельный проект: `idf.py -C test build && idf.py -C test flash monitor`.
+Каталог `test/` — отдельный проект:
+`idf.py -C test set-target esp32s3`, затем `idf.py -C test build` и
+`idf.py -C test -p COM5 flash monitor`.
 Тесты: сглаживание/тренд/отказ датчика (`temp_filter`), логика уровня и
-пороги, JSON-экранирование журнала. См. [`test/README.md`](test/README.md).
+пороги, JSON-экранирование журнала, фасад дозатора (`pump_doser`).
+См. [`test/README.md`](test/README.md).
 
 ### 10. Порядок инициализации
 
@@ -505,7 +533,7 @@ nvs_flash_init
  → lua_engine_init()  → telegram_notify_init()
  → I2C/1-Wire/LCD/тач/SD/LittleFS → … → sqlite → mosты (Samovar/MQTT)
  → health_init()  → UI → web_start() (HTTP + WS + /api/*)
- → задачи: core0 {ota_mgr, ws_tel, tg_notify, lua, …}, core1 {estop, safety, …}
+ → задачи: core0 {ota_mgr, tg_notify, lua, web, …}, core1 {estop, safety, mode, ws_tel, …}
  → selftest через 5 с
 ```
 
@@ -516,7 +544,7 @@ nvs_flash_init
 | `estop` | 1 | 20 | кнопка E-STOP: опрос 50 мс, защёлка |
 | `safety` | 1 | 19 | аварии, E-STOP, уровень, уведомления (100 мс) |
 | `ota_mgr` | 0 | 3 | подтверждение/откат образа |
-| `ws_tel` | 0 | 3 | телеметрия `/ws/telemetry`, 1 Гц |
+| `ws_tel` | 1 | 8 | телеметрия `/ws/telemetry`, 1 Гц |
 | `tg_notify` | 0 | 3 | очередь уведомлений Telegram |
 | `lua` | 0 | 2 | выполнение скриптов |
 
@@ -861,6 +889,10 @@ $env:PYTHONUTF8=1
   обвязка в `main/control/autopid_glue.cpp`) (v2.9.1)
 - **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (v2.9.1)
 
+`espressif/esp_websocket_client` намеренно **не подключён**: это клиентская
+библиотека, а `/ws/telemetry` — серверный WebSocket на `esp_http_server`
+(`CONFIG_HTTPD_WS_SUPPORT=y`), поэтому лишняя зависимость не нужна.
+
 SQLite **не скачивается**: он лежит локально в `components/esp_sqlite3`
 (SQLite 3.54.1, MIT), чтобы сборка не зависела от реестра.
 
@@ -877,7 +909,7 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (v2.9.1: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (v2.9.1): **0x230120 (~2,25 МБ)**, свободно ~27 % раздела.
+Текущий бинарник (v2.9.3): **0x24BCC0 (~2,30 МБ)**, свободно ~23 % раздела.
 
 ### Полезные команды
 
@@ -1358,6 +1390,8 @@ Remove-Item -Recurse -Force build, managed_components, dependencies.lock, sdkcon
 - [SETUP.md](SETUP.md) — установка и первичная настройка (API-ключ, калибровка,
   Telegram, OTA, бэкап)
 - [USER_GUIDE.md](USER_GUIDE.md) — руководство пользователя
+- [docs/PRODUCTION_MODULES.md](docs/PRODUCTION_MODULES.md) — финальный обзор
+  production-модулей: зависимости, задачи, проверка
 - [test/README.md](test/README.md) — как запускать модульные тесты
 - [CHANGELOG.md](CHANGELOG.md) — история изменений
 - [generate_sdcard.py](generate_sdcard.py) — генератор SD-карты

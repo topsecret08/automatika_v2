@@ -4,7 +4,6 @@
 #include <sys/stat.h>
 #include <stdio.h>
 
-static const char *TAG = "SD";
 
 bool hal_sd_mounted(void) {
     return storage_sd_ready();

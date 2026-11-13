@@ -20,7 +20,10 @@
 #define PRIO_PRELOADER       2
 #define PRIO_AUTOLEARN       2
 #define PRIO_TINYML          2
-#define PRIO_TELEMETRY       3
+// Публикатор телеметрии (1 Гц) — на ядре 1, чтобы выборка датчиков шла
+// рядом с safety/mode. Сама отправка WS-кадра асинхронная: httpd-задача
+// остаётся на ядре 0 (CORE_NETWORK_AI) и выполняет сетевой ввод-вывод.
+#define PRIO_TELEMETRY       8
 
 #define STACK_ESTOP         2048
 #define STACK_DOSER         4096

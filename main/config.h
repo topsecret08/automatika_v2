@@ -92,6 +92,11 @@
 #define HYS                 1.0f     // °C, гистерезис BANG-BANG
 #endif
 
+// Совместимость с ТЗ: PWM_HYSTERESIS — то же самое, что HYS.
+// Фактическое значение на старте берётся из NVS ("automatika"/"hys"),
+// поэтому менять гистерезис можно без перепрошивки: POST /api/control.
+#define PWM_HYSTERESIS      HYS
+
 // Реакция на рост температуры (temp_filter_is_rising):
 #define HEATER_TREND_CUT    0.70f    // множитель мощности, если тренд растёт
 #define PREDEC_TREND_CUT    0.80f    // множитель отбора, если тренд растёт
@@ -132,6 +137,11 @@
 // ------------------------------------------------------------
 // Разрешать OTA по открытому http:// (только для отладки!).
 #define OTA_ALLOW_PLAIN_HTTP   0
+
+// Подтверждение нового образа после 30 с непрерывной здоровой работы.
+// ota/ota_manager.h использует это значение как OTA_CONFIRM_STABLE_MS;
+// общее окно проверки (OTA_CONFIRM_WINDOW_MS) — 60 с.
+#define OTA_AUTO_CONFIRM_MS    30000u
 
 // ------------------------------------------------------------
 // Датчик уровня (level/level_sensor.c)

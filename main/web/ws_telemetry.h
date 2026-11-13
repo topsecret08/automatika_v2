@@ -20,4 +20,4 @@ esp_err_t ws_telemetry_attach(httpd_handle_t srv);
 int       ws_telemetry_client_count(void);
 void      ws_telemetry_push(const char *json);           // произвольный кадр
 void      ws_telemetry_push_state(void);                 // стандартный кадр
-void      ws_telemetry_task(void *arg);                  // 1 Гц из ядра 0
+void      ws_telemetry_task(void *arg);                  // 1 Гц, ядро 1, приоритет 8

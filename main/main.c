@@ -98,12 +98,13 @@ void vApplicationIdleHook(void) {
     ui_cpu_idle_hook();
 }
 
-// Порядок инициализации (v2.9.2):
-//   nvs_flash_init → nvs_migration_run → ota_manager_init → control_config_init
+// Порядок инициализации (v2.9.3):
+//   nvs_flash_init → nvs_migration_run → control_config_init → ota_manager_init
 //   → event_log/health → estop_init → level_sensor_init → lua_engine_init
 //   → telegram_notify_init → ... → web_start() (регистрация HTTP/WS)
-// Задача ota_manager_task подтверждает образ ТОЛЬКО по результату
-// health-check (см. ota/ota_manager.h), а не по таймауту.
+// ota_manager_init() вызывается до создания задач: если образ новый, он
+// помечает раздел PENDING_VERIFY и запускает окно health-check. Само
+// подтверждение делает ota_manager_task (не по таймауту, а по здоровью).
 void app_main(void) {
     ESP_LOGI(TAG, "=========== %s ===========", FW_NAME);
     ESP_LOGI(TAG, "Build: %s %s", __DATE__, __TIME__);
@@ -265,7 +266,6 @@ void app_main(void) {
     SPAWN(ctrl_dose_task,     "doser",     4096,              PRIO_DOSER,        CORE_NETWORK_AI);
     SPAWN(samovar_task,       "samovar",   6144,              3,                 CORE_NETWORK_AI);
     SPAWN(ota_manager_task,   "ota_mgr",   4096,              3,                 CORE_NETWORK_AI);
-    SPAWN(ws_telemetry_task,  "ws_tel",    4096,              PRIO_TELEMETRY,    CORE_NETWORK_AI);
     SPAWN(telegram_notify_task, "tg_notify", 6144,            3,                 CORE_NETWORK_AI);
 
     if (flags_get_by_key("mqtt"))
@@ -277,6 +277,7 @@ void app_main(void) {
     SPAWN(estop_task,         "estop",     STACK_ESTOP,       PRIO_ESTOP,        CORE_REALTIME_UI);
     SPAWN(ctrl_safety_task,   "safety",    STACK_SAFETY,      PRIO_SAFETY,       CORE_REALTIME_UI);
     SPAWN(mode_task,          "mode",      STACK_MODE,        PRIO_MODE,         CORE_REALTIME_UI);
+    SPAWN(ws_telemetry_task,  "ws_tel",    4096,              PRIO_TELEMETRY,    CORE_REALTIME_UI);
     SPAWN(ui_task,            "ui",        STACK_UI,          PRIO_UI,           CORE_REALTIME_UI);
     SPAWN(scale_task,         "scale",     STACK_SCALE,       PRIO_SCALE,        CORE_REALTIME_UI);
     SPAWN(ctrl_heater_task,   "heater",    3072,              PRIO_SCALE,        CORE_REALTIME_UI);
@@ -290,7 +291,7 @@ void app_main(void) {
 
     ESP_LOGI(TAG, "=========== System started (dual-core) ===========");
     ESP_LOGI(TAG, "  CORE 0: web, preloader, anomaly, autolearn, dblog, usb, fota, wd, doser, samovar, mqtt, telegram, lua");
-    ESP_LOGI(TAG, "  CORE 1: estop, safety, mode, ui, scale, heater, fps, vcalib, events, tinyml, sensors");
+    ESP_LOGI(TAG, "  CORE 1: estop, safety, mode, ws_tel, ui, scale, heater, fps, vcalib, events, tinyml, sensors");
 
     vTaskDelay(pdMS_TO_TICKS(5000));
     extern void selftest_run_all(void);

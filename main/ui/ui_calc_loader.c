@@ -24,12 +24,10 @@ void ui_calc_load(const char *filename) {
     int n = cJSON_GetArraySize(inputs);
 
     static float values[8];
-    static float *ptrs[8];
 
     for (int i = 0; i < n && i < 8; i++) {
         cJSON *in = cJSON_GetArrayItem(inputs, i);
         values[i] = cJSON_GetObjectItem(in, "def")->valuedouble;
-        ptrs[i] = &values[i];
 
         static ui_slider_t sl[8];
         sl[i].label = cJSON_GetObjectItem(in, "label")->valuestring;

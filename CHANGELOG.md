@@ -60,6 +60,15 @@ managed-компонентов, которых нет в офлайн-кэше).
   и не блокирует HTTP-поток.
 - Все POST-обработчики проверяют `api_check_auth()` (кроме webhook
   `/alice` с `X-Skill-Token` и telegram-webhook с секретом).
+- Телеметрия `/ws/telemetry`: задача `ws_tel` перенесена на ядро 1,
+  приоритет 8 (из ТЗ); отправка кадра асинхронная, HTTP-задача остаётся
+  на ядре 0.
+- `config.h`: `PWM_HYSTERESIS` (алиас `HYS`) и `OTA_AUTO_CONFIRM_MS`
+  (30 с, используется как `OTA_CONFIRM_STABLE_MS`).
+- `test/`: добавлены unit-тесты фасада дозатора (значения по умолчанию,
+  отказ при нулевом/отрицательном объёме и превышении `DOSER_MAX_DOSE_ML`).
+- `partitions.csv`: OTA-слоты оставлены по 3 МБ — образ ~2,30 МБ не
+  помещается в 2 МБ из ТЗ; решение и формула пересчёта описаны в файле.
 - **Устойчивость SD** — probe/remount, очередь записей в PSRAM,
   сброс в `/sdcard/logs/resilience.log` (`core/sd_resilience.c`).
 - **Безопасная OTA** — `esp_https_ota` + `esp_crt_bundle`, запрет

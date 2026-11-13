@@ -1,6 +1,7 @@
 #pragma once
 #include "esp_err.h"
 #include "esp_ota_ops.h"
+#include "config.h"
 #include <stdbool.h>
 
 // Отказоустойчивое обновление (anti-brick).
@@ -21,7 +22,7 @@
 // безусловно — только по результату реальной проверки здоровья.
 
 #define OTA_CONFIRM_WINDOW_MS 60000u   /* время на проверку после старта */
-#define OTA_CONFIRM_STABLE_MS 30000u   /* непрерывное «здоровое» окно */
+#define OTA_CONFIRM_STABLE_MS OTA_AUTO_CONFIRM_MS /* непрерывное «здоровое» окно */
 
 typedef enum {
     OTA_STATE_IDLE = 0,

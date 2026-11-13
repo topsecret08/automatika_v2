@@ -46,14 +46,6 @@ static bool running_pending_verify(void) {
     return st == ESP_OTA_IMG_PENDING_VERIFY;
 }
 
-static bool running_partition_has_app(void) {
-    const esp_partition_t *run = esp_ota_get_running_partition();
-    if (!run) return false;
-    esp_app_desc_t desc;
-    if (esp_ota_get_partition_description(run, &desc) != ESP_OK) return false;
-    return (strncmp(desc.version, "v", 1) == 0 || desc.version[0] != '\0');
-}
-
 esp_err_t ota_manager_init(void) {
     const esp_partition_t *run = esp_ota_get_running_partition();
     esp_ota_img_states_t st;

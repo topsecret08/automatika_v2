@@ -26,7 +26,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *TAG = "HEALTH";
 static char s_last_reason[96] = "";
 
 void health_init(void) { health_json(); }
