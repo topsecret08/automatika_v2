@@ -851,13 +851,19 @@ static esp_err_t h_config(httpd_req_t *r) {
 // текущий ключ или сервисный режим). Возвращает ключ ОДИН раз.
 static esp_err_t h_config_generate_key(httpd_req_t *r) {
     bool service = control_config_service_enabled();
-    if (!service) {
-        if (control_config_api_has_key()) {
-            if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-        } else {
-            return send_err(r, "403 Forbidden",
-                            "{\"error\":\"no key and no service mode\"}");
-        }
+    bool has_key = control_config_api_has_key();
+
+    if (has_key && !service) {
+        // Ключ уже есть: сменить его можно только зная текущий.
+        if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    } else if (!has_key) {
+        // Bootstrap первого ключа. Без этого свежепрошитое устройство
+        // недоступно для записи: ключа нет, а сервисный режим включается
+        // только запросом с ключом. Разрешаем ровно один раз — пока ключ
+        // не создан. Ключ возвращается в ответе, поэтому генерировать его
+        // нужно сразу после первого включения, до выхода в общую сеть.
+        events_log(EVENT_WARNING, "API key bootstrap: generated without auth");
+        ESP_LOGW(TAG, "generating first API key (no key provisioned)");
     }
 
     char key[API_KEY_LEN];

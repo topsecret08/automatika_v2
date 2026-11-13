@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1150" viewBox="0 0 1400 1150">
+  <title>Automatika v2 — wiring diagram</title>
+  <desc>Reference wiring for ESP32-S3 distiller controller. Pins match main/config.h (v2.9.3).</desc>
+  <style>
+    .bg      { fill: #ffffff; }
+    .block   { fill: #e8f1fb; stroke: #1f5f9e; stroke-width: 2; }
+    .power   { fill: #fff4d6; stroke: #b8860b; stroke-width: 2; }
+    .sensor  { fill: #e6f5e9; stroke: #2e7d32; stroke-width: 2; }
+    .safety  { fill: #fde8e8; stroke: #b71c1c; stroke-width: 2; }
+    .act     { fill: #efe8fb; stroke: #5b3f9e; stroke-width: 2; }
+    .title   { font-family: "Segoe UI", Arial, sans-serif; font-size: 19px; font-weight: 700; text-anchor: middle; fill: #10243a; }
+    .label   { font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; text-anchor: middle; fill: #1a1a1a; }
+    .small   { font-family: "Segoe UI", Arial, sans-serif; font-size: 11px; text-anchor: middle; fill: #444444; }
+    .pin     { font-family: Consolas, monospace; font-size: 12px; text-anchor: start; fill: #10243a; }
+    .note    { font-family: "Segoe UI", Arial, sans-serif; font-size: 12px; fill: #444444; }
+    .wire    { stroke: #37474f; stroke-width: 1.6; fill: none; }
+    .wire-i2c{ stroke: #1565c0; stroke-width: 3; fill: none; }
+    .wire-pwr{ stroke: #c62828; stroke-width: 2.6; fill: none; }
+    .wire-5v { stroke: #ef6c00; stroke-width: 2.4; fill: none; }
+    .dash    { stroke-dasharray: 5,3; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1400" height="1150"/>
+
+  <text x="700" y="34" style="font-family:'Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;text-anchor:middle;fill:#10243a;">Automatika v2 — схема подключения (референс)</text>
+  <text x="700" y="56" class="small">Пины и адреса соответствуют main/config.h v2.9.3. Силовая часть 220 В — только через E-STOP и предохранитель.</text>
+
+  <!-- ================= MAINS / POWER ================= -->
+  <rect class="power" x="40" y="90" width="220" height="80" rx="8"/>
+  <text class="title" x="150" y="120">220 V AC</text>
+  <text class="small" x="150" y="142">L / N / PE, 50 Hz</text>
+
+  <rect class="power" x="40" y="200" width="220" height="90" rx="8"/>
+  <text class="title" x="150" y="228">F1 + RV1 + FL1</text>
+  <text class="small" x="150" y="250">5 A slow fuse, 275 V varistor,</text>
+  <text class="small" x="150" y="268">EMI filter 250 V / 6 A</text>
+
+  <rect class="safety" x="40" y="320" width="220" height="90" rx="8"/>
+  <text class="title" x="150" y="348">E-STOP</text>
+  <text class="small" x="150" y="370">механический разрыв фазы,</text>
+  <text class="small" x="150" y="388">НЗ-контакт (не GPIO!)</text>
+
+  <rect class="power" x="40" y="450" width="220" height="90" rx="8"/>
+  <text class="title" x="150" y="478">K1: SSR-40DA</text>
+  <text class="small" x="150" y="500">40 A, управление DC 3–32 В</text>
+  <text class="small" x="150" y="518">радиатор + термопаста</text>
+
+  <rect class="power" x="40" y="580" width="220" height="80" rx="8"/>
+  <text class="title" x="150" y="608">Нагреватель</text>
+  <text class="small" x="150" y="630">2 кВт, 220 В AC</text>
+
+  <rect class="power" x="40" y="700" width="220" height="90" rx="8"/>
+  <text class="title" x="150" y="728">PS1: AC-DC 5 V</text>
+  <text class="small" x="150" y="750">3 A, изолированный</text>
+  <text class="small" x="150" y="768">питание логики и датчиков</text>
+
+  <!-- mains wiring -->
+  <path class="wire-pwr" d="M 150 170 L 150 200"/>
+  <path class="wire-pwr" d="M 150 290 L 150 320"/>
+  <path class="wire-pwr" d="M 150 410 L 150 450"/>
+  <path class="wire-pwr" d="M 150 540 L 150 580"/>
+  <path class="wire-pwr" d="M 150 410 L 40 410 L 25 410 L 25 745 L 40 745"/>
+
+  <!-- ================= ESP32 ================= -->
+  <rect class="block" x="380" y="170" width="300" height="380" rx="12"/>
+  <text class="title" x="530" y="205" style="font-size:21px;">ESP32-S3-WROOM-1</text>
+  <text class="small" x="530" y="227">N16R8: 16 MB flash, 8 MB PSRAM</text>
+  <line x1="400" y1="242" x2="660" y2="242" stroke="#9fb6cc" stroke-width="1"/>
+  <text class="pin" x="405" y="266">GPIO 8   I2C SDA</text>
+  <text class="pin" x="405" y="288">GPIO 9   I2C SCL (400 kHz)</text>
+  <text class="pin" x="405" y="310">GPIO 4   1-Wire (DS18B20 x2)</text>
+  <text class="pin" x="405" y="332">GPIO 2   Flow YF-S201 (IRQ)</text>
+  <text class="pin" x="405" y="354">GPIO 5/6 HX711 DOUT/SCK</text>
+  <text class="pin" x="405" y="376">GPIO 25/26 Pump STEP/EN</text>
+  <text class="pin" x="405" y="398">GPIO 27  E-STOP (input)</text>
+  <text class="pin" x="405" y="420">GPIO 28  Level float (input)</text>
+  <text class="pin" x="405" y="442">GPIO 45  Buzzer</text>
+  <text class="pin" x="405" y="464">GPIO 14/15/16/17/18/21 LCD</text>
+  <text class="pin" x="405" y="486">GPIO 38/39 Touch CS/IRQ</text>
+  <text class="pin" x="405" y="508">GPIO 10–13 microSD (SPI)</text>
+  <text class="small" x="530" y="534">Wi-Fi 2.4 GHz only · Core 0: network · Core 1: control/safety</text>
+
+  <!-- 5V to ESP32 -->
+  <path class="wire-5v" d="M 260 745 L 320 745 L 320 150 L 530 150 L 530 170"/>
+  <text class="small" x="345" y="140" fill="#a84b00">5 V</text>
+  <text class="small" x="345" y="158" fill="#a84b00">GND</text>
+
+  <!-- ================= I2C BUS ================= -->
+  <path class="wire-i2c" d="M 680 296 L 720 296 L 720 900"/>
+  <path class="wire-i2c" d="M 720 105 L 720 296"/>
+  <text x="700" y="920" style="font-family:'Segoe UI',Arial,sans-serif;font-size:11px;fill:#1565c0;">I2C: SDA 8 · SCL 9 · 400 kHz</text>
+
+  <!-- ================= I2C DEVICES ================= -->
+  <rect class="sensor" x="800" y="80" width="350" height="66" rx="8"/>
+  <text class="title" x="975" y="106">BMP280 — 0x77</text>
+  <text class="small" x="975" y="128">давление и температура → поправка кипения</text>
+  <path class="wire" d="M 720 113 L 800 113"/>
+
+  <rect class="sensor" x="800" y="162" width="350" height="66" rx="8"/>
+  <text class="title" x="975" y="188">DS3231 — 0x68</text>
+  <text class="small" x="975" y="210">RTC, батарея CR2032, SNTP-синхронизация</text>
+  <path class="wire" d="M 720 195 L 800 195"/>
+
+  <rect class="sensor" x="800" y="244" width="350" height="86" rx="8"/>
+  <text class="title" x="975" y="270">ADS1115 — 0x48</text>
+  <text class="small" x="975" y="291">A0 давление · A1 вакуум</text>
+  <text class="small" x="975" y="309">A2 пролив · A3 пары</text>
+  <path class="wire" d="M 720 287 L 800 287"/>
+
+  <rect class="act" x="800" y="346" width="350" height="66" rx="8"/>
+  <text class="title" x="975" y="372">PCA9685 — 0x40</text>
+  <text class="small" x="975" y="394">HEADS / BODY / TAILS + дефлегматор (ch 3)</text>
+  <path class="wire" d="M 720 379 L 800 379"/>
+
+  <rect class="act" x="800" y="428" width="350" height="66" rx="8"/>
+  <text class="title" x="975" y="454">MCP4725 — 0x60</text>
+  <text class="small" x="975" y="476">0–3.3 В → управление SSR нагрева</text>
+  <path class="wire" d="M 720 461 L 800 461"/>
+  <path class="wire-pwr dash" d="M 260 495 L 300 495 L 300 960 L 760 960 L 760 486 L 800 486" opacity="0.55"/>
+  <text class="small" x="520" y="952" fill="#8e2020">DC control 0–3.3 В → SSR</text>
+
+  <rect class="act" x="800" y="510" width="350" height="66" rx="8"/>
+  <text class="title" x="975" y="536">Grove SSR — 0x11</text>
+  <text class="small" x="975" y="558">охлаждение, вода, мешалка, резерв</text>
+  <path class="wire" d="M 720 543 L 800 543"/>
+
+  <rect class="sensor" x="800" y="592" width="350" height="60" rx="8"/>
+  <text class="title" x="975" y="617">FT6336 — 0x38</text>
+  <text class="small" x="975" y="637">тачскрин, IRQ GPIO 39</text>
+  <path class="wire" d="M 720 622 L 800 622"/>
+
+  <!-- ================= NON-I2C SENSORS ================= -->
+  <rect class="sensor" x="800" y="680" width="350" height="70" rx="8"/>
+  <text class="title" x="975" y="706">DS18B20 ×2</text>
+  <text class="small" x="975" y="728">куб и царга, 1-Wire GPIO 4, pull-up 4.7 кОм</text>
+  <path class="wire" d="M 660 310 L 740 310 L 740 715 L 800 715"/>
+  <text x="672" y="303" style="font-family:'Segoe UI',Arial,sans-serif;font-size:11px;fill:#2e7d32;">1-Wire</text>
+
+  <rect class="sensor" x="800" y="770" width="350" height="62" rx="8"/>
+  <text class="title" x="975" y="796">YF-S201</text>
+  <text class="small" x="975" y="817">проток 1–30 л/мин, GPIO 2, прерывание</text>
+  <path class="wire" d="M 660 332 L 760 332 L 760 801 L 800 801"/>
+
+  <rect class="sensor" x="800" y="852" width="350" height="62" rx="8"/>
+  <text class="title" x="975" y="878">HX711</text>
+  <text class="small" x="975" y="899">тензодатчик, DOUT 5 / SCK 6</text>
+  <path class="wire" d="M 660 354 L 780 354 L 780 883 L 800 883"/>
+
+  <!-- ================= ACTUATORS ================= -->
+  <rect class="act" x="380" y="610" width="300" height="90" rx="10"/>
+  <text class="title" x="530" y="636">A4988 + NEMA17</text>
+  <text class="small" x="530" y="658">дозатор: STEP 25, ENABLE 26</text>
+  <text class="small" x="530" y="677">питание мотора 12 В — отдельное</text>
+
+  <rect class="block" x="380" y="730" width="300" height="100" rx="10"/>
+  <text class="title" x="530" y="756">ST7796 LCD 480×320</text>
+  <text class="small" x="530" y="778">CS 14 · DC 15 · RST 16 · BL 17</text>
+  <text class="small" x="530" y="796">MOSI 18 · CLK 21 · SPI2</text>
+  <text class="small" x="530" y="814">touch FT6336 по I2C</text>
+
+  <rect class="block" x="380" y="860" width="300" height="80" rx="10"/>
+  <text class="title" x="530" y="886">microSD</text>
+  <text class="small" x="530" y="908">CS 10 · MOSI 11 · MISO 13 · CLK 12</text>
+
+  <!-- E-STOP signal back to GPIO -->
+  <path class="wire dash" d="M 260 365 L 340 365 L 340 410 L 380 410"/>
+  <text class="small" x="300" y="352" fill="#b71c1c">E-STOP signal</text>
+  <text class="small" x="300" y="438" fill="#b71c1c">GPIO 27</text>
+
+  <!-- ================= NOTES ================= -->
+  <line x1="40" y1="990" x2="1360" y2="990" stroke="#cccccc" stroke-width="1"/>
+  <text class="note" x="40" y="1014">1. E-STOP механически разрывает фазный провод 220 В. GPIO 27 — только сигнал для UI и журнала, не защита.</text>
+  <text class="note" x="40" y="1036">2. Все линии между ESP32 и силовой частью — через оптронную развязку (Grove SSR, MCP4725 → SSR). Общая земля только в сигнальной части.</text>
+  <text class="note" x="40" y="1058">3. I2C: SDA 8, SCL 9, подтяжка 4.7 кОм к 3.3 В. Адреса фиксированы прошивкой: 0x11, 0x38, 0x40, 0x48, 0x60, 0x68, 0x77.</text>
+  <text class="note" x="40" y="1080">4. GPIO 45 — strapping-пин (buzzer). При старте не тянуть вверх. GPIO 19/20 — USB, 43/44 — UART0, 33–37 — PSRAM.</text>
+  <text class="note" x="40" y="1102">5. Нагреватель: SSR-40DA на радиаторе, термопаста обязательна. Корпус заземлён, клеммы закрыты.</text>
+</svg>

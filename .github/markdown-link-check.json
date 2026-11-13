@@ -1,0 +1,19 @@
+{
+  "ignorePatterns": [
+    { "pattern": "^https?://automatika\\.local" },
+    { "pattern": "^https?://192\\.168\\." },
+    { "pattern": "^mailto:" }
+  ],
+  "replacementPatterns": [],
+  "httpHeaders": [
+    {
+      "urls": ["https://github.com/"],
+      "headers": { "Accept": "text/html" }
+    }
+  ],
+  "timeout": "20s",
+  "retryOn429": true,
+  "retryCount": 2,
+  "fallbackRetryDelay": "10s",
+  "aliveStatusCodes": [200, 206, 301, 302, 403, 429]
+}

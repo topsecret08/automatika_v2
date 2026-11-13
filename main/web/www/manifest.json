@@ -1,8 +1,0 @@
-{
-  "name": "Automatika v2.9",
-  "short_name": "Automatika",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#101418",
-  "theme_color": "#007AFF"
-}

@@ -24,13 +24,24 @@
 
 static const char *TAG = "WS_TEL";
 
-static httpd_handle_t    s_srv = NULL;
+// Клиент привязан к конкретному серверу: HTTP (80) и HTTPS (443) — это два
+// разных httpd_handle_t, и httpd_ws_send_frame_async() не умеет отправлять
+// кадр «через другой» сервер. Без этой привязки PWA по wss:// не получала бы
+// телеметрию, как только к HTTP подключён хотя бы один клиент.
+typedef struct {
+    int             fd;
+    httpd_handle_t  srv;
+} ws_client_t;
+
 static char              s_uri[32] = WS_TELEMETRY_PATH;
 static SemaphoreHandle_t s_mtx = NULL;
-static int               s_fds[WS_TELEMETRY_REGISTERED_MAX];
+static ws_client_t       s_clients[WS_TELEMETRY_REGISTERED_MAX];
 
 static void registry_reset(void) {
-    for (int i = 0; i < WS_TELEMETRY_REGISTERED_MAX; i++) s_fds[i] = -1;
+    for (int i = 0; i < WS_TELEMETRY_REGISTERED_MAX; i++) {
+        s_clients[i].fd = -1;
+        s_clients[i].srv = NULL;
+    }
 }
 
 esp_err_t ws_telemetry_register(httpd_handle_t srv, const char *uri) {
@@ -41,7 +52,6 @@ esp_err_t ws_telemetry_register(httpd_handle_t srv, const char *uri) {
         if (!s_mtx) return ESP_ERR_NO_MEM;
         registry_reset();
     }
-    s_srv = srv;
     if (uri && uri[0]) {
         strncpy(s_uri, uri, sizeof(s_uri) - 1);
         s_uri[sizeof(s_uri) - 1] = '\0';
@@ -50,17 +60,18 @@ esp_err_t ws_telemetry_register(httpd_handle_t srv, const char *uri) {
     return ESP_OK;
 }
 
-static void add_client(int fd) {
+static void add_client(httpd_handle_t srv, int fd) {
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     for (int i = 0; i < WS_TELEMETRY_REGISTERED_MAX; i++) {
-        if (s_fds[i] == fd) {           /* уже зарегистрирован */
-            xSemaphoreGive(s_mtx);
+        if (s_clients[i].fd == fd && s_clients[i].srv == srv) {
+            xSemaphoreGive(s_mtx);      /* уже зарегистрирован */
             return;
         }
     }
     for (int i = 0; i < WS_TELEMETRY_REGISTERED_MAX; i++) {
-        if (s_fds[i] < 0) {
-            s_fds[i] = fd;
+        if (s_clients[i].fd < 0) {
+            s_clients[i].fd = fd;
+            s_clients[i].srv = srv;
             xSemaphoreGive(s_mtx);
             ESP_LOGI(TAG, "client %d connected", fd);
             return;
@@ -70,10 +81,13 @@ static void add_client(int fd) {
     ESP_LOGW(TAG, "too many telemetry clients, rejecting %d", fd);
 }
 
-static void remove_client(int fd) {
+static void remove_client(httpd_handle_t srv, int fd) {
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     for (int i = 0; i < WS_TELEMETRY_REGISTERED_MAX; i++) {
-        if (s_fds[i] == fd) s_fds[i] = -1;
+        if (s_clients[i].fd == fd && s_clients[i].srv == srv) {
+            s_clients[i].fd = -1;
+            s_clients[i].srv = NULL;
+        }
     }
     xSemaphoreGive(s_mtx);
     ESP_LOGI(TAG, "client %d disconnected", fd);
@@ -84,13 +98,13 @@ int ws_telemetry_client_count(void) {
     int n = 0;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     for (int i = 0; i < WS_TELEMETRY_REGISTERED_MAX; i++)
-        if (s_fds[i] >= 0) n++;
+        if (s_clients[i].fd >= 0) n++;
     xSemaphoreGive(s_mtx);
     return n;
 }
 
 void ws_telemetry_push(const char *json) {
-    if (!s_srv || !s_mtx || !json) return;
+    if (!s_mtx || !json) return;
 
     httpd_ws_frame_t frm = {
         .type = HTTPD_WS_TYPE_TEXT,
@@ -100,13 +114,16 @@ void ws_telemetry_push(const char *json) {
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     for (int i = 0; i < WS_TELEMETRY_REGISTERED_MAX; i++) {
-        int fd = s_fds[i];
-        if (fd < 0) continue;
-        esp_err_t err = httpd_ws_send_frame_async(s_srv, fd, &frm);
+        int fd = s_clients[i].fd;
+        httpd_handle_t srv = s_clients[i].srv;
+        if (fd < 0 || !srv) continue;
+
+        esp_err_t err = httpd_ws_send_frame_async(srv, fd, &frm);
         if (err != ESP_OK) {
             /* сокет закрыт/мёртв: не даём fd переехать к новому клиенту */
-            s_fds[i] = -1;
-            httpd_sess_trigger_close(s_srv, fd);
+            s_clients[i].fd = -1;
+            s_clients[i].srv = NULL;
+            httpd_sess_trigger_close(srv, fd);
             ESP_LOGW(TAG, "client %d dropped: %s", fd, esp_err_to_name(err));
         }
     }
@@ -154,8 +171,8 @@ static esp_err_t ws_telemetry_handler(httpd_req_t *req) {
     int fd = httpd_req_to_sockfd(req);
 
     if (req->method == HTTP_GET) {
-        /* handshake завершён — регистрируем клиента */
-        add_client(fd);
+        /* handshake завершён — регистрируем клиента у его сервера */
+        add_client(req->handle, fd);
         return ESP_OK;
     }
 
@@ -164,12 +181,12 @@ static esp_err_t ws_telemetry_handler(httpd_req_t *req) {
                                .payload = buf, .len = sizeof(buf) };
     esp_err_t err = httpd_ws_recv_frame(req, &frame, sizeof(buf));
     if (err != ESP_OK) {
-        remove_client(fd);
+        remove_client(req->handle, fd);
         return ESP_OK;
     }
 
     if (frame.type == HTTPD_WS_TYPE_CLOSE) {
-        remove_client(fd);
+        remove_client(req->handle, fd);
         return ESP_OK;
     }
 

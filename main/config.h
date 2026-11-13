@@ -286,6 +286,31 @@
 #define API_RATE_LIMIT_PER_S 10      // запросов в секунду на все /api/*
 #define API_RATE_LIMIT_BURST 20
 
+// ------------------------------------------------------------
+// PWA и HTTPS (web/https_server.c, web/web_server.c)
+// ------------------------------------------------------------
+// PWA (Service Worker) требует secure context: https:// или localhost.
+// HTTPS-сервер поднимается на 443 с самоподписанным сертификатом, который
+// генерируется при первом старте и лежит в littlefs (/lfs/cert.pem).
+// HTTP на 80 продолжает работать: API и /cert.pem остаются доступны без
+// сертификата. При WEB_HTTPS_REDIRECT=1 статика на :80 отвечает 301,
+// а /api/* по-прежнему обслуживается по HTTP.
+#define WEB_HTTPS_ENABLE        1
+#define WEB_HTTPS_PORT          443
+#define WEB_HTTPS_REDIRECT      0     // 1 — 301 с HTTP на HTTPS (GET-статика)
+
+// CN и SAN самоподписанного сертификата. Обращаться к устройству нужно
+// по этому же имени (mDNS), иначе браузер сочтёт сертификат чужим.
+#define WEB_CERT_CN             "automatika.local"
+#define WEB_CERT_VALID_FROM     "20250101000000"
+#define WEB_CERT_VALID_TO       "20350101000000"
+
+// Пути в littlefs. Ключ приватный: h_static его не отдаёт (см. web_server.c).
+#define WEB_CERT_PATH           LFS_MOUNT_POINT "/cert.pem"
+#define WEB_KEY_PATH            LFS_MOUNT_POINT "/key.pem"
+#define WEB_CERT_PEM_MAX        2048
+#define WEB_KEY_PEM_MAX         1024
+
 // mDNS
 #define MDNS_HOSTNAME       "automatika"
 

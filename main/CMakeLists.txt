@@ -1,3 +1,12 @@
+# Корень PWA-оболочки. Файлы лежат в ../littlefs, потому что оттуда же
+# собирается образ раздела `assets` (littlefs, 1 МБ). Одни и те же исходники
+# используются дважды:
+#   1) EMBED_FILES — встроенная копия, работает без /lfs и всегда
+#      соответствует прошивке (авторитетная для HTTP-обработчиков);
+#   2) automatika_littlefs_image — образ build/assets.bin: канонический
+#      источник файлов и артефакт прошивки раздела.
+set(WEB_DIR "${CMAKE_CURRENT_LIST_DIR}/../littlefs")
+
 idf_component_register(
     SRCS
         "main.c" "selftest.c"
@@ -60,6 +69,7 @@ idf_component_register(
         "web/telegram_notify.c" "web/ws_telemetry.c"
         "web/samovar.c" "web/samovar_blynk.c" "web/samovar_mqtt.c"
         "web/ws_handler.c" "web/http_handlers.c"
+        "web/https_server.c"
         "ota/fota.c" "ota/ota_manager.c" "ota/ota_sd.c" "ota/ota_url.c"
         "ota/ota_qr.c" "ota/ota_verify.c" "ota/secure_ota.c"
         "patches/critical_fixes.c"
@@ -67,10 +77,17 @@ idf_component_register(
     INCLUDE_DIRS "." "third_party"
     # Тестовый компонент main_test (Unity) живёт в test/ и включается
     # отдельным проектом test_app (см. test/README.md).
+    # PWA-оболочка: индекс, стили, скрипты, manifest, service worker,
+    # офлайн-страница и иконки. Символы _binary_*_start/end не меняются,
+    # потому что IDF берёт только basename файла.
     EMBED_FILES
-        "web/www/index.html" "web/www/app.js" "web/www/style.css"
-        "web/www/charts.js" "web/www/api.js" "web/www/ws.js"
-        "web/www/recipes.js" "web/www/settings.js" "web/www/manifest.json"
+        "${WEB_DIR}/index.html" "${WEB_DIR}/app.js" "${WEB_DIR}/style.css"
+        "${WEB_DIR}/charts.js" "${WEB_DIR}/api.js" "${WEB_DIR}/ws.js"
+        "${WEB_DIR}/recipes.js" "${WEB_DIR}/settings.js"
+        "${WEB_DIR}/manifest.json" "${WEB_DIR}/sw.js" "${WEB_DIR}/offline.html"
+        "${WEB_DIR}/icons/icon-192.png" "${WEB_DIR}/icons/icon-512.png"
+        "${WEB_DIR}/icons/icon-maskable-512.png"
+        "${WEB_DIR}/icons/apple-touch-icon.png"
     REQUIRES
         nvs_flash esp_wifi esp_http_server esp_https_server esp_timer
         esp_netif json driver fatfs sdmmc spi_flash
@@ -82,3 +99,86 @@ idf_component_register(
         espressif__onewire_bus espressif__ds18b20
         espressif__lua hayschan__autopid_for_esp_idf joltwallet__littlefs
 )
+
+# Образ littlefs для раздела `assets` (1 МБ, см. partitions.csv).
+# Содержимое — PWA-оболочка из ../littlefs: index/app/style, manifest.json,
+# sw.js, offline.html, icons/. Образ собирается при каждом `idf.py build`
+# в build/assets.bin и прошивается вместе с приложением.
+#
+# ВНИМАНИЕ: `idf.py flash` перезаписывает раздел assets целиком. Если на
+# устройстве уже лежат пользовательские скрипты/профили в /lfs, сделайте
+# резервную копию (POST /api/config/export) до прошивки.
+#
+# FLASH_IN_PROJECT — включать образ в `idf.py flash`. Если нужен только
+# бинарник без авто-прошивки раздела, уберите этот флаг.
+
+# littlefs_create_partition_image() из joltwallet__littlefs создаёт venv и
+# ставит littlefs-python==0.11.0 из sdist. На Python 3.14 sdist собирается
+# только MSVC, которого на машине сборки может не быть. Поэтому заранее
+# готовим venv с 0.19.0: для неё публикуется готовый wheel cp314-win_amd64,
+# а CLI (create/extract/list) совместим с 0.11.0.
+set(LITTLEFS_PY_VENV "${CMAKE_BINARY_DIR}/littlefs_py_venv")
+if(CMAKE_HOST_WIN32)
+    set(LITTLEFS_PY "${LITTLEFS_PY_VENV}/Scripts/littlefs-python.exe")
+else()
+    set(LITTLEFS_PY "${LITTLEFS_PY_VENV}/bin/littlefs-python")
+endif()
+if(NOT EXISTS "${LITTLEFS_PY}")
+    message(STATUS "Preparing littlefs-python venv (prebuilt wheel)")
+    execute_process(COMMAND ${PYTHON} -m venv "${LITTLEFS_PY_VENV}"
+                    RESULT_VARIABLE _lfs_venv_rc)
+    if(_lfs_venv_rc EQUAL 0)
+        execute_process(
+            COMMAND "${LITTLEFS_PY_VENV}/Scripts/pip.exe" install --only-binary=:all:
+                    "littlefs-python==0.19.0"
+            RESULT_VARIABLE _lfs_pip_rc)
+        if(NOT _lfs_pip_rc EQUAL 0)
+            message(WARNING "littlefs-python install failed; image build may fail")
+        endif()
+    else()
+        message(WARNING "cannot create littlefs venv; image build may fail")
+    endif()
+endif()
+
+# Своя цель вместо компонентной: компонентная привязывает OUTPUT к каталогу
+# venv. Если pip внутри неё падает (нет MSVC), ninja не пишет запись в
+# .ninja_log и запускает команду заново на каждой сборке. Здесь образ
+# собирается напрямую уже готовым littlefs-python, а интеграция с
+# `idf.py flash` повторяет логику компонента.
+function(automatika_littlefs_image partition base_dir)
+    set(options FLASH_IN_PROJECT)
+    cmake_parse_arguments(arg "${options}" "" "" ${ARGN})
+
+    get_filename_component(base_dir_full_path "${base_dir}" ABSOLUTE)
+    partition_table_get_partition_info(size "--partition-name ${partition}" "size")
+    partition_table_get_partition_info(offset "--partition-name ${partition}" "offset")
+    if(NOT size OR NOT offset)
+        message(FATAL_ERROR "partition '${partition}' not found in partition table")
+    endif()
+
+    set(image_file "${CMAKE_BINARY_DIR}/${partition}.bin")
+
+    add_custom_target(littlefs_${partition}_bin ALL
+        COMMAND "${LITTLEFS_PY}" create "${base_dir_full_path}" "${image_file}"
+                -v --fs-size=${size} --name-max=${CONFIG_LITTLEFS_OBJ_NAME_LEN}
+                --block-size=4096
+        COMMENT "Building littlefs image for '${partition}'"
+        VERBATIM)
+
+    set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" APPEND PROPERTY
+                 ADDITIONAL_CLEAN_FILES "${image_file}")
+
+    idf_component_get_property(main_args esptool_py FLASH_ARGS)
+    idf_component_get_property(sub_args esptool_py FLASH_SUB_ARGS)
+    esptool_py_flash_target(${partition}-flash "${main_args}" "${sub_args}")
+    esptool_py_flash_target_image(${partition}-flash "${partition}"
+                                  "${offset}" "${image_file}")
+    add_dependencies(${partition}-flash littlefs_${partition}_bin)
+
+    if(arg_FLASH_IN_PROJECT)
+        esptool_py_flash_target_image(flash "${partition}" "${offset}" "${image_file}")
+        add_dependencies(flash littlefs_${partition}_bin)
+    endif()
+endfunction()
+
+automatika_littlefs_image(assets "${WEB_DIR}" FLASH_IN_PROJECT)
