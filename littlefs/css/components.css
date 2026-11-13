@@ -388,6 +388,12 @@
   height: 100%;
   display: block;
 }
+.chart-wrap .uplot {
+  font-family: var(--font-stack);
+}
+.chart-wrap .uplot .u-axis {
+  color: var(--text-secondary);
+}
 
 /* ------------------------------------------------------------------ */
 /* Баннеры и подсказки                                                 */

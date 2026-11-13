@@ -9,7 +9,7 @@
 480×320, из веб-интерфейса и по API.
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
-> (ESP-IDF v5.3.2, образ ≈2,37 МБ из 3 МБ раздела) без предупреждений;
+> (ESP-IDF v5.3.2, образ ≈2,68 МБ из 3 МБ раздела) без предупреждений;
 > тестовый проект `test/` (Unity) тоже собирается.
 > Работа на реальном оборудовании не проверялась.
 
@@ -926,7 +926,7 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (v2.9.1: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (v2.9.3): **0x25E410 (~2,37 МБ)**, свободно ~21 % раздела.
+Текущий бинарник (v2.9.3): **0x28F4B0 (~2,68 МБ)**, свободно ~15 % раздела.
 
 ### Полезные команды
 
@@ -1227,6 +1227,8 @@ WebSocket `/ws` отправляет текстовые кадры:
 - `littlefs/js/tab-swipe.js` — свайп между группами и edge-back.
 - `littlefs/js/swipe-delete.js` — действия по свайпу в профилях/журнале.
 - `littlefs/js/pull-refresh.js` — pull-to-refresh дашборда.
+- `littlefs/vendor/uPlot.iife.min.js`, `uPlot.min.css` — uPlot 1.6.32
+  (MIT), локально из LittleFS; график не зависит от CDN.
 - `littlefs/icons/*.png` — иконки 192, 512, maskable 512, apple-touch 180.
 - `littlefs/offline.html` — заглушка при недоступном устройстве.
 
@@ -1283,7 +1285,7 @@ HTTP→HTTPS редирект **выключен** по умолчанию (`WEB
 |---|---|---|
 | **Пользователь** | владелец аппарата | [QUICK_START](docs/user/QUICK_START.md), [USER_GUIDE](docs/user/USER_GUIDE.md), [FAQ](docs/user/FAQ.md), [PWA_INSTALL](docs/user/PWA_INSTALL.md), [video_links](docs/user/video_links.md) |
 | **Сервис** | монтажник, ремонт | [SERVICE_MANUAL](docs/service/SERVICE_MANUAL.md), [TROUBLESHOOTING](docs/service/TROUBLESHOOTING.md), [TEST_PROCEDURES](docs/service/TEST_PROCEDURES.md) |
-| **Разработчик** | программист | [API](docs/developer/API.md), [ARCHITECTURE](docs/developer/ARCHITECTURE.md), [BUILD](docs/developer/BUILD.md) |
+| **Разработчик** | программист | [API](docs/developer/API.md), [ARCHITECTURE](docs/developer/ARCHITECTURE.md), [BUILD](docs/developer/BUILD.md), [LVGL9_MIGRATION](docs/developer/LVGL9_MIGRATION.md) |
 | **Железо** | инженер | [pinout](docs/hardware/pinout.md), [bom.csv](docs/hardware/bom.csv), [wiring_diagram.svg](docs/hardware/wiring_diagram.svg), [pcb_layout.png](docs/hardware/pcb_layout.png) |
 
 Индекс: [`docs/README.md`](docs/README.md).

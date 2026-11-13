@@ -89,6 +89,7 @@ idf_component_register(
         "${WEB_DIR}/js/gestures.js" "${WEB_DIR}/js/tab-swipe.js"
         "${WEB_DIR}/js/swipe-delete.js" "${WEB_DIR}/js/pull-refresh.js"
         "${WEB_DIR}/css/tokens.css" "${WEB_DIR}/css/components.css"
+        "${WEB_DIR}/vendor/uPlot.iife.min.js" "${WEB_DIR}/vendor/uPlot.min.css"
         "${WEB_DIR}/charts.js" "${WEB_DIR}/api.js" "${WEB_DIR}/ws.js"
         "${WEB_DIR}/recipes.js" "${WEB_DIR}/settings.js"
         "${WEB_DIR}/manifest.json" "${WEB_DIR}/sw.js" "${WEB_DIR}/offline.html"

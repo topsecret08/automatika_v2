@@ -18,6 +18,8 @@
 - [TROUBLESHOOTING.md](service/TROUBLESHOOTING.md) — дерево диагностики.
 - [API.md](developer/API.md) — реальные эндпоинты прошивки.
 - [BUILD.md](developer/BUILD.md) — `idf.py build`, тесты, littlefs-образ.
+- [LVGL9_MIGRATION.md](developer/LVGL9_MIGRATION.md) — проверенные версии
+  LVGL/esp_lvgl_port и план перехода с LVGL 8.
 - [wiring_diagram.svg](hardware/wiring_diagram.svg) — схема подключения.
 - [bom.csv](hardware/bom.csv) — спецификация компонентов.
 - [PRODUCTION_MODULES.md](PRODUCTION_MODULES.md) — обзор production-модулей

@@ -42,6 +42,10 @@ extern const uint8_t swipe_delete_js_start[] asm("_binary_swipe_delete_js_start"
 extern const uint8_t swipe_delete_js_end[]   asm("_binary_swipe_delete_js_end");
 extern const uint8_t pull_refresh_js_start[] asm("_binary_pull_refresh_js_start");
 extern const uint8_t pull_refresh_js_end[]   asm("_binary_pull_refresh_js_end");
+extern const uint8_t uplot_js_start[] asm("_binary_uPlot_iife_min_js_start");
+extern const uint8_t uplot_js_end[]   asm("_binary_uPlot_iife_min_js_end");
+extern const uint8_t uplot_css_start[] asm("_binary_uPlot_min_css_start");
+extern const uint8_t uplot_css_end[]   asm("_binary_uPlot_min_css_end");
 extern const uint8_t tokens_css_start[] asm("_binary_tokens_css_start");
 extern const uint8_t tokens_css_end[]   asm("_binary_tokens_css_end");
 extern const uint8_t components_css_start[] asm("_binary_components_css_start");
@@ -92,6 +96,7 @@ static void set_security_headers(httpd_req_t *r) {
 static const char *cache_for(const char *path) {
     if (strstr(path, ".html") || strcmp(path, "/") == 0) return "no-cache";
     if (strstr(path, "sw.js")) return "no-cache";
+    if (strstr(path, "/vendor/")) return "public, max-age=604800";
     if (strstr(path, ".css") || strstr(path, ".js")) return "public, max-age=86400";
     if (strstr(path, ".json")) return "public, max-age=3600";
     if (strstr(path, ".png") || strstr(path, ".svg") || strstr(path, ".ico"))
@@ -137,6 +142,15 @@ static esp_err_t h_swipedeletejs(httpd_req_t *r) {
 static esp_err_t h_pullrefreshjs(httpd_req_t *r) {
     return send_embedded(r, "/js/pull-refresh.js", "application/javascript; charset=utf-8",
                          pull_refresh_js_start, pull_refresh_js_end);
+}
+static esp_err_t h_uplotjs(httpd_req_t *r) {
+    return send_embedded(r, "/vendor/uPlot.iife.min.js",
+                         "application/javascript; charset=utf-8",
+                         uplot_js_start, uplot_js_end);
+}
+static esp_err_t h_uplotcss(httpd_req_t *r) {
+    return send_embedded(r, "/vendor/uPlot.min.css", "text/css; charset=utf-8",
+                         uplot_css_start, uplot_css_end);
 }
 static esp_err_t h_tokens(httpd_req_t *r) {
     return send_embedded(r, "/css/tokens.css", "text/css; charset=utf-8",
@@ -353,6 +367,8 @@ static void register_static(httpd_handle_t srv) {
         { .uri="/js/tab-swipe.js", .method=HTTP_GET, .handler=h_tabswipejs },
         { .uri="/js/swipe-delete.js", .method=HTTP_GET, .handler=h_swipedeletejs },
         { .uri="/js/pull-refresh.js", .method=HTTP_GET, .handler=h_pullrefreshjs },
+        { .uri="/vendor/uPlot.iife.min.js", .method=HTTP_GET, .handler=h_uplotjs },
+        { .uri="/vendor/uPlot.min.css",     .method=HTTP_GET, .handler=h_uplotcss },
         { .uri="/app.js",        .method=HTTP_GET, .handler=h_appjs },
         { .uri="/css/tokens.css",     .method=HTTP_GET, .handler=h_tokens },
         { .uri="/css/components.css", .method=HTTP_GET, .handler=h_components },

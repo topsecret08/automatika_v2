@@ -1,9 +1,18 @@
 dependencies:
   idf: ">=5.2"
+
+  # GUI: проект собран на LVGL 8.3.11 и 295 вызовах LVGL8 API.
+  # Официальный LVGL 9.6.0 (16.09.2026) существует, но переход на него —
+  # отдельная миграция (lv_display_t/lv_indev_t, тема, шрифты, виджеты).
+  # Не меняем major без переписывания UI.
   lvgl/lvgl: "~8.3.11"
-  espressif/esp_lcd_st7796: "^1.0.0"
-  espressif/esp_lcd_touch: "^1.1.2"
-  espressif/esp_lcd_touch_ft5x06: "^1.0.6"
+
+  # Актуальные версии железа (проверено в ESP Component Registry):
+  # ST7796 480x320, тач FT6336. ST7789/CST816S в этой плате не используются.
+  espressif/esp_lcd_st7796: "^1.5.0"
+  espressif/esp_lcd_touch: "^1.2.1"
+  espressif/esp_lcd_touch_ft5x06: "^1.1.1"
+
   espressif/esp_tinyusb: "^1.4.0"
   espressif/onewire_bus: "^1.0.0"
   espressif/ds18b20: "^0.2.0"

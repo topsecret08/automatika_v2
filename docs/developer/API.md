@@ -198,6 +198,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 |---|---|---|
 | `/` | `text/html` | `no-cache` |
 | `/js/app.js`, `/js/menu.js`, `/css/tokens.css`, `/css/components.css` | JS/CSS | `public, max-age=86400` |
+| `/vendor/uPlot.iife.min.js`, `/vendor/uPlot.min.css` | JS/CSS | `public, max-age=604800` |
 | `/app.js`, `/style.css` | алиасы совместимости | `public, max-age=86400` |
 | `/manifest.json` | `application/manifest+json` | `public, max-age=3600` |
 | `/sw.js` | JS + `Service-Worker-Allowed: /` | `no-cache` |

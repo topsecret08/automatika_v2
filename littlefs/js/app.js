@@ -277,6 +277,10 @@ function showPage(page, push = true) {
   if (title) title.textContent = pageTitle(page);
 
   chart = null;
+  if (uplot) {
+    uplot.destroy();
+    uplot = null;
+  }
   PAGES[page].render();
   renderLiveValues();
 }
@@ -474,6 +478,8 @@ function updateStatusOnly() {
 // ------------------------------------------------------------------
 // График
 // ------------------------------------------------------------------
+let uplot = null;
+
 function initChart() {
   const canvas = $('#chart');
   if (!canvas) {
@@ -481,7 +487,56 @@ function initChart() {
     return;
   }
 
-  const rect = canvas.parentElement.getBoundingClientRect();
+  const host = canvas.parentElement;
+  if (uplot) {
+    uplot.destroy();
+    uplot = null;
+  }
+
+  if (window.uPlot && host) {
+    canvas.hidden = true;
+    const width = Math.max(280, Math.floor(host.clientWidth || 320));
+    const data = [[], [], []];
+    chartData.forEach((point, index) => {
+      data[0].push(point.t || (Date.now() / 1000 - (chartData.length - index)));
+      data[1].push(point.tc);
+      data[2].push(point.ts);
+    });
+
+    uplot = new uPlot({
+      width,
+      height: 140,
+      padding: [8, 8, 0, 0],
+      legend: { show: false },
+      cursor: { drag: { x: true, y: false }, points: { show: false } },
+      scales: { x: { time: true }, y: { auto: true } },
+      axes: [
+        {
+          stroke: cssVar('--text-secondary'),
+          grid: { stroke: cssVar('--separator') },
+          ticks: { show: false },
+          font: '11px system-ui, sans-serif'
+        },
+        {
+          stroke: cssVar('--text-secondary'),
+          grid: { stroke: cssVar('--separator') },
+          size: 40,
+          font: '11px system-ui, sans-serif'
+        }
+      ],
+      series: [
+        {},
+        { label: 'куб', stroke: cssVar('--accent') || '#007aff', width: 2 },
+        { label: 'пар', stroke: cssVar('--orange') || '#ff9500', width: 2 }
+      ]
+    }, data, host);
+
+    chart = { uplot };
+    return;
+  }
+
+  canvas.hidden = false;
+  const rect = host.getBoundingClientRect();
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   canvas.width = Math.max(1, Math.floor(rect.width * dpr));
   canvas.height = Math.max(1, Math.floor(rect.height * dpr));
@@ -495,9 +550,18 @@ function initChart() {
 
 function pushChartPoint() {
   if (!Number.isFinite(state.tc) || !Number.isFinite(state.ts)) return;
-  chartData.push({ tc: state.tc, ts: state.ts });
+  chartData.push({ t: Date.now() / 1000, tc: state.tc, ts: state.ts });
   if (chartData.length > 300) chartData.shift();
-  drawChart();
+
+  if (uplot) {
+    uplot.setData([
+      chartData.map((point) => point.t),
+      chartData.map((point) => point.tc),
+      chartData.map((point) => point.ts)
+    ]);
+  } else {
+    drawChart();
+  }
 }
 
 function cssVar(name) {
