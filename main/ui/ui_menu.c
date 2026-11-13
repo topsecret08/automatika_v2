@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "ui_ios_theme.h"
 #include "ui_screen_ios.h"
+#include "ui_screen_ssvc.h"
 #include "haptic.h"
 
 #include "config.h"
@@ -47,6 +48,7 @@ static void enter_dashboard(void) { ui_screen_dashboard_ios_create(); }
 static void enter_fraction(void);
 static void enter_profiles(void);
 static void enter_calibration(void);
+static void enter_ssvc(void)     { ui_screen_ssvc_dashboard_create(); }
 static void enter_autotune(void) { ui_settings_pid(); }
 static void enter_sensors(void)  { ui_diag_ds18b20(); }
 static void enter_log(void)      { ui_show_logs(); }
@@ -79,6 +81,7 @@ static void enter_stop(void) {
 ui_menu_item menu_work[] = {
     { "Дашборд",         enter_dashboard, NULL, 0 },
     { "Текущая фракция", enter_fraction,  NULL, 0 },
+    { "SSVC",            enter_ssvc,      NULL, 0 },
     { "СТАРТ",           enter_start,     NULL, 0 },
     { "СТОП",            enter_stop,      NULL, 0 },
 };

@@ -4,6 +4,7 @@
 #include "ui_anim.h"
 #include "ui_ios_theme.h"
 #include "ui_screen_ios.h"
+#include "ui_screen_ssvc.h"
 #include "ui_menu.h"
 #include "ui_physical.h"
 #include "ui_gestures.h"
@@ -175,6 +176,12 @@ void ui_screen_dashboard_ios_create(void) {
     ui_ios_theme_apply(lv_disp_get_default());
     ui_screen_dashboard_ios_build(g_screen);
     s_dashboard_visible = true;
+}
+
+void ui_screen_ssvc_dashboard_create(void) {
+    clear_screen();
+    ui_screen_ssvc_build(g_screen);
+    s_dashboard_visible = false;
 }
 
 void ui_menu_show_root(int selected_tab) {

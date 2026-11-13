@@ -260,6 +260,22 @@
 #define FRAC_BODY_MAX_ML    2000.0f
 #define FRAC_TAILS_END_T    98.0f
 
+// SSVC0059: периодический отбор с фиксацией температуры тела.
+// Значения по умолчанию; меняются через /api/ssvc/config.
+#define SSVC_DEFAULT_ENABLED          0
+#define SSVC_HEADS_TIMER_SEC          3600u
+#define SSVC_HEADS_OPEN_SEC           2.0f
+#define SSVC_HEADS_PERIOD_SEC         10.0f
+#define SSVC_BODY_OPEN_SEC            1.5f
+#define SSVC_BODY_PERIOD_SEC          10.0f
+#define SSVC_BODY_HYSTERESIS_C        0.2f
+#define SSVC_BODY_DECREMENT_PERCENT   10.0f
+#define SSVC_BODY_MIN_OPEN_SEC        0.1f
+#define SSVC_BODY_FIX_DELAY_SEC       0u
+#define SSVC_TAILS_END_T              98.0f
+#define SSVC_TAILS_OPEN_SEC           1.0f
+#define SSVC_TAILS_PERIOD_SEC         10.0f
+
 // Дефлегматор / reflux: серво PCA9685, канал 3 (HEADS=0, BODY=1, TAILS=2)
 #define REFLUX_VALVE_CHANNEL 3
 #define REFLUX_PERIOD_US     1000000LL

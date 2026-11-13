@@ -251,3 +251,65 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 
 Ограничения: загрузка профиля и смена режима из бота не реализованы —
 это меняет уставки и требует подтверждения в веб-интерфейсе.
+
+## 13. SSVC0059
+
+Дополнительный алгоритм отбора HEADS → BODY → TAILS, выключен по умолчанию.
+При включении заменяет `fraction_update()`/`fraction_apply()` в
+`mode_distill.c`; два алгоритма одновременно клапаном не управляют.
+
+| Метод | Путь | Доступ | Описание |
+|---|---|---|---|
+| GET | `/api/ssvc/state` | 🔓 | этап, `t_fix`, `open_time`, состояние клапана |
+| GET | `/api/ssvc/config` | 🔓 | полный конфиг SSVC |
+| POST | `/api/ssvc/config` | 🔑 | частичное обновление параметров |
+| POST | `/api/ssvc/options` | 🔑 | устройство, переходы, режим отбора, датчик, `enabled` |
+| POST | `/api/ssvc/next` | 🔑 | принудительный следующий этап |
+
+`GET /api/ssvc/state`:
+
+```json
+{"stage":1,"stage_name":"body","t_fix":78.30,
+ "open_time":1.20,"period":10.00,"valve_open":1,
+ "active":1,"enabled":1}
+```
+
+`stage`: 0 — heads, 1 — body, 2 — tails, 3 — done.
+
+`POST /api/ssvc/options`:
+
+```json
+{"enabled":true,"out_device":0,"transition_mode":0,
+ "select_mode":0,"sensor":0}
+```
+
+`out_device`: 0 — клапан, 1 — насос. `transition_mode`: 0 — авто,
+1 — вручную. `select_mode`: 0 — периодический, 1 — непрерывный.
+`sensor`: 0 — T куба, 1 — T пара, 2 — T колонны.
+
+`POST /api/ssvc/config` принимает любые поля из таблицы:
+
+```json
+{"heads_timer_sec":3600,"heads_open_time_sec":2.0,"heads_period_sec":10.0,
+ "body_open_time_sec":1.5,"body_period_sec":10.0,"body_hysteresis_c":0.2,
+ "body_decrement_percent":10,"body_min_open_time_sec":0.1,
+ "body_temp_fix_delay_sec":0,"tails_temperature_end":98.0,
+ "tails_open_time_sec":1.0,"tails_period_sec":10.0}
+```
+
+Конфиг хранится в NVS (`ssvc/cfg`) с magic/version. При включённом SSVC
+`out_device` синхронизируется с `control_config` (`out_dev`), чтобы
+`ctrl_dose_process()` и `valve_set_pct()` управляли тем же устройством.
+
+Логика и защита:
+
+- BODY фиксирует `T_fix` через `body_temp_fix_delay_sec`; при
+  `T > T_fix + body_hysteresis_c` выход закрывается, `open_time`
+  уменьшается на `body_decrement_percent` (не чаще раза в секунду).
+- Когда `open_time < body_min_open_time_sec`, этап завершается; в ручном
+  режиме отбор остаётся закрытым до `POST /api/ssvc/next`.
+- TAILS завершается при `T куба >= tails_temperature_end`.
+- `apply_output()` закрывает выход при E-STOP или `!ctrl_safety_ok()`;
+  это дополнение к safety-задаче, а не её замена.
+- Непрерывный режим для клапана — постоянно открыт (без ШИМ 50 %, чтобы
+  соленоид не дребезжал); для насоса — постоянная подача.

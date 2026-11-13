@@ -22,6 +22,8 @@ export const MENU = {
       { id: 'calibration', label: 'Калибровка насоса', page: 'calibration', icon: 'gauge' },
       { id: 'autotune', label: 'PID-автотюн', page: 'autotune', icon: 'sliders' },
       { id: 'sensors', label: 'Проверка датчиков', page: 'sensors', icon: 'thermometer' },
+      { id: 'selection', label: 'Вариант отбора', page: 'selection', icon: 'layers' },
+      { id: 'ssvc', label: 'Параметры SSVC', page: 'ssvc', icon: 'gauge' },
     ],
   },
   diagnose: {

@@ -48,6 +48,7 @@
 #include "hal/pressure_sensor.h"
 
 #include "control/ctrl_safety.h"
+#include "control/fraction_ssvc.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_dose.h"
 #include "control/ctrl_valves.h"
@@ -200,6 +201,7 @@ void app_main(void) {
     scale_init(PIN_HX711_DOUT, PIN_HX711_SCK);
     sensor_calib_init();
     ctrl_safety_init();
+    ssvc_init();
     pid_autotune_init();
     session_recovery_init();
     reflux_init(REFLUX_RATIO_DEFAULT);
@@ -277,6 +279,7 @@ void app_main(void) {
     // safety и estop — максимальный приоритет на ядре 1.
     SPAWN(estop_task,         "estop",     STACK_ESTOP,       PRIO_ESTOP,        CORE_REALTIME_UI);
     SPAWN(ctrl_safety_task,   "safety",    STACK_SAFETY,      PRIO_SAFETY,       CORE_REALTIME_UI);
+    SPAWN(ssvc_task,          "ssvc",      4096,              5,                 CORE_REALTIME_UI);
     SPAWN(mode_task,          "mode",      STACK_MODE,        PRIO_MODE,         CORE_REALTIME_UI);
     SPAWN(ws_telemetry_task,  "ws_tel",    4096,              PRIO_TELEMETRY,    CORE_REALTIME_UI);
     SPAWN(ui_task,            "ui",        STACK_UI,          PRIO_UI,           CORE_REALTIME_UI);

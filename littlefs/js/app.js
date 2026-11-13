@@ -56,6 +56,15 @@ let currentPage = 'dashboard';
 let powerDragging = false;
 let deferredPrompt = null;
 
+const ssvcState = {
+  stage: 0,
+  tFix: 0,
+  openTime: 0,
+  valveOpen: false,
+  enabled: false,
+  active: false
+};
+
 // ------------------------------------------------------------------
 // API
 // ------------------------------------------------------------------
@@ -237,6 +246,8 @@ const PAGES = {
   calibration: { render: renderCalibration },
   autotune: { render: renderAutotune },
   sensors: { render: renderSensors },
+  selection: { render: renderSelection },
+  ssvc: { render: renderSsvc },
   log: { render: renderLog },
   actuators: { render: renderActuators },
   health: { render: renderHealth },
@@ -366,6 +377,27 @@ function renderDashboard() {
     </section>
 
     <section class="section">
+      <div class="card">
+        <div class="card-row">
+          <span class="card-row-title">SSVC · этап</span>
+          <span id="ssvc-stage" class="card-row-value">—</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-title">T фиксации</span>
+          <span id="ssvc-tfix" class="card-row-value">—</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-title">Открыт</span>
+          <span id="ssvc-open" class="card-row-value">—</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-title">Клапан</span>
+          <span id="ssvc-valve" class="card-row-value">—</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
       <div class="card chart-card">
         <div class="chart-head">
           <span class="card-row-title">Динамика</span>
@@ -469,10 +501,41 @@ function renderLiveValues() {
   }
 
   updateStatusOnly();
+  renderSsvcValues();
 }
 
 function updateStatusOnly() {
   setStatus(state.online);
+}
+
+function renderSsvcValues() {
+  const stage = $('#ssvc-stage');
+  if (stage) {
+    stage.textContent = ssvcState.enabled
+      ? (['ГОЛОВЫ', 'ТЕЛО', 'ХВОСТЫ', 'ГОТОВО'][ssvcState.stage] || '—')
+      : 'выключен';
+  }
+  const tfix = $('#ssvc-tfix');
+  if (tfix) tfix.textContent = ssvcState.tFix > 0 ? ssvcState.tFix.toFixed(2) + '°' : '—';
+  const open = $('#ssvc-open');
+  if (open) open.textContent = ssvcState.enabled ? ssvcState.openTime.toFixed(2) + ' с' : '—';
+  const valve = $('#ssvc-valve');
+  if (valve) valve.textContent = ssvcState.enabled ? (ssvcState.valveOpen ? 'открыт' : 'закрыт') : '—';
+}
+
+async function pollSsvc() {
+  try {
+    const response = await fetch('/api/ssvc/state');
+    if (!response.ok) return;
+    const data = await response.json();
+    ssvcState.stage = Number(data.stage || 0);
+    ssvcState.tFix = Number(data.t_fix || 0);
+    ssvcState.openTime = Number(data.open_time || 0);
+    ssvcState.valveOpen = !!data.valve_open;
+    ssvcState.enabled = !!data.enabled;
+    ssvcState.active = !!data.active;
+    if (currentPage === 'dashboard') renderSsvcValues();
+  } catch (_) {}
 }
 
 // ------------------------------------------------------------------
@@ -992,6 +1055,249 @@ async function loadProfiles() {
   } catch (_) {
     list.innerHTML = '<div class="empty">Нет связи с устройством</div>';
   }
+}
+
+function setSegment(selector, value) {
+  $$(selector + ' button').forEach((button) => {
+    button.classList.toggle('active', Number(button.dataset.val) === Number(value));
+  });
+}
+
+function segmentValue(selector, fallback = 0) {
+  const active = $(selector + ' .active');
+  return active ? Number(active.dataset.val) : fallback;
+}
+
+async function renderSelection() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="section-title">SSVC · вариант отбора</div>
+      <div class="card">
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Использовать SSVC0059</div>
+            <div class="card-row-sub">Заменяет старую логику фракций</div>
+          </div>
+          <input id="ssvc-enabled" type="checkbox">
+        </div>
+
+        <div class="field mt-16">
+          <span class="field-label">Устройство отбора</span>
+          <div class="segmented" id="seg-device">
+            <button type="button" data-val="0" class="active">Клапан</button>
+            <button type="button" data-val="1">Насос</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Режим переходов</span>
+          <div class="segmented" id="seg-transition">
+            <button type="button" data-val="0" class="active">Авто</button>
+            <button type="button" data-val="1">Вручную</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Режим отбора</span>
+          <div class="segmented" id="seg-select">
+            <button type="button" data-val="0" class="active">Периодический</button>
+            <button type="button" data-val="1">Непрерывный</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Датчик этапа</span>
+          <div class="segmented" id="seg-sensor">
+            <button type="button" data-val="0" class="active">T куба</button>
+            <button type="button" data-val="1">T пара</button>
+            <button type="button" data-val="2">T колонны</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block mt-8" type="button" id="selection-save">
+          Сохранить вариант
+        </button>
+      </div>
+      <p class="hint">
+        Периодический режим открывает клапан на open_time внутри периода.
+        Непрерывный для клапана — постоянно открыт; для насоса — постоянная
+        подача. SSVC не отключает E-STOP и safety.
+      </p>
+    </section>
+  `;
+
+  bindSegmented('#seg-device');
+  bindSegmented('#seg-transition');
+  bindSegmented('#seg-select');
+  bindSegmented('#seg-sensor');
+
+  try {
+    const response = await fetch('/api/ssvc/config');
+    if (response.ok) {
+      const cfg = await response.json();
+      $('#ssvc-enabled').checked = !!cfg.enabled;
+      setSegment('#seg-device', cfg.out_device);
+      setSegment('#seg-transition', cfg.transition_mode);
+      setSegment('#seg-select', cfg.select_mode);
+      setSegment('#seg-sensor', cfg.sensor);
+    }
+  } catch (_) {}
+
+  $('#selection-save')?.addEventListener('click', async () => {
+    try {
+      const response = await postJson('/api/ssvc/options', {
+        enabled: !!$('#ssvc-enabled')?.checked,
+        out_device: segmentValue('#seg-device'),
+        transition_mode: segmentValue('#seg-transition'),
+        select_mode: segmentValue('#seg-select'),
+        sensor: segmentValue('#seg-sensor')
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Вариант отбора сохранён');
+      pollSsvc();
+    } catch (_) {
+      toast('Не удалось сохранить вариант отбора');
+    }
+  });
+}
+
+async function renderSsvc() {
+  const app = $('#app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="section">
+      <div class="section-title">Головы</div>
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="heads-timer">Таймер, мин (0 — без таймера)</label>
+          <input id="heads-timer" class="input" type="number" min="0" step="1" value="60">
+        </div>
+        <div class="field">
+          <label class="field-label" for="heads-open">Открыт, с</label>
+          <input id="heads-open" class="input" type="number" min="0" step="0.1" value="2.0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="heads-period">Период, с</label>
+          <input id="heads-period" class="input" type="number" min="0.1" step="0.1" value="10.0">
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Тело</div>
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="body-open">Открыт, с</label>
+          <input id="body-open" class="input" type="number" min="0" step="0.1" value="1.5">
+        </div>
+        <div class="field">
+          <label class="field-label" for="body-period">Период, с</label>
+          <input id="body-period" class="input" type="number" min="0.1" step="0.1" value="10.0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="body-hyst">Гистерезис, °C</label>
+          <input id="body-hyst" class="input" type="number" min="0" step="0.01" value="0.2">
+        </div>
+        <div class="field">
+          <label class="field-label" for="body-decr">Декремент open_time, %</label>
+          <input id="body-decr" class="input" type="number" min="0" max="100" step="1" value="10">
+        </div>
+        <div class="field">
+          <label class="field-label" for="body-min">Минимальный open_time, с</label>
+          <input id="body-min" class="input" type="number" min="0.1" step="0.1" value="0.1">
+        </div>
+        <div class="field">
+          <label class="field-label" for="body-delay">Задержка фиксации T, мин</label>
+          <input id="body-delay" class="input" type="number" min="0" step="1" value="0">
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Хвосты</div>
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="tails-end">Температура окончания, °C</label>
+          <input id="tails-end" class="input" type="number" min="0" max="150" step="0.1" value="98">
+        </div>
+        <div class="field">
+          <label class="field-label" for="tails-open">Открыт, с</label>
+          <input id="tails-open" class="input" type="number" min="0" step="0.1" value="1.0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="tails-period">Период, с</label>
+          <input id="tails-period" class="input" type="number" min="0.1" step="0.1" value="10.0">
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="btn-row">
+        <button class="btn btn-primary" type="button" id="ssvc-save">Сохранить</button>
+        <button class="btn btn-secondary" type="button" id="ssvc-next">След. этап</button>
+      </div>
+      <p class="hint mt-8">
+        «След. этап» работает только при включённом SSVC и запущенном процессе.
+      </p>
+    </section>
+  `;
+
+  try {
+    const response = await fetch('/api/ssvc/config');
+    if (response.ok) {
+      const cfg = await response.json();
+      if ($('#heads-timer')) $('#heads-timer').value = Math.round((cfg.heads_timer_sec || 0) / 60);
+      if ($('#heads-open')) $('#heads-open').value = Number(cfg.heads_open_time_sec || 0).toFixed(1);
+      if ($('#heads-period')) $('#heads-period').value = Number(cfg.heads_period_sec || 0).toFixed(1);
+      if ($('#body-open')) $('#body-open').value = Number(cfg.body_open_time_sec || 0).toFixed(1);
+      if ($('#body-period')) $('#body-period').value = Number(cfg.body_period_sec || 0).toFixed(1);
+      if ($('#body-hyst')) $('#body-hyst').value = Number(cfg.body_hysteresis_c || 0).toFixed(2);
+      if ($('#body-decr')) $('#body-decr').value = Math.round(Number(cfg.body_decrement_percent || 0));
+      if ($('#body-min')) $('#body-min').value = Number(cfg.body_min_open_time_sec || 0).toFixed(1);
+      if ($('#body-delay')) $('#body-delay').value = Math.round((cfg.body_temp_fix_delay_sec || 0) / 60);
+      if ($('#tails-end')) $('#tails-end').value = Number(cfg.tails_temperature_end || 0).toFixed(1);
+      if ($('#tails-open')) $('#tails-open').value = Number(cfg.tails_open_time_sec || 0).toFixed(1);
+      if ($('#tails-period')) $('#tails-period').value = Number(cfg.tails_period_sec || 0).toFixed(1);
+    }
+  } catch (_) {}
+
+  $('#ssvc-save')?.addEventListener('click', async () => {
+    try {
+      const response = await postJson('/api/ssvc/config', {
+        heads_timer_sec: Number($('#heads-timer')?.value || 0) * 60,
+        heads_open_time_sec: Number($('#heads-open')?.value || 0),
+        heads_period_sec: Number($('#heads-period')?.value || 0.1),
+        body_open_time_sec: Number($('#body-open')?.value || 0),
+        body_period_sec: Number($('#body-period')?.value || 0.1),
+        body_hysteresis_c: Number($('#body-hyst')?.value || 0),
+        body_decrement_percent: Number($('#body-decr')?.value || 0),
+        body_min_open_time_sec: Number($('#body-min')?.value || 0.1),
+        body_temp_fix_delay_sec: Number($('#body-delay')?.value || 0) * 60,
+        tails_temperature_end: Number($('#tails-end')?.value || 98),
+        tails_open_time_sec: Number($('#tails-open')?.value || 0),
+        tails_period_sec: Number($('#tails-period')?.value || 0.1)
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Параметры SSVC сохранены');
+    } catch (_) {
+      toast('Не удалось сохранить параметры SSVC');
+    }
+  });
+
+  $('#ssvc-next')?.addEventListener('click', async () => {
+    try {
+      const response = await postJson('/api/ssvc/next', {});
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Переход на следующий этап');
+      pollSsvc();
+    } catch (_) {
+      toast('Переход недоступен');
+    }
+  });
 }
 
 async function renderAutotune() {
@@ -1738,7 +2044,9 @@ function init() {
   router();
   connectWS();
   pollState();
+  pollSsvc();
   setInterval(pollState, 4000);
+  setInterval(pollSsvc, 2000);
 
   initTabSwipe({
     getGroup: currentGroup,

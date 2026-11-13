@@ -29,6 +29,7 @@
 #include "control/pump_doser.h"
 #include "control/ctrl_pid.h"
 #include "control/fraction_logic.h"
+#include "control/fraction_ssvc.h"
 #include "control/pid_autotune.h"
 #include "control/reflux.h"
 #include "level/level_sensor.h"
@@ -1223,6 +1224,169 @@ static esp_err_t h_backup_telegram(httpd_req_t *r) {
     return send_json(r, "{\"status\":\"queued\"}");
 }
 
+static void ssvc_state_json(char *out, size_t out_len) {
+    ssvc_state_t st;
+    ssvc_get_state(&st);
+    snprintf(out, out_len,
+             "{\"stage\":%d,\"stage_name\":\"%s\",\"t_fix\":%.2f,"
+             "\"open_time\":%.2f,\"period\":%.2f,\"valve_open\":%d,"
+             "\"active\":%d,\"enabled\":%d}",
+             (int)st.stage, ssvc_stage_name(st.stage), st.t_fix,
+             st.open_time_sec, st.period_sec,
+             st.valve_open ? 1 : 0, st.active ? 1 : 0,
+             ssvc_is_enabled() ? 1 : 0);
+}
+
+static esp_err_t h_ssvc_state(httpd_req_t *r) {
+    char json[320];
+    ssvc_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static void ssvc_config_json(char *out, size_t out_len) {
+    ssvc_config_t c;
+    ssvc_get_config(&c);
+    snprintf(out, out_len,
+             "{\"enabled\":%d,\"out_device\":%d,\"transition_mode\":%d,"
+             "\"select_mode\":%d,\"sensor\":%d,"
+             "\"heads_timer_sec\":%u,\"heads_open_time_sec\":%.2f,"
+             "\"heads_period_sec\":%.2f,"
+             "\"body_open_time_sec\":%.2f,\"body_period_sec\":%.2f,"
+             "\"body_hysteresis_c\":%.2f,\"body_decrement_percent\":%.2f,"
+             "\"body_min_open_time_sec\":%.2f,\"body_temp_fix_delay_sec\":%u,"
+             "\"tails_temperature_end\":%.2f,\"tails_open_time_sec\":%.2f,"
+             "\"tails_period_sec\":%.2f}",
+             c.enabled ? 1 : 0, (int)c.out_device, (int)c.transition_mode,
+             (int)c.select_mode, (int)c.sensor,
+             (unsigned)c.heads_timer_sec, c.heads_open_time_sec,
+             c.heads_period_sec, c.body_open_time_sec, c.body_period_sec,
+             c.body_hysteresis_c, c.body_decrement_percent,
+             c.body_min_open_time_sec, (unsigned)c.body_temp_fix_delay_sec,
+             c.tails_temperature_end, c.tails_open_time_sec,
+             c.tails_period_sec);
+}
+
+static esp_err_t h_ssvc_config(httpd_req_t *r) {
+    if (r->method == HTTP_GET) {
+        char json[640];
+        ssvc_config_json(json, sizeof(json));
+        return send_json(r, json);
+    }
+
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[512];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    ssvc_config_t cfg;
+    ssvc_get_config(&cfg);
+
+    const cJSON *v;
+    if ((v = cJSON_GetObjectItemCaseSensitive(root, "enabled")) != NULL) {
+        if (cJSON_IsBool(v)) cfg.enabled = cJSON_IsTrue(v);
+        else if (cJSON_IsNumber(v)) cfg.enabled = v->valueint != 0;
+    }
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "out_device"))))
+        cfg.out_device = (ssvc_out_device_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "transition_mode"))))
+        cfg.transition_mode = (ssvc_transition_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "select_mode"))))
+        cfg.select_mode = (ssvc_select_mode_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "sensor"))))
+        cfg.sensor = (ssvc_sensor_t)v->valueint;
+
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_timer_sec"))))
+        cfg.heads_timer_sec = (uint32_t)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_open_time_sec"))))
+        cfg.heads_open_time_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_period_sec"))))
+        cfg.heads_period_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_open_time_sec"))))
+        cfg.body_open_time_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_period_sec"))))
+        cfg.body_period_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_hysteresis_c"))))
+        cfg.body_hysteresis_c = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_decrement_percent"))))
+        cfg.body_decrement_percent = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_min_open_time_sec"))))
+        cfg.body_min_open_time_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_temp_fix_delay_sec"))))
+        cfg.body_temp_fix_delay_sec = (uint32_t)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "tails_temperature_end"))))
+        cfg.tails_temperature_end = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "tails_open_time_sec"))))
+        cfg.tails_open_time_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "tails_period_sec"))))
+        cfg.tails_period_sec = (float)v->valuedouble;
+
+    cJSON_Delete(root);
+
+    // Мягкая валидация диапазонов: лучше 400, чем конфиг, который
+    // блокирует отбор навсегда.
+    if (cfg.heads_period_sec <= 0.0f || cfg.body_period_sec <= 0.0f ||
+        cfg.tails_period_sec <= 0.0f ||
+        cfg.heads_open_time_sec < 0.0f || cfg.body_open_time_sec < 0.0f ||
+        cfg.tails_open_time_sec < 0.0f ||
+        cfg.body_min_open_time_sec <= 0.0f ||
+        cfg.body_decrement_percent < 0.0f || cfg.body_decrement_percent > 100.0f) {
+        return send_err(r, "400 Bad Request", "{\"error\":\"invalid range\"}");
+    }
+
+    esp_err_t err = ssvc_set_config(&cfg);
+    if (err == ESP_OK) err = ssvc_config_save(&cfg);
+    if (err != ESP_OK) return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+
+    return send_json(r, "{\"status\":\"ok\"}");
+}
+
+static esp_err_t h_ssvc_options(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[192];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    ssvc_config_t cfg;
+    ssvc_get_config(&cfg);
+
+    const cJSON *v;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "out_device"))))
+        cfg.out_device = (ssvc_out_device_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "transition_mode"))))
+        cfg.transition_mode = (ssvc_transition_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "select_mode"))))
+        cfg.select_mode = (ssvc_select_mode_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "sensor"))))
+        cfg.sensor = (ssvc_sensor_t)v->valueint;
+    if (cJSON_IsBool((v = cJSON_GetObjectItemCaseSensitive(root, "enabled"))))
+        cfg.enabled = cJSON_IsTrue(v);
+    cJSON_Delete(root);
+
+    esp_err_t err = ssvc_set_config(&cfg);
+    if (err == ESP_OK) err = ssvc_config_save(&cfg);
+    if (err != ESP_OK) return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+
+    char json[320];
+    ssvc_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static esp_err_t h_ssvc_next(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    ssvc_force_next_stage();
+    char json[320];
+    ssvc_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
 static esp_err_t h_env(httpd_req_t *r) {
     char json[384];
     snprintf(json, sizeof(json),
@@ -1303,6 +1467,11 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/i18n",                .method=HTTP_GET,  .handler=h_i18n },
         { .uri="/api/i18n",                .method=HTTP_POST, .handler=h_i18n },
         { .uri="/api/backup/telegram",     .method=HTTP_POST, .handler=h_backup_telegram },
+        { .uri="/api/ssvc/state",          .method=HTTP_GET,  .handler=h_ssvc_state },
+        { .uri="/api/ssvc/config",         .method=HTTP_GET,  .handler=h_ssvc_config },
+        { .uri="/api/ssvc/config",         .method=HTTP_POST, .handler=h_ssvc_config },
+        { .uri="/api/ssvc/options",        .method=HTTP_POST, .handler=h_ssvc_options },
+        { .uri="/api/ssvc/next",           .method=HTTP_POST, .handler=h_ssvc_next },
         { .uri="/api/env",                 .method=HTTP_GET,  .handler=h_env },
     };
     for (size_t i = 0; i < sizeof(extra)/sizeof(*extra); i++) {
