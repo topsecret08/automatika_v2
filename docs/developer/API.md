@@ -260,42 +260,79 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 
 | Метод | Путь | Доступ | Описание |
 |---|---|---|---|
-| GET | `/api/ssvc/state` | 🔓 | этап, `t_fix`, `open_time`, состояние клапана |
+| GET | `/api/ssvc/state` | 🔓 | этап, `t_fix`, `open_time`, `close_time`, `countdown`, клапан, спирт |
 | GET | `/api/ssvc/config` | 🔓 | полный конфиг SSVC |
 | POST | `/api/ssvc/config` | 🔑 | частичное обновление параметров |
 | POST | `/api/ssvc/options` | 🔑 | устройство, переходы, режим отбора, датчик, `enabled` |
-| POST | `/api/ssvc/next` | 🔑 | принудительный следующий этап |
+| POST | `/api/ssvc/param` | 🔑 | `{"name":...,"value":...}` — inline-редактор |
+| POST | `/api/ssvc/next`, `/api/ssvc/next_stage` | 🔑 | принудительный следующий этап |
+| GET | `/api/alcohol` | 🔓 | начальная заливка и остаток спирта |
+| POST | `/api/alcohol` | 🔑 | `{"volume_ml":20000,"abv_percent":40}` |
 
 `GET /api/ssvc/state`:
 
 ```json
-{"stage":1,"stage_name":"body","t_fix":78.30,
- "open_time":1.20,"period":10.00,"valve_open":1,
+{"stage":1,"stage_name":"body","t_fix":83.10,
+ "open_time":1.20,"close_time":8.80,"period":10.00,
+ "countdown":3.40,"valve_open":1,
+ "ethanol_ml":6420.5,"ethanol_percent":80.3,
  "active":1,"enabled":1}
 ```
 
-`stage`: 0 — heads, 1 — body, 2 — tails, 3 — done.
+`stage`: 0 — heads, 1 — body, 2 — tails, 3 — done. `countdown` — секунды до
+смены состояния клапана (открытия или закрытия).
 
 `POST /api/ssvc/options`:
 
 ```json
 {"enabled":true,"out_device":0,"transition_mode":0,
- "select_mode":0,"sensor":0}
+ "select_mode":0,"sensor":1,"auto_mode_defaults":true}
 ```
 
 `out_device`: 0 — клапан, 1 — насос. `transition_mode`: 0 — авто,
 1 — вручную. `select_mode`: 0 — периодический, 1 — непрерывный.
-`sensor`: 0 — T куба, 1 — T пара, 2 — T колонны.
+`sensor`: 0 — T куба, 1 — T пара, 2 — T колонны (по умолчанию 1).
+`auto_mode_defaults`: подставлять тайминги под режим при старте процесса.
 
 `POST /api/ssvc/config` принимает любые поля из таблицы:
 
 ```json
-{"heads_timer_sec":3600,"heads_open_time_sec":2.0,"heads_period_sec":10.0,
- "body_open_time_sec":1.5,"body_period_sec":10.0,"body_hysteresis_c":0.2,
- "body_decrement_percent":10,"body_min_open_time_sec":0.1,
- "body_temp_fix_delay_sec":0,"tails_temperature_end":98.0,
- "tails_open_time_sec":1.0,"tails_period_sec":10.0}
+{"heads_timer_sec":3600,"heads_open_time_sec":2.0,"heads_close_time_sec":8.0,
+ "body_open_time_sec":1.5,"body_close_time_sec":8.5,
+ "body_hysteresis_c":0.2,"body_decrement_percent":10,
+ "body_min_open_time_sec":0.1,"body_temp_fix_delay_sec":0,
+ "tails_temperature_end":98.0,"tails_open_time_sec":1.0,
+ "tails_close_time_sec":9.0,"auto_mode_defaults":false}
 ```
+
+`*_period_sec` при записи поддерживается для совместимости: из периода
+вычисляется `close = period - open`. В ответе `GET` всегда есть и
+`*_period_sec`, и `*_close_time_sec`.
+
+`POST /api/ssvc/param`:
+
+```json
+{"name":"open_time_sec","value":1.5}
+```
+
+Имена: `open_time_sec`, `close_time_sec`, `period_sec`, `t_fix`,
+`body_hysteresis_c`, `body_decrement_percent`, `body_min_open_time_sec`,
+`heads_timer_sec`, `tails_temperature_end`. Изменение пишется в NVS и
+применяется к текущему этапу; `open_time_sec`/`close_time_sec`/`period_sec`
+сбрасывают текущий цикл.
+
+`GET /api/alcohol`:
+
+```json
+{"volume_start_ml":20000,"abv_start_percent":40.0,
+ "remaining_ml":6420.5,"remaining_percent":80.3,
+ "current_abv_percent":31.4,"boiling_c":86.2,"ethanol_g":5066.0}
+```
+
+Модель: Антуан (T в K, P в бар) + коэффициенты активности Ван-Лаара +
+Рауль/Дальтон + интегрирование по Рэлею. Обновляется в safety-задаче
+каждые 500 мс. Это оценка, зависит от начальной заливки и скорости
+отбора; при старте процесса сбрасывается.
 
 Конфиг хранится в NVS (`ssvc/cfg`) с magic/version. При включённом SSVC
 `out_device` синхронизируется с `control_config` (`out_dev`), чтобы
@@ -303,9 +340,11 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 
 Логика и защита:
 
-- BODY фиксирует `T_fix` через `body_temp_fix_delay_sec`; при
+- BODY фиксирует `T_fix` по пару (датчик `sensor`, по умолчанию T пара с
+  поправкой на давление) через `body_temp_fix_delay_sec`; при
   `T > T_fix + body_hysteresis_c` выход закрывается, `open_time`
-  уменьшается на `body_decrement_percent` (не чаще раза в секунду).
+  уменьшается на `body_decrement_percent` (не чаще раза в секунду), а
+  `close_time` растёт так, чтобы период сохранялся.
 - Когда `open_time < body_min_open_time_sec`, этап завершается; в ручном
   режиме отбор остаётся закрытым до `POST /api/ssvc/next`.
 - TAILS завершается при `T куба >= tails_temperature_end`.
@@ -313,3 +352,7 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
   это дополнение к safety-задаче, а не её замена.
 - Непрерывный режим для клапана — постоянно открыт (без ШИМ 50 %, чтобы
   соленоид не дребезжал); для насоса — постоянная подача.
+- `ssvc_mode_tick()` используется дистилляционными режимами (distill,
+  rectify, pvk, nbk, vacuum, double): он включает охлаждение, задаёт
+  мощность по этапу, reflux и `state->stage`. Beer/ferment не
+  перехватываются.

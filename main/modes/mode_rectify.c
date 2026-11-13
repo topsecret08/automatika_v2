@@ -9,6 +9,7 @@
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_forecast.h"
+#include "control/fraction_ssvc.h"
 #include "config.h"
 #include <math.h>
 
@@ -44,6 +45,9 @@ static proc_stage_t r_update(float dt) {
     ctrl_forecast_update(cube, dt);
     state_get()->cube_temp = cube;
     state_get()->column_temp = col;
+
+    if (ssvc_mode_tick(state_get(), 45.0f, 50.0f, 70.0f))
+        return state_get()->stage;
 
     switch (s_stage) {
     case ST_PRECHECK:

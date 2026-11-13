@@ -108,52 +108,9 @@ static proc_stage_t d_update(float dt) {
 
     // SSVC0059 — альтернативная логика отбора. Когда она включена,
     // штатный fraction_update/valve/dose не должен работать: иначе два
-    // алгоритма одновременно управляют одним клапаном.
-    if (ssvc_is_enabled()) {
-        ssvc_stage_t ss = ssvc_get_stage();
-
-        // Охлаждение нужно на всех этапах перегонки: штатная ветка включает
-        // его в ST_PRECHECK, которую SSVC пропускает.
-        cooling_valve_set(true);
-        hal_relay_set(RELAY_COOLING_PUMP, true);
-
-        if (!ctrl_safety_ok()) {
-            ctrl_heater_set_percent(0.0f);
-            if (ssvc_is_active()) ssvc_stop();
-            st->stage = ST_ERROR;
-            return st->stage;
-        }
-
-        // Задача ssvc могла ещё не успеть стартовать после запуска.
-        if (!ssvc_is_active()) ss = SSVC_STAGE_HEADS;
-
-        switch (ss) {
-        case SSVC_STAGE_HEADS:
-            ctrl_heater_set_percent(40.0f);
-            st->stage = ST_HEADS;
-            reflux_enable(false);
-            break;
-        case SSVC_STAGE_BODY:
-            ctrl_heater_set_percent(BODY_POWER);
-            st->stage = ST_BODY;
-            reflux_enable(true);
-            break;
-        case SSVC_STAGE_TAILS:
-            ctrl_heater_set_percent(TAIL_POWER);
-            st->stage = ST_TAILS;
-            reflux_enable(true);
-            break;
-        case SSVC_STAGE_DONE:
-        default:
-            ctrl_heater_set_percent(0.0f);
-            ctrl_dose_stop();
-            reflux_enable(false);
-            st->stage = ST_DONE;
-            st->is_running = false;
-            break;
-        }
-        return st->stage;
-    }
+    // алгоритма одновременно управляют одним клапаном. Нагрев, reflux и
+    // охлаждение берёт на себя ssvc_mode_tick().
+    if (ssvc_mode_tick(st, 40.0f, BODY_POWER, TAIL_POWER)) return st->stage;
 
     float rate = st->body_rate_ml_min;
     float total_ml = st->heads_collected_ml + st->body_collected_ml +

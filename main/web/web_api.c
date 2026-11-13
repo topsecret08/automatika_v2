@@ -30,6 +30,7 @@
 #include "control/ctrl_pid.h"
 #include "control/fraction_logic.h"
 #include "control/fraction_ssvc.h"
+#include "control/alcohol_balance.h"
 #include "control/pid_autotune.h"
 #include "control/reflux.h"
 #include "level/level_sensor.h"
@@ -1229,16 +1230,19 @@ static void ssvc_state_json(char *out, size_t out_len) {
     ssvc_get_state(&st);
     snprintf(out, out_len,
              "{\"stage\":%d,\"stage_name\":\"%s\",\"t_fix\":%.2f,"
-             "\"open_time\":%.2f,\"period\":%.2f,\"valve_open\":%d,"
+             "\"open_time\":%.2f,\"close_time\":%.2f,\"period\":%.2f,"
+             "\"countdown\":%.2f,\"valve_open\":%d,"
+             "\"ethanol_ml\":%.1f,\"ethanol_percent\":%.1f,"
              "\"active\":%d,\"enabled\":%d}",
              (int)st.stage, ssvc_stage_name(st.stage), st.t_fix,
-             st.open_time_sec, st.period_sec,
-             st.valve_open ? 1 : 0, st.active ? 1 : 0,
-             ssvc_is_enabled() ? 1 : 0);
+             st.open_time_sec, st.close_time_sec, st.period_sec,
+             st.countdown_sec, st.valve_open ? 1 : 0,
+             st.ethanol_remaining_ml, st.ethanol_percent,
+             st.active ? 1 : 0, ssvc_is_enabled() ? 1 : 0);
 }
 
 static esp_err_t h_ssvc_state(httpd_req_t *r) {
-    char json[320];
+    char json[512];
     ssvc_state_json(json, sizeof(json));
     return send_json(r, json);
 }
@@ -1248,27 +1252,33 @@ static void ssvc_config_json(char *out, size_t out_len) {
     ssvc_get_config(&c);
     snprintf(out, out_len,
              "{\"enabled\":%d,\"out_device\":%d,\"transition_mode\":%d,"
-             "\"select_mode\":%d,\"sensor\":%d,"
+             "\"select_mode\":%d,\"sensor\":%d,\"auto_mode_defaults\":%d,"
              "\"heads_timer_sec\":%u,\"heads_open_time_sec\":%.2f,"
-             "\"heads_period_sec\":%.2f,"
-             "\"body_open_time_sec\":%.2f,\"body_period_sec\":%.2f,"
+             "\"heads_close_time_sec\":%.2f,\"heads_period_sec\":%.2f,"
+             "\"body_open_time_sec\":%.2f,\"body_close_time_sec\":%.2f,"
+             "\"body_period_sec\":%.2f,"
              "\"body_hysteresis_c\":%.2f,\"body_decrement_percent\":%.2f,"
              "\"body_min_open_time_sec\":%.2f,\"body_temp_fix_delay_sec\":%u,"
              "\"tails_temperature_end\":%.2f,\"tails_open_time_sec\":%.2f,"
-             "\"tails_period_sec\":%.2f}",
+             "\"tails_close_time_sec\":%.2f,\"tails_period_sec\":%.2f}",
              c.enabled ? 1 : 0, (int)c.out_device, (int)c.transition_mode,
              (int)c.select_mode, (int)c.sensor,
+             c.auto_mode_defaults ? 1 : 0,
              (unsigned)c.heads_timer_sec, c.heads_open_time_sec,
-             c.heads_period_sec, c.body_open_time_sec, c.body_period_sec,
+             c.heads_close_time_sec,
+             c.heads_open_time_sec + c.heads_close_time_sec,
+             c.body_open_time_sec, c.body_close_time_sec,
+             c.body_open_time_sec + c.body_close_time_sec,
              c.body_hysteresis_c, c.body_decrement_percent,
              c.body_min_open_time_sec, (unsigned)c.body_temp_fix_delay_sec,
              c.tails_temperature_end, c.tails_open_time_sec,
-             c.tails_period_sec);
+             c.tails_close_time_sec,
+             c.tails_open_time_sec + c.tails_close_time_sec);
 }
 
 static esp_err_t h_ssvc_config(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
-        char json[640];
+        char json[768];
         ssvc_config_json(json, sizeof(json));
         return send_json(r, json);
     }
@@ -1303,12 +1313,24 @@ static esp_err_t h_ssvc_config(httpd_req_t *r) {
         cfg.heads_timer_sec = (uint32_t)v->valuedouble;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_open_time_sec"))))
         cfg.heads_open_time_sec = (float)v->valuedouble;
-    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_period_sec"))))
-        cfg.heads_period_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_period_sec")))) {
+        float period = (float)v->valuedouble;
+        cfg.heads_close_time_sec = period - cfg.heads_open_time_sec;
+        if (cfg.heads_close_time_sec < 0.0f) cfg.heads_close_time_sec = 0.0f;
+    }
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_close_time_sec"))))
+        cfg.heads_close_time_sec = (float)v->valuedouble;
+
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_open_time_sec"))))
         cfg.body_open_time_sec = (float)v->valuedouble;
-    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_period_sec"))))
-        cfg.body_period_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_period_sec")))) {
+        float period = (float)v->valuedouble;
+        cfg.body_close_time_sec = period - cfg.body_open_time_sec;
+        if (cfg.body_close_time_sec < 0.0f) cfg.body_close_time_sec = 0.0f;
+    }
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_close_time_sec"))))
+        cfg.body_close_time_sec = (float)v->valuedouble;
+
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_hysteresis_c"))))
         cfg.body_hysteresis_c = (float)v->valuedouble;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "body_decrement_percent"))))
@@ -1321,17 +1343,32 @@ static esp_err_t h_ssvc_config(httpd_req_t *r) {
         cfg.tails_temperature_end = (float)v->valuedouble;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "tails_open_time_sec"))))
         cfg.tails_open_time_sec = (float)v->valuedouble;
-    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "tails_period_sec"))))
-        cfg.tails_period_sec = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "tails_period_sec")))) {
+        float period = (float)v->valuedouble;
+        cfg.tails_close_time_sec = period - cfg.tails_open_time_sec;
+        if (cfg.tails_close_time_sec < 0.0f) cfg.tails_close_time_sec = 0.0f;
+    }
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "tails_close_time_sec"))))
+        cfg.tails_close_time_sec = (float)v->valuedouble;
+
+    if ((v = cJSON_GetObjectItemCaseSensitive(root, "auto_mode_defaults")) != NULL) {
+        if (cJSON_IsBool(v)) cfg.auto_mode_defaults = cJSON_IsTrue(v);
+        else if (cJSON_IsNumber(v)) cfg.auto_mode_defaults = v->valueint != 0;
+    }
 
     cJSON_Delete(root);
 
     // Мягкая валидация диапазонов: лучше 400, чем конфиг, который
     // блокирует отбор навсегда.
-    if (cfg.heads_period_sec <= 0.0f || cfg.body_period_sec <= 0.0f ||
-        cfg.tails_period_sec <= 0.0f ||
+    bool periodic = cfg.select_mode == SSVC_SELECT_PERIODIC;
+    if ((periodic &&
+         (cfg.heads_open_time_sec + cfg.heads_close_time_sec <= 0.0f ||
+          cfg.body_open_time_sec + cfg.body_close_time_sec <= 0.0f ||
+          cfg.tails_open_time_sec + cfg.tails_close_time_sec <= 0.0f)) ||
         cfg.heads_open_time_sec < 0.0f || cfg.body_open_time_sec < 0.0f ||
         cfg.tails_open_time_sec < 0.0f ||
+        cfg.heads_close_time_sec < 0.0f || cfg.body_close_time_sec < 0.0f ||
+        cfg.tails_close_time_sec < 0.0f ||
         cfg.body_min_open_time_sec <= 0.0f ||
         cfg.body_decrement_percent < 0.0f || cfg.body_decrement_percent > 100.0f) {
         return send_err(r, "400 Bad Request", "{\"error\":\"invalid range\"}");
@@ -1368,6 +1405,10 @@ static esp_err_t h_ssvc_options(httpd_req_t *r) {
         cfg.sensor = (ssvc_sensor_t)v->valueint;
     if (cJSON_IsBool((v = cJSON_GetObjectItemCaseSensitive(root, "enabled"))))
         cfg.enabled = cJSON_IsTrue(v);
+    if ((v = cJSON_GetObjectItemCaseSensitive(root, "auto_mode_defaults")) != NULL) {
+        if (cJSON_IsBool(v)) cfg.auto_mode_defaults = cJSON_IsTrue(v);
+        else if (cJSON_IsNumber(v)) cfg.auto_mode_defaults = v->valueint != 0;
+    }
     cJSON_Delete(root);
 
     esp_err_t err = ssvc_set_config(&cfg);
@@ -1382,8 +1423,99 @@ static esp_err_t h_ssvc_options(httpd_req_t *r) {
 static esp_err_t h_ssvc_next(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     ssvc_force_next_stage();
-    char json[320];
+    char json[512];
     ssvc_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+// Точечное редактирование параметра из PWA/LCD/Telegram:
+// {"name":"open_time_sec","value":1.5}
+static esp_err_t h_ssvc_param(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[192];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    const cJSON *name = cJSON_GetObjectItemCaseSensitive(root, "name");
+    const cJSON *value = cJSON_GetObjectItemCaseSensitive(root, "value");
+    if (!cJSON_IsString(name) || !name->valuestring ||
+        !cJSON_IsNumber(value)) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request",
+                        "{\"error\":\"name and value required\"}");
+    }
+
+    esp_err_t err = ssvc_set_param(name->valuestring, (float)value->valuedouble);
+    cJSON_Delete(root);
+
+    if (err == ESP_ERR_INVALID_ARG)
+        return send_err(r, "400 Bad Request", "{\"error\":\"unknown parameter\"}");
+    if (err != ESP_OK)
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+
+    char json[512];
+    ssvc_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static void abv_state_json(char *out, size_t out_len) {
+    snprintf(out, out_len,
+             "{\"volume_start_ml\":%.0f,\"abv_start_percent\":%.1f,"
+             "\"remaining_ml\":%.1f,\"remaining_percent\":%.1f,"
+             "\"current_abv_percent\":%.1f,\"boiling_c\":%.1f,"
+             "\"ethanol_g\":%.1f}",
+             abv_get_start_volume_ml(), abv_get_start_abv_percent(),
+             abv_get_remaining_ml(), abv_get_remaining_percent(),
+             abv_get_current_abv_percent(), abv_get_boiling_point_c(),
+             abv_get_ethanol_g());
+}
+
+static esp_err_t h_alcohol(httpd_req_t *r) {
+    if (r->method == HTTP_GET) {
+        char json[320];
+        abv_state_json(json, sizeof(json));
+        return send_json(r, json);
+    }
+
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[192];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    alcohol_init_t init = {
+        .volume_start_ml = abv_get_start_volume_ml(),
+        .abv_start_percent = abv_get_start_abv_percent(),
+        .ethanol_density = ABV_ETHANOL_DENSITY,
+    };
+
+    const cJSON *v;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "volume_ml"))))
+        init.volume_start_ml = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "abv_percent"))))
+        init.abv_start_percent = (float)v->valuedouble;
+    cJSON_Delete(root);
+
+    if (init.volume_start_ml <= 0.0f || init.volume_start_ml > 200000.0f ||
+        init.abv_start_percent < 0.0f || init.abv_start_percent > 100.0f) {
+        return send_err(r, "400 Bad Request", "{\"error\":\"invalid range\"}");
+    }
+
+    esp_err_t err = abv_config_save(&init);
+    if (err != ESP_OK)
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+
+    abv_init(&init);
+
+    char json[320];
+    abv_state_json(json, sizeof(json));
     return send_json(r, json);
 }
 
@@ -1472,6 +1604,10 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/ssvc/config",         .method=HTTP_POST, .handler=h_ssvc_config },
         { .uri="/api/ssvc/options",        .method=HTTP_POST, .handler=h_ssvc_options },
         { .uri="/api/ssvc/next",           .method=HTTP_POST, .handler=h_ssvc_next },
+        { .uri="/api/ssvc/next_stage",     .method=HTTP_POST, .handler=h_ssvc_next },
+        { .uri="/api/ssvc/param",          .method=HTTP_POST, .handler=h_ssvc_param },
+        { .uri="/api/alcohol",             .method=HTTP_GET,  .handler=h_alcohol },
+        { .uri="/api/alcohol",             .method=HTTP_POST, .handler=h_alcohol },
         { .uri="/api/env",                 .method=HTTP_GET,  .handler=h_env },
     };
     for (size_t i = 0; i < sizeof(extra)/sizeof(*extra); i++) {

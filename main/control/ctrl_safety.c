@@ -1,6 +1,7 @@
 #include "ctrl_safety.h"
 #include "ctrl_heater.h"
 #include "ctrl_dose.h"
+#include "alcohol_balance.h"
 #include "core/control_config.h"
 #include "core/estop.h"
 #include "core/state.h"
@@ -17,6 +18,7 @@
 #include "level/level_sensor.h"
 #include "web/telegram_notify.h"
 #include "config.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
@@ -187,6 +189,14 @@ void ctrl_safety_task(void *arg) {
             telegram_notify_alert("ГОТОВО", "Процесс завершён");
         }
         if (running) s_run_done_notified = false;
+
+        // Остаток спирта: раз в 500 мс по T куба и абсолютному давлению.
+        static int64_t s_last_abv_us = 0;
+        int64_t now_abv = esp_timer_get_time();
+        if (s_last_abv_us == 0 || (now_abv - s_last_abv_us) >= 500000LL) {
+            s_last_abv_us = now_abv;
+            abv_update(cube, baro_get_pressure_hpa());
+        }
 
         vTaskDelay(pdMS_TO_TICKS(SAFETY_PERIOD_MS));
     }

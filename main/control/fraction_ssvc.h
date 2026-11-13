@@ -3,12 +3,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
+#include "core/state.h"
 
 // SSVC0059: отбор HEADS → BODY → TAILS.
 //
 // HEADS: периодический отбор по таймеру.
-// BODY:  фиксация T_fix, гистерезис, декремент open_time до min → TAILS.
-// TAILS: постоянный/периодический отбор до T_tails_end.
+// BODY:  фиксация T_fix по пару, гистерезис, декремент open_time до min → TAILS.
+// TAILS: отбор до T_tails_end по кубу.
 //
 // Модуль управляет только отбором (клапан/насос). Нагрев остаётся за
 // mode_distill/ctrl_heater, а safety и E-STOP имеют приоритет: при аварии
@@ -51,15 +52,18 @@ typedef struct {
     ssvc_transition_t transition_mode;
     ssvc_select_mode_t select_mode;
     ssvc_sensor_t sensor;
+    // При старте процесса подставлять тайминги под режим, пока пользователь
+    // не изменил параметры вручную.
+    bool auto_mode_defaults;
 
     // HEADS
     uint32_t heads_timer_sec;
     float    heads_open_time_sec;
-    float    heads_period_sec;
+    float    heads_close_time_sec;
 
     // BODY
     float    body_open_time_sec;
-    float    body_period_sec;
+    float    body_close_time_sec;
     float    body_hysteresis_c;
     float    body_decrement_percent;   // 0..100
     float    body_min_open_time_sec;
@@ -68,18 +72,22 @@ typedef struct {
     // TAILS
     float    tails_temperature_end;
     float    tails_open_time_sec;
-    float    tails_period_sec;
+    float    tails_close_time_sec;
 } ssvc_config_t;
 
 typedef struct {
     ssvc_stage_t stage;
-    float        open_time_sec;
-    float        period_sec;
+    float        open_time_sec;        // текущее (с декрементом для BODY)
+    float        close_time_sec;       // текущее время закрытия
+    float        period_sec;           // open + close
     int64_t      stage_started_at_us;
     int64_t      last_cycle_start_us;
     bool         valve_open;
-    float        t_fix;
+    float        countdown_sec;        // до смены состояния клапана
+    float        t_fix;                // T фиксации BODY (по пару)
     bool         t_fix_ready;
+    float        ethanol_remaining_ml; // остаток этанола в кубе
+    float        ethanol_percent;      // % от начального
     bool         active;
 } ssvc_state_t;
 
@@ -91,11 +99,29 @@ void ssvc_init(void);
 void ssvc_task(void *arg);
 void ssvc_start(void);
 void ssvc_stop(void);
-void ssvc_update(float t_stage, float t_cube);
+void ssvc_update(float t_stage, float t_cube, float pressure_hpa);
 void ssvc_force_next_stage(void);
+
+// Точечное изменение параметра из REST/Telegram/LCD. Обновляет и
+// сохранённый конфиг, и текущее состояние этапа; сохраняет NVS.
+// Имена: open_time_sec, close_time_sec, period_sec, t_fix,
+// body_hysteresis_c, body_decrement_percent, body_min_open_time_sec,
+// heads_timer_sec, tails_temperature_end.
+esp_err_t ssvc_set_param(const char *name, float value);
+
+// Подставить тайминги под режим (только при auto_mode_defaults).
+void ssvc_apply_mode_defaults(process_type_t type);
+
+// Общая ветка SSVC для дистилляционных режимов: охлаждение, нагрев по
+// этапу, reflux и stage в state. Возвращает true, если режим перехвачен и
+// штатная логика режима должна выйти.
+bool ssvc_mode_tick(process_state_t *st, float power_heads,
+                    float power_body, float power_tails);
 
 ssvc_stage_t ssvc_get_stage(void);
 float        ssvc_get_open_time(void);
+float        ssvc_get_close_time(void);
+float        ssvc_get_countdown(void);
 float        ssvc_get_t_fix(void);
 bool         ssvc_is_valve_open(void);
 bool         ssvc_is_enabled(void);

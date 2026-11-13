@@ -6,6 +6,8 @@
 #include "control/ctrl_dose.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
+#include "control/alcohol_balance.h"
+#include "control/fraction_ssvc.h"
 #include "modes/mode_base.h"
 
 #include <string.h>
@@ -61,6 +63,9 @@ esp_err_t process_control_start(const char *mode_id) {
 
     // mode_set() сам останавливает предыдущий режим и дозатор.
     mode_set(m);
+
+    ssvc_apply_mode_defaults(type);
+    abv_reset();
 
     s->type = type;
     s->is_running = true;

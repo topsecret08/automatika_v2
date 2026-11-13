@@ -49,6 +49,7 @@
 
 #include "control/ctrl_safety.h"
 #include "control/fraction_ssvc.h"
+#include "control/alcohol_balance.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_dose.h"
 #include "control/ctrl_valves.h"
@@ -202,6 +203,9 @@ void app_main(void) {
     sensor_calib_init();
     ctrl_safety_init();
     ssvc_init();
+    alcohol_init_t abv_cfg;
+    abv_config_load(&abv_cfg);
+    abv_init(&abv_cfg);
     pid_autotune_init();
     session_recovery_init();
     reflux_init(REFLUX_RATIO_DEFAULT);

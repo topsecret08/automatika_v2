@@ -23,7 +23,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const STORAGE_KEY = 'automatika.apiKey';
-const APP_VERSION = '2.9.3-ios.1';
+const APP_VERSION = '2.9.4-ios.1';
 
 const STAGE_NAMES = [
   'Ожидание', 'Нагрев', 'Стабилизация', 'Головы', 'Тело',
@@ -57,9 +57,13 @@ let powerDragging = false;
 let deferredPrompt = null;
 
 const ssvcState = {
-  stage: 0,
+  stage: 3,
   tFix: 0,
   openTime: 0,
+  closeTime: 0,
+  countdown: 0,
+  ethanolMl: 0,
+  ethanolPercent: 0,
   valveOpen: false,
   enabled: false,
   active: false
@@ -379,20 +383,35 @@ function renderDashboard() {
     <section class="section">
       <div class="card">
         <div class="card-row">
-          <span class="card-row-title">SSVC · этап</span>
-          <span id="ssvc-stage" class="card-row-value">—</span>
-        </div>
-        <div class="card-row">
-          <span class="card-row-title">T фиксации</span>
-          <span id="ssvc-tfix" class="card-row-value">—</span>
-        </div>
-        <div class="card-row">
-          <span class="card-row-title">Открыт</span>
-          <span id="ssvc-open" class="card-row-value">—</span>
+          <span class="card-row-title">ОТБОР · SSVC0059</span>
+          <span id="ssvc-stage" class="badge badge-idle">—</span>
         </div>
         <div class="card-row">
           <span class="card-row-title">Клапан</span>
-          <span id="ssvc-valve" class="card-row-value">—</span>
+          <div class="valve-inline">
+            <span id="valve-dot" class="indicator red"></span>
+            <span id="valve-text" class="card-row-value">—</span>
+          </div>
+        </div>
+        <div class="card-row clickable" onclick="editParam('t_fix','Температура фиксации (пар), °C',78.5)">
+          <span class="card-row-title">T фиксации</span>
+          <span id="p-tfix" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" onclick="editParam('open_time_sec','Время открыт, с',1.5)">
+          <span class="card-row-title">Время открыт</span>
+          <span id="p-open" class="card-row-value">—</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-title" id="p-countdown-label">До закрытия</span>
+          <span id="p-countdown" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" onclick="editParam('close_time_sec','Время закрыт, с',8.5)">
+          <span class="card-row-title">Время закрыт</span>
+          <span id="p-close" class="card-row-value">—</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-title">Остаток спирта</span>
+          <span id="p-ethanol" class="card-row-value">—</span>
         </div>
       </div>
     </section>
@@ -509,28 +528,98 @@ function updateStatusOnly() {
 }
 
 function renderSsvcValues() {
+  const enabled = ssvcState.enabled;
   const stage = $('#ssvc-stage');
   if (stage) {
-    stage.textContent = ssvcState.enabled
-      ? (['ГОЛОВЫ', 'ТЕЛО', 'ХВОСТЫ', 'ГОТОВО'][ssvcState.stage] || '—')
-      : 'выключен';
+    const names = ['ГОЛОВЫ', 'ТЕЛО', 'ХВОСТЫ', 'ГОТОВО'];
+    const classes = ['badge-heads', 'badge-body', 'badge-tails', 'badge-done'];
+    stage.textContent = enabled ? (names[ssvcState.stage] || '—') : 'выключен';
+    stage.className = 'badge ' + (enabled ? (classes[ssvcState.stage] || 'badge-idle') : 'badge-idle');
   }
-  const tfix = $('#ssvc-tfix');
-  if (tfix) tfix.textContent = ssvcState.tFix > 0 ? ssvcState.tFix.toFixed(2) + '°' : '—';
-  const open = $('#ssvc-open');
-  if (open) open.textContent = ssvcState.enabled ? ssvcState.openTime.toFixed(2) + ' с' : '—';
-  const valve = $('#ssvc-valve');
-  if (valve) valve.textContent = ssvcState.enabled ? (ssvcState.valveOpen ? 'открыт' : 'закрыт') : '—';
+
+  const dot = $('#valve-dot');
+  const valve = $('#valve-text');
+  if (dot && valve) {
+    if (!enabled) {
+      dot.className = 'indicator red';
+      valve.textContent = '—';
+    } else if (ssvcState.valveOpen) {
+      dot.className = 'indicator green pulse';
+      valve.textContent = 'ОТКРЫТ';
+    } else {
+      dot.className = 'indicator red';
+      valve.textContent = 'ЗАКРЫТ';
+    }
+  }
+
+  const tfix = $('#p-tfix');
+  if (tfix) tfix.textContent = enabled && ssvcState.tFix > 0 ? ssvcState.tFix.toFixed(2) + '°' : '—';
+
+  const open = $('#p-open');
+  if (open) open.textContent = enabled ? ssvcState.openTime.toFixed(2) + ' с' : '—';
+
+  const close = $('#p-close');
+  if (close) close.textContent = enabled ? ssvcState.closeTime.toFixed(2) + ' с' : '—';
+
+  const countdown = $('#p-countdown');
+  if (countdown) {
+    countdown.textContent = enabled && ssvcState.countdown > 0
+      ? ssvcState.countdown.toFixed(1) + ' с'
+      : '—';
+  }
+  const countdownLabel = $('#p-countdown-label');
+  if (countdownLabel) {
+    countdownLabel.textContent = ssvcState.valveOpen ? 'До закрытия' : 'До открытия';
+  }
+
+  const ethanol = $('#p-ethanol');
+  if (ethanol) {
+    ethanol.textContent = ssvcState.ethanolMl > 0
+      ? `${Math.round(ssvcState.ethanolMl)} мл · ${Math.round(ssvcState.ethanolPercent)}%`
+      : '—';
+  }
 }
+
+async function editParam(name, label, current) {
+  const live = {
+    t_fix: ssvcState.tFix,
+    open_time_sec: ssvcState.openTime,
+    close_time_sec: ssvcState.closeTime
+  };
+  const initial = (name in live && ssvcState.enabled)
+    ? Number(live[name])
+    : Number(current || 0);
+  const entered = prompt(`${label}\nТекущее: ${initial}`, String(initial));
+  if (entered === null || entered === '' || isNaN(+entered)) return;
+
+  try {
+    const response = await api('/api/ssvc/param', {
+      method: 'POST',
+      body: JSON.stringify({ name, value: +entered })
+    });
+    if (!response.ok) throw new Error(String(response.status));
+    haptic('light');
+    toast('Параметр сохранён');
+    pollSsvc();
+  } catch (_) {
+    haptic('error');
+    toast('Не удалось сохранить параметр');
+  }
+}
+window.editParam = editParam;
 
 async function pollSsvc() {
   try {
     const response = await fetch('/api/ssvc/state');
     if (!response.ok) return;
     const data = await response.json();
-    ssvcState.stage = Number(data.stage || 0);
+    ssvcState.stage = Number(data.stage ?? 3);
     ssvcState.tFix = Number(data.t_fix || 0);
     ssvcState.openTime = Number(data.open_time || 0);
+    ssvcState.closeTime = Number(data.close_time || 0);
+    ssvcState.countdown = Number(data.countdown || 0);
+    ssvcState.ethanolMl = Number(data.ethanol_ml || 0);
+    ssvcState.ethanolPercent = Number(data.ethanol_percent || 0);
     ssvcState.valveOpen = !!data.valve_open;
     ssvcState.enabled = !!data.enabled;
     ssvcState.active = !!data.active;
@@ -1084,6 +1173,14 @@ async function renderSelection() {
           <input id="ssvc-enabled" type="checkbox">
         </div>
 
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Профиль режима</div>
+            <div class="card-row-sub">open/close и устройство при старте процесса</div>
+          </div>
+          <input id="ssvc-auto-defaults" type="checkbox">
+        </div>
+
         <div class="field mt-16">
           <span class="field-label">Устройство отбора</span>
           <div class="segmented" id="seg-device">
@@ -1139,6 +1236,7 @@ async function renderSelection() {
     if (response.ok) {
       const cfg = await response.json();
       $('#ssvc-enabled').checked = !!cfg.enabled;
+      if ($('#ssvc-auto-defaults')) $('#ssvc-auto-defaults').checked = !!cfg.auto_mode_defaults;
       setSegment('#seg-device', cfg.out_device);
       setSegment('#seg-transition', cfg.transition_mode);
       setSegment('#seg-select', cfg.select_mode);
@@ -1150,6 +1248,7 @@ async function renderSelection() {
     try {
       const response = await postJson('/api/ssvc/options', {
         enabled: !!$('#ssvc-enabled')?.checked,
+        auto_mode_defaults: !!$('#ssvc-auto-defaults')?.checked,
         out_device: segmentValue('#seg-device'),
         transition_mode: segmentValue('#seg-transition'),
         select_mode: segmentValue('#seg-select'),
@@ -1170,6 +1269,27 @@ async function renderSsvc() {
 
   app.innerHTML = `
     <section class="section">
+      <div class="section-title">Заливка куба</div>
+      <div class="card">
+        <div class="field">
+          <label class="field-label" for="abv-volume">Начальный объём, мл</label>
+          <input id="abv-volume" class="input" type="number" min="1" max="200000" step="1" value="20000">
+        </div>
+        <div class="field">
+          <label class="field-label" for="abv-percent">Начальная крепость, %</label>
+          <input id="abv-percent" class="input" type="number" min="0" max="100" step="0.1" value="40">
+        </div>
+        <button class="btn btn-secondary btn-block" type="button" id="abv-save">
+          Сохранить заливку
+        </button>
+        <p class="hint mt-8">
+          Остаток спирта оценивается по T куба, давлению и скорости отбора.
+          Значения сбрасываются при старте процесса.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
       <div class="section-title">Головы</div>
       <div class="card">
         <div class="field">
@@ -1181,8 +1301,8 @@ async function renderSsvc() {
           <input id="heads-open" class="input" type="number" min="0" step="0.1" value="2.0">
         </div>
         <div class="field">
-          <label class="field-label" for="heads-period">Период, с</label>
-          <input id="heads-period" class="input" type="number" min="0.1" step="0.1" value="10.0">
+          <label class="field-label" for="heads-close">Закрыт, с</label>
+          <input id="heads-close" class="input" type="number" min="0" step="0.1" value="8.0">
         </div>
       </div>
     </section>
@@ -1195,8 +1315,8 @@ async function renderSsvc() {
           <input id="body-open" class="input" type="number" min="0" step="0.1" value="1.5">
         </div>
         <div class="field">
-          <label class="field-label" for="body-period">Период, с</label>
-          <input id="body-period" class="input" type="number" min="0.1" step="0.1" value="10.0">
+          <label class="field-label" for="body-close">Закрыт, с</label>
+          <input id="body-close" class="input" type="number" min="0" step="0.1" value="8.5">
         </div>
         <div class="field">
           <label class="field-label" for="body-hyst">Гистерезис, °C</label>
@@ -1229,8 +1349,8 @@ async function renderSsvc() {
           <input id="tails-open" class="input" type="number" min="0" step="0.1" value="1.0">
         </div>
         <div class="field">
-          <label class="field-label" for="tails-period">Период, с</label>
-          <input id="tails-period" class="input" type="number" min="0.1" step="0.1" value="10.0">
+          <label class="field-label" for="tails-close">Закрыт, с</label>
+          <input id="tails-close" class="input" type="number" min="0" step="0.1" value="9.0">
         </div>
       </div>
     </section>
@@ -1252,34 +1372,57 @@ async function renderSsvc() {
       const cfg = await response.json();
       if ($('#heads-timer')) $('#heads-timer').value = Math.round((cfg.heads_timer_sec || 0) / 60);
       if ($('#heads-open')) $('#heads-open').value = Number(cfg.heads_open_time_sec || 0).toFixed(1);
-      if ($('#heads-period')) $('#heads-period').value = Number(cfg.heads_period_sec || 0).toFixed(1);
+      if ($('#heads-close')) $('#heads-close').value = Number(cfg.heads_close_time_sec || 0).toFixed(1);
       if ($('#body-open')) $('#body-open').value = Number(cfg.body_open_time_sec || 0).toFixed(1);
-      if ($('#body-period')) $('#body-period').value = Number(cfg.body_period_sec || 0).toFixed(1);
+      if ($('#body-close')) $('#body-close').value = Number(cfg.body_close_time_sec || 0).toFixed(1);
       if ($('#body-hyst')) $('#body-hyst').value = Number(cfg.body_hysteresis_c || 0).toFixed(2);
       if ($('#body-decr')) $('#body-decr').value = Math.round(Number(cfg.body_decrement_percent || 0));
       if ($('#body-min')) $('#body-min').value = Number(cfg.body_min_open_time_sec || 0).toFixed(1);
       if ($('#body-delay')) $('#body-delay').value = Math.round((cfg.body_temp_fix_delay_sec || 0) / 60);
       if ($('#tails-end')) $('#tails-end').value = Number(cfg.tails_temperature_end || 0).toFixed(1);
       if ($('#tails-open')) $('#tails-open').value = Number(cfg.tails_open_time_sec || 0).toFixed(1);
-      if ($('#tails-period')) $('#tails-period').value = Number(cfg.tails_period_sec || 0).toFixed(1);
+      if ($('#tails-close')) $('#tails-close').value = Number(cfg.tails_close_time_sec || 0).toFixed(1);
     }
   } catch (_) {}
+
+  try {
+    const response = await fetch('/api/alcohol');
+    if (response.ok) {
+      const abv = await response.json();
+      if ($('#abv-volume')) $('#abv-volume').value = Math.round(Number(abv.volume_start_ml || 20000));
+      if ($('#abv-percent')) $('#abv-percent').value = Number(abv.abv_start_percent || 40).toFixed(1);
+    }
+  } catch (_) {}
+
+  $('#abv-save')?.addEventListener('click', async () => {
+    try {
+      const response = await postJson('/api/alcohol', {
+        volume_ml: Number($('#abv-volume')?.value || 0),
+        abv_percent: Number($('#abv-percent')?.value || 0)
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      toast('Заливка сохранена, расчёт остатка сброшен');
+      pollSsvc();
+    } catch (_) {
+      toast('Не удалось сохранить заливку');
+    }
+  });
 
   $('#ssvc-save')?.addEventListener('click', async () => {
     try {
       const response = await postJson('/api/ssvc/config', {
         heads_timer_sec: Number($('#heads-timer')?.value || 0) * 60,
         heads_open_time_sec: Number($('#heads-open')?.value || 0),
-        heads_period_sec: Number($('#heads-period')?.value || 0.1),
+        heads_close_time_sec: Number($('#heads-close')?.value || 0),
         body_open_time_sec: Number($('#body-open')?.value || 0),
-        body_period_sec: Number($('#body-period')?.value || 0.1),
+        body_close_time_sec: Number($('#body-close')?.value || 0),
         body_hysteresis_c: Number($('#body-hyst')?.value || 0),
         body_decrement_percent: Number($('#body-decr')?.value || 0),
         body_min_open_time_sec: Number($('#body-min')?.value || 0.1),
         body_temp_fix_delay_sec: Number($('#body-delay')?.value || 0) * 60,
         tails_temperature_end: Number($('#tails-end')?.value || 98),
         tails_open_time_sec: Number($('#tails-open')?.value || 0),
-        tails_period_sec: Number($('#tails-period')?.value || 0.1)
+        tails_close_time_sec: Number($('#tails-close')?.value || 0)
       });
       if (!response.ok) throw new Error(String(response.status));
       toast('Параметры SSVC сохранены');
@@ -2046,7 +2189,7 @@ function init() {
   pollState();
   pollSsvc();
   setInterval(pollState, 4000);
-  setInterval(pollSsvc, 2000);
+  setInterval(pollSsvc, 1000);
 
   initTabSwipe({
     getGroup: currentGroup,

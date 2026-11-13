@@ -181,6 +181,50 @@
 .badge-tails { background: var(--orange); color: #000; }
 .badge-done  { background: var(--green); color: #fff; }
 .badge-idle  { background: rgba(120, 120, 128, 0.16); color: var(--text-secondary); }
+.badge-blue  { background: var(--accent); color: #fff; }
+
+/* Индикатор клапана: красный — закрыт, зелёный — открыт. */
+.indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+  box-shadow: 0 0 8px currentColor;
+}
+.indicator.red   { background: var(--red); color: var(--red); }
+.indicator.green { background: var(--green); color: var(--green); }
+.indicator.pulse { animation: indicator-pulse 1s infinite; }
+
+@keyframes indicator-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.15); }
+}
+
+/* Строка, редактируемая по тапу (inline-редактор SSVC). */
+.card-row.clickable {
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-radius: var(--radius-control);
+  margin: 0 calc(-1 * var(--space-8));
+  padding-left: var(--space-8);
+  padding-right: var(--space-8);
+}
+.card-row.clickable:active {
+  background: rgba(120, 120, 128, 0.14);
+}
+.card-row.clickable::after {
+  content: '✎';
+  margin-left: var(--space-8);
+  opacity: 0.4;
+  font-size: 14px;
+}
+.valve-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.valve-inline .card-row-value { font-size: 17px; }
 
 /* ------------------------------------------------------------------ */
 /* KPI-сетка                                                           */

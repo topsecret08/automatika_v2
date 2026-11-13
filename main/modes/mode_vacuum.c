@@ -7,6 +7,7 @@
 #include "control/ctrl_pid.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
+#include "control/fraction_ssvc.h"
 #include "config.h"
 
 static proc_stage_t v_init(void) {
@@ -19,6 +20,9 @@ static proc_stage_t v_update(float dt) {
     float cube = hal_1wire_read(0);
     float vac  = hal_adc_vacuum_mbar();
     state_get()->cube_temp = cube;
+
+    if (ssvc_mode_tick(state_get(), 50.0f, 60.0f, 70.0f))
+        return state_get()->stage;
     state_get()->vacuum_mbar = vac;
 
     hal_relay_set(RELAY_EXTRA, true);   // вакуум-насос

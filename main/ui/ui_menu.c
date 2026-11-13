@@ -307,6 +307,11 @@ int ui_menu_current_level(void) { return s_level; }
 void ui_menu_encoder_rotate(int dir) {
     if (dir == 0) return;
 
+    if (ui_screen_ssvc_modal_active() && ui_screen_ssvc_modal_rotate(dir)) {
+        haptic_short();
+        return;
+    }
+
     int64_t now = esp_timer_get_time();
     int64_t dt = now - s_last_rotate_us;
 
@@ -339,6 +344,11 @@ void ui_menu_encoder_rotate(int dir) {
 }
 
 void ui_menu_encoder_press(void) {
+    if (ui_screen_ssvc_modal_active() && ui_screen_ssvc_modal_press()) {
+        haptic_short();
+        return;
+    }
+
     if (s_level == 0) {
         s_level = 1;
         s_item_index = 0;
@@ -353,6 +363,7 @@ void ui_menu_encoder_press(void) {
 }
 
 void ui_menu_encoder_long_press(void) {
+    if (ui_screen_ssvc_modal_active()) return;
     if (s_level == 1) {
         s_level = 0;
         ui_menu_show_root(s_tab_index);
