@@ -1,7 +1,5 @@
 # Automatika V0.5 alfa
 
-[![build](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml/badge.svg)](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml)
-
 Универсальная система управления технологическими процессами на **ESP32-S3**:
 дистилляция, ректификация, пивоварение, ПВК, НБК, вакуумная и двойная
 перегонка, брожение.
@@ -11,8 +9,10 @@
 480×320, из веб-интерфейса и по API.
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
-> (ESP-IDF v5.3.2, образ ≈2,78 МБ из 3 МБ раздела); сборка прошивки и
-> тестового проекта проверяется в GitHub Actions (`.github/workflows/build.yml`).
+> (ESP-IDF v5.3.2, образ ≈2,78 МБ из 3 МБ раздела); тестовый проект `test/`
+> (Unity) собирается. Workflow CI лежит в `.github/workflows/build.yml`;
+> если push отклоняется из-за отсутствия права `workflow` у токена,
+> добавьте его и запушьте файл — см. раздел «CI».
 > Работа на реальном оборудовании не проверялась: аппаратную приёмку
 > E-STOP/SSR и приёмочные сценарии нужно выполнить на стенде.
 
@@ -1176,6 +1176,31 @@ idf.py -p COM5 flash monitor
 
 Скрипты активируют окружение через `source "$IDF_PATH/export.sh"`
 (`. ./export.sh` больше не используется).
+
+### CI
+
+`.github/workflows/build.yml` собирает прошивку и тестовый проект на
+`espressif/idf:v5.3.2`, публикует `automatika_v2.bin` и артефакты тестов.
+GitHub отклоняет push этого файла токеном без права `workflow`:
+
+```
+! refusing to allow a Personal Access Token to create or update workflow
+```
+
+Что сделать один раз:
+
+1. Выдать токену (fine-grained PAT) право **Workflows: Read and write** для
+   репозитория или использовать классический PAT со scope `workflow`.
+2. Запушить файл:
+
+   ```bash
+   git add .github/workflows/build.yml
+   git commit -m "CI: сборка прошивки и тестов"
+   git push origin main
+   ```
+
+3. Проверить вкладку **Actions → build**. Тот же файл приложен к релизу
+   `v0.5-alfa`.
 
 На Windows перед сборкой желательно задать кодировку Python, иначе `idf.py`
 может упасть на чтении кириллического `sdkconfig`:
