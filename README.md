@@ -10,9 +10,9 @@
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
 > (ESP-IDF v5.3.2, образ ≈2,78 МБ из 3 МБ раздела); тестовый проект `test/`
-> (Unity) собирается. Workflow CI лежит в `.github/workflows/build.yml`;
-> если push отклоняется из-за отсутствия права `workflow` у токена,
-> добавьте его и запушьте файл — см. раздел «CI».
+> (Unity) собирается. Готовый workflow CI лежит в `ci/build.yml`; чтобы
+> включить GitHub Actions, скопируйте его в `.github/workflows/build.yml`
+> и запушьте токеном с правом `workflow` — см. раздел «CI».
 > Работа на реальном оборудовании не проверялась: аппаратную приёмку
 > E-STOP/SSR и приёмочные сценарии нужно выполнить на стенде.
 
@@ -1179,9 +1179,10 @@ idf.py -p COM5 flash monitor
 
 ### CI
 
-`.github/workflows/build.yml` собирает прошивку и тестовый проект на
+Шаблон workflow — `ci/build.yml`: он собирает прошивку и тестовый проект на
 `espressif/idf:v5.3.2`, публикует `automatika_v2.bin` и артефакты тестов.
-GitHub отклоняет push этого файла токеном без права `workflow`:
+GitHub не принимает файлы в `.github/workflows/` от токена без права
+`workflow`:
 
 ```
 ! refusing to allow a Personal Access Token to create or update workflow
@@ -1191,9 +1192,11 @@ GitHub отклоняет push этого файла токеном без пр�
 
 1. Выдать токену (fine-grained PAT) право **Workflows: Read and write** для
    репозитория или использовать классический PAT со scope `workflow`.
-2. Запушить файл:
+2. Скопировать шаблон и запушить:
 
    ```bash
+   mkdir -p .github/workflows
+   cp ci/build.yml .github/workflows/build.yml
    git add .github/workflows/build.yml
    git commit -m "CI: сборка прошивки и тестов"
    git push origin main

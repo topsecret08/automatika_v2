@@ -1,0 +1,70 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    name: firmware (esp32s3)
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py build
+          idf.py size | tee build/size.txt
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: automatika-v0.5-alfa-${{ github.sha }}
+          path: |
+            build/automatika_v2.bin
+            build/automatika_v2.elf
+            build/automatika_v2.map
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+            build/ota_data_initial.bin
+            build/assets.bin
+            build/size.txt
+          if-no-files-found: error
+
+  tests:
+    name: unit tests (esp32s3)
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build test app
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py -C test set-target esp32s3
+          idf.py -C test build
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: automatika-test-${{ github.sha }}
+          path: |
+            test/build/automatika_test.bin
+            test/build/automatika_test.elf
+            test/build/automatika_test.map
+          if-no-files-found: error
