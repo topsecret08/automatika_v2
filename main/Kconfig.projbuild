@@ -9,4 +9,11 @@ menu "Verification / shadow mode"
             сложные алгоритмы не смогут применяться, останется только
             критическая логика.
 
+    config ADAPTIVE_PID_ENABLE
+        bool "Enable multi-layer adaptive PID"
+        default y
+        help
+            L1 gain scheduling, L2 RLS/IMC, L3 degradation rollback.
+            При выключении ctrl_pid использует обычный PID/AutoPID.
+
 endmenu

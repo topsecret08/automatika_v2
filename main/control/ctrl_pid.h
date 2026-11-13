@@ -26,6 +26,9 @@ void  ctrl_pid_set_channel(int temp_channel);   // канал DS18B20 для в�
 // Главный вызов: обновляет вход, выполняет шаг и возвращает 0..100.
 // mode учитывается автоматически.
 float ctrl_pid_compute(float input);
+// Вычислить PID и применить через safety_gate (adaptive_pid или heater_pid).
+float ctrl_pid_compute_and_apply(float input);
+float ctrl_pid_compute_and_apply_scaled(float input, float scale);
 
 // Автотюнинг (Ziegler–Nichols релейный) — как раньше.
 void  ctrl_pid_autotune_start(void);

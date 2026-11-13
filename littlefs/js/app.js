@@ -1071,6 +1071,14 @@ function renderCalibration() {
           </div>
         </div>
 
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Многоуровневый адаптивный PID</div>
+            <div class="card-row-sub">L1 фазы + L2 RLS + L3 откат; только после verified</div>
+          </div>
+          <input id="ad-pid" type="checkbox">
+        </div>
+
         <div class="field">
           <span class="field-label">Внешний регулятор мощности</span>
           <div class="segmented" id="reg-seg">
@@ -1152,6 +1160,7 @@ function renderCalibration() {
       out_dev: Number($('#out-seg .active')?.dataset.val || 0),
       regulator: Number($('#reg-seg .active')?.dataset.val || 0),
       reg_baud: Number($('#reg-baud')?.value || 9600),
+      adaptive_pid: !!$('#ad-pid')?.checked,
       rate_mlmin: Number($('#rate')?.value || 0),
       hys: Number($('#hys')?.value || 0),
       steps_per_ml: Number($('#steps')?.value || 1)
@@ -2168,6 +2177,7 @@ async function loadControlSettings() {
     setActive('#out-seg', data.out_dev);
     setActive('#reg-seg', data.regulator);
     if ($('#reg-baud')) $('#reg-baud').value = data.reg_baud || 9600;
+    if ($('#ad-pid')) $('#ad-pid').checked = !!data.adaptive_pid;
 
     if ($('#rate')) $('#rate').value = Number(data.rate_mlmin || 0).toFixed(1);
     if ($('#hys')) $('#hys').value = Number(data.hys || 0).toFixed(1);

@@ -40,8 +40,7 @@ static proc_stage_t b_update(float dt) {
 
     const beer_step_t *cur = &s_recipe[s_step];
     ctrl_pid_set_setpoint(cur->temp);
-    float out = ctrl_pid_compute(t);
-    ctrl_heater_set_percent(out);
+    ctrl_pid_compute_and_apply(t);
 
     if (cur->type == 3) {   // STEP_CHILL
         valve_set_pct(VALVE_BODY, 100.0f);

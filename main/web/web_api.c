@@ -35,6 +35,7 @@
 #include "control/param_registry.h"
 #include "control/regulator_driver.h"
 #include "control/safety_gate.h"
+#include "control/adaptive_pid.h"
 #include "verify/verify_config.h"
 #include "verify/verify_db.h"
 #include "verify/shadow.h"
@@ -304,7 +305,8 @@ static esp_err_t h_control(httpd_req_t *r) {
         snprintf(json, sizeof(json),
                  "{\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
                  "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
-                 "\"regulator\":%d,\"regulator_name\":\"%s\",\"reg_baud\":%u}",
+                 "\"regulator\":%d,\"regulator_name\":\"%s\",\"reg_baud\":%u,"
+                 "\"adaptive_pid\":%d}",
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
                  control_config_get_hys(),
@@ -313,7 +315,8 @@ static esp_err_t h_control(httpd_req_t *r) {
                  (unsigned)control_config_get_steps_per_ml(),
                  (int)control_config_get_regulator(),
                  control_config_regulator_name(control_config_get_regulator()),
-                 (unsigned)control_config_get_regulator_baud());
+                 (unsigned)control_config_get_regulator_baud(),
+                 control_config_get_adaptive_pid() ? 1 : 0);
         return send_json(r, json);
     }
 
@@ -358,6 +361,9 @@ static esp_err_t h_control(httpd_req_t *r) {
     v = cJSON_GetObjectItemCaseSensitive(root, "algo");
     if (err == ESP_OK && cJSON_IsNumber(v))
         err = fsel_set_algo((select_algo_t)v->valueint);
+    v = cJSON_GetObjectItemCaseSensitive(root, "adaptive_pid");
+    if (err == ESP_OK && cJSON_IsBool(v))
+        err = control_config_set_adaptive_pid(cJSON_IsTrue(v));
 
     cJSON_Delete(root);
 
@@ -1773,7 +1779,7 @@ static esp_err_t h_verify_shadow(httpd_req_t *r) {
     if (err != ESP_OK)
         return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
 
-    if (policy == SHADOW_OFF) shadow_finish_run("{}");
+    if (policy == SHADOW_OFF) shadow_finish_run(NULL);
     else if (shadow_current_run() == 0) shadow_start_run("api");
     return send_json(r, "{\"status\":\"ok\"}");
 }
@@ -1877,6 +1883,14 @@ static esp_err_t h_verify_replay(httpd_req_t *r) {
              err == ESP_OK ? 1 : 0, (long long)run_id, rows,
              (double)max_err);
     return send_json(r, json);
+}
+
+static esp_err_t h_verify_freeze(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    adaptive_pid_t *p = adaptive_pid_global();
+    if (!p) return send_err(r, "400 Bad Request", "{\"error\":\"adaptive_pid\"}");
+    adaptive_pid_freeze_current(p);
+    return send_json(r, "{\"status\":\"ok\"}");
 }
 
 static esp_err_t h_verify_fuzz(httpd_req_t *r) {
@@ -1994,6 +2008,7 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/verify/module",       .method=HTTP_POST, .handler=h_verify_module },
         { .uri="/api/verify/replay",       .method=HTTP_POST, .handler=h_verify_replay },
         { .uri="/api/verify/fuzz",         .method=HTTP_POST, .handler=h_verify_fuzz },
+        { .uri="/api/verify/freeze",       .method=HTTP_POST, .handler=h_verify_freeze },
         { .uri="/api/env",                 .method=HTTP_GET,  .handler=h_env },
     };
     for (size_t i = 0; i < sizeof(extra)/sizeof(*extra); i++) {

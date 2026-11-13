@@ -42,6 +42,7 @@ idf_component_register(
         "control/select_algorithm.c"
         "control/regulator_driver.c"
         "control/safety_gate.c"
+        "control/adaptive_pid.c"
         "verify/verify_config.c"
         "verify/verify_db.c"
         "verify/shadow.c"

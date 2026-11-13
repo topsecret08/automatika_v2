@@ -133,6 +133,32 @@ void shadow_tick_heater(float real_out) {
                    shadow_pid_preview);
 }
 
+void shadow_log_adaptive(const char *channel, float setpoint, float sensor,
+                         float real_out, float shadow_out,
+                         float kp, float ki, float kd) {
+    if (!verify_is_enabled() || !s_queue) return;
+    if (verify_get_shadow_policy() == SHADOW_OFF) return;
+
+    int64_t now = now_ms();
+    if (!rate_allow(channel ? channel : "adaptive_pid", now)) return;
+    if (s_run_id <= 0) s_run_id = shadow_start_run("adaptive");
+
+    shadow_msg_t msg = {0};
+    msg.trace.run_id = s_run_id;
+    msg.trace.ts_ms = now;
+    strncpy(msg.trace.channel, channel ? channel : "adaptive_pid",
+            sizeof(msg.trace.channel) - 1);
+    msg.trace.setpoint = setpoint;
+    msg.trace.sensor = sensor;
+    msg.trace.value_real = real_out;
+    msg.trace.value_shadow = shadow_out;
+    msg.trace.kp = kp;
+    msg.trace.ki = ki;
+    msg.trace.kd = kd;
+    msg.trace.stage = verify_get_stage();
+    (void)xQueueSend(s_queue, &msg, 0);
+}
+
 void shadow_request_run(void) { s_armed = true; }
 void shadow_request_step(void) { s_armed = true; }
 void shadow_cancel(void) { s_armed = false; }
@@ -147,7 +173,8 @@ int64_t shadow_start_run(const char *mode) {
 
 esp_err_t shadow_finish_run(const char *metrics_json) {
     if (s_run_id <= 0) return ESP_ERR_INVALID_STATE;
-    esp_err_t err = verify_db_finish_run(s_run_id, metrics_json);
+    esp_err_t err = ESP_OK;
+    if (metrics_json) err = verify_db_finish_run(s_run_id, metrics_json);
     s_run_id = 0;
     return err;
 }

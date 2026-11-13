@@ -45,9 +45,8 @@ static proc_stage_t p_update(float dt) {
     }
 
     ctrl_pid_set_setpoint(state_get()->target_cube_t);
-    float out = ctrl_pid_compute(jacket);
-    if (pres > 2.5f) out *= 0.5f;
-    ctrl_heater_set_percent(out);
+    float scale = (pres > 2.5f) ? 0.5f : 1.0f;
+    ctrl_pid_compute_and_apply_scaled(jacket, scale);
 
     state_get()->stage = ST_RUNNING;
     return ST_RUNNING;

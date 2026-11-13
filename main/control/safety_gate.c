@@ -34,6 +34,7 @@ static const module_reg_t s_modules[] = {
     { "valve_ui",        SAFETY_CLASS_CRITICAL },
     { "heads_detector",  SAFETY_CLASS_QUALITY },
     { "alcohol_balance", SAFETY_CLASS_QUALITY },
+    { "adaptive_pid",    SAFETY_CLASS_QUALITY },
     { "anomaly_detect",  SAFETY_CLASS_EXPERIMENTAL },
     { "predictive",      SAFETY_CLASS_EXPERIMENTAL },
 };

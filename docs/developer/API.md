@@ -82,10 +82,12 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 ```json
 {"ctrl_mode":1,"out_dev":0,"hys":0.5,
  "rate_mlmin":60,"flow_mlmin":2.0,"steps_per_ml":320,
- "regulator":1,"reg_baud":9600}
+ "regulator":1,"reg_baud":9600,"adaptive_pid":true}
 ```
 
 `regulator`: 0 — нет, 1 — KVIC, 2 — РМВ-К, 3 — SEM, 4 — SSR/ШИМ.
+`adaptive_pid` включает многоуровневый адаптивный PID после
+`verified=true` и соответствующего этапа.
 Все поля необязательны; меняются только переданные.
 
 ## 4. События и сессии
@@ -441,6 +443,7 @@ HTTP 403
 | POST | `/api/verify/action` | 🔑 | `run`, `step`, `cancel`, `clean` |
 | POST | `/api/verify/module` | 🔑 | `{"module":"...","verified":true}` |
 | POST | `/api/verify/replay` | 🔑 | `{"run_id":N}` |
+| POST | `/api/verify/freeze` | 🔑 | сохранить текущие коэффициенты adaptive PID |
 | POST | `/api/verify/fuzz` | 🔑 | TP/FP/FN детектора аномалий |
 
 Таблицы `verify_runs` и `verify_trace` создаются в `/sdcard/automatika.db`.

@@ -61,6 +61,15 @@ static void regulator_cb(lv_event_t *event) {
     ui_screen_advanced_create();
 }
 
+static void adaptive_cb(lv_event_t *event) {
+    bool on = (bool)(intptr_t)lv_event_get_user_data(event);
+    if (control_config_set_adaptive_pid(on) == ESP_OK)
+        ui_toast(on ? "Адаптивный PID включён" : "Адаптивный PID выключен");
+    else
+        ui_toast("Не удалось сохранить");
+    ui_screen_advanced_create();
+}
+
 static void section(lv_obj_t *parent, const char *title) {
     lv_obj_t *l = lv_label_create(parent);
     lv_label_set_text(l, title);
@@ -80,13 +89,17 @@ void ui_screen_advanced_create(void) {
     lv_obj_set_style_pad_row(card, 6, 0);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
 
-    section(card, "АЛГОРИТМ ОТБОРА");
-    make_choice(card, "Классический", algo == ALGO_CLASSIC,
+    section(card, "АЛГОРИТМ ОТБОРА");    make_choice(card, "Классический", algo == ALGO_CLASSIC,
                 algo_cb, ALGO_CLASSIC);
     make_choice(card, "Тренд", algo == ALGO_TREND,
                 algo_cb, ALGO_TREND);
     make_choice(card, "Адаптивный", algo == ALGO_ADAPTIVE,
                 algo_cb, ALGO_ADAPTIVE);
+
+    section(card, "МНОГОУРОВНЕВЫЙ PID");
+    bool ad = control_config_get_adaptive_pid();
+    make_choice(card, "Выключен", !ad, adaptive_cb, 0);
+    make_choice(card, "Включён (после verified)", ad, adaptive_cb, 1);
 
     section(card, "ВНЕШНИЙ РЕГУЛЯТОР");
     make_choice(card, "Нет (внутренний DAC)", reg == REGULATOR_NONE,

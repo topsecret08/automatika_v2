@@ -519,6 +519,14 @@ static void handle_command(const char *chat, const char *text) {
         tg_send(chat, buf, NULL);
         return;
     }
+    if (strcmp(command, "adaptive") == 0) {
+        bool on = (strcmp(args, "on") == 0);
+        esp_err_t err = control_config_set_adaptive_pid(on);
+        tg_send(chat, err == ESP_OK
+                ? (on ? "Адаптивный PID включён." : "Адаптивный PID выключен.")
+                : "Не удалось сохранить.", NULL);
+        return;
+    }
     if (strcmp(command, "algo") == 0) {
         if (!args[0]) {
             char buf[96];

@@ -3,12 +3,14 @@
 #include "core/estop.h"
 #include "core/state.h"
 #include "core/session_manager.h"
+#include "core/control_config.h"
 
 #include "control/ctrl_dose.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/alcohol_balance.h"
 #include "control/fraction_periodic.h"
+#include "control/adaptive_pid.h"
 #include "verify/shadow.h"
 #include "modes/mode_base.h"
 
@@ -77,8 +79,12 @@ esp_err_t process_control_start(const char *mode_id) {
     s->is_running = true;
     s->is_paused = false;
     session_note_process_running(true);
-    if (verify_get_shadow_policy() != SHADOW_OFF)
+    if (control_config_get_adaptive_pid()) {
+        adaptive_pid_run_reset(adaptive_pid_global());
+        if (shadow_current_run() == 0) shadow_start_run("adaptive");
+    } else if (verify_get_shadow_policy() != SHADOW_OFF) {
         shadow_start_run(m->id ? m->id : "process");
+    }
 
     events_log(EVENT_INFO, "Process start: %s", m->id ? m->id : "?");
     return ESP_OK;
@@ -93,7 +99,11 @@ void process_control_stop(void) {
     s->is_running = false;
     s->is_paused = false;
     session_note_process_running(false);
-    shadow_finish_run("{}");
+    if (control_config_get_adaptive_pid()) {
+        (void)adaptive_pid_run_finish(adaptive_pid_global(),
+                                      shadow_current_run());
+    }
+    shadow_finish_run(NULL);
 
     events_log(EVENT_INFO, "Process stop");
 }

@@ -38,8 +38,7 @@ static proc_stage_t n_update(float dt) {
     }
 
     ctrl_pid_set_setpoint(96.0f);
-    float out = ctrl_pid_compute(cube);
-    ctrl_heater_set_percent(out);
+    ctrl_pid_compute_and_apply(cube);
 
     float feed_lph = state_get()->body_rate_ml_min / 1000.0f * 60.0f;
     s_total_feed += feed_lph * dt / 3600.0f;

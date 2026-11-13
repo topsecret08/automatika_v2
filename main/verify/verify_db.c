@@ -30,7 +30,8 @@ static const char *SCHEMA =
     " run_id INTEGER NOT NULL,"
     " ts_ms INTEGER NOT NULL,"
     " channel TEXT, setpoint REAL,"
-    " sensor REAL, value_real REAL, value_shadow REAL, stage INTEGER);"
+    " sensor REAL, value_real REAL, value_shadow REAL,"
+    " kp REAL, ki REAL, kd REAL, stage INTEGER);"
     "CREATE INDEX IF NOT EXISTS idx_vtrace_run_ts"
     " ON verify_trace(run_id, ts_ms);";
 
@@ -62,6 +63,12 @@ esp_err_t verify_db_init(void) {
     }
     // Мягкая миграция: поле sensor появилось после первой версии таблицы.
     sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN sensor REAL;",
+                 NULL, NULL, NULL);
+    sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN kp REAL;",
+                 NULL, NULL, NULL);
+    sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN ki REAL;",
+                 NULL, NULL, NULL);
+    sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN kd REAL;",
                  NULL, NULL, NULL);
 
     s_ready = true;
@@ -98,7 +105,7 @@ esp_err_t verify_db_log_trace(const verify_trace_t *t) {
     sqlite3_stmt *st = NULL;
     const char *sql =
         "INSERT INTO verify_trace(run_id,ts_ms,channel,setpoint,sensor,"
-        "value_real,value_shadow,stage) VALUES(?,?,?,?,?,?,?,?)";
+        "value_real,value_shadow,kp,ki,kd,stage) VALUES(?,?,?,?,?,?,?,?,?,?,?)";
     esp_err_t err = ESP_FAIL;
     if (sqlite3_prepare_v2(s_db, sql, -1, &st, NULL) == SQLITE_OK) {
         sqlite3_bind_int64(st, 1, t->run_id);
@@ -108,7 +115,10 @@ esp_err_t verify_db_log_trace(const verify_trace_t *t) {
         sqlite3_bind_double(st, 5, t->sensor);
         sqlite3_bind_double(st, 6, t->value_real);
         sqlite3_bind_double(st, 7, t->value_shadow);
-        sqlite3_bind_int(st, 8, t->stage);
+        sqlite3_bind_double(st, 8, t->kp);
+        sqlite3_bind_double(st, 9, t->ki);
+        sqlite3_bind_double(st, 10, t->kd);
+        sqlite3_bind_int(st, 11, t->stage);
         err = (sqlite3_step(st) == SQLITE_DONE) ? ESP_OK : ESP_FAIL;
     }
     sqlite3_finalize(st);

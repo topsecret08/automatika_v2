@@ -12,6 +12,7 @@ typedef struct {
     float   sensor;
     float   value_real;
     float   value_shadow;
+    float   kp, ki, kd;
     int     stage;
 } verify_trace_t;
 

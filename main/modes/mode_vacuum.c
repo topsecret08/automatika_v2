@@ -29,8 +29,7 @@ static proc_stage_t v_update(float dt) {
 
     float target_t = 40.0f;
     ctrl_pid_set_setpoint(target_t);
-    float out = ctrl_pid_compute(cube);
-    ctrl_heater_set_percent(out);
+    ctrl_pid_compute_and_apply(cube);
 
     valve_set_pct(VALVE_BODY, 10.0f);
     state_get()->stage = ST_RUNNING;

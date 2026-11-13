@@ -1,4 +1,10 @@
 #include "ctrl_pid.h"
+#include "adaptive_pid.h"
+#include "ctrl_heater.h"
+#include "ctrl_safety.h"
+#include "safety_gate.h"
+#include "verify/verify_config.h"
+#include "verify/shadow.h"
 #include "autopid_c.h"
 #include "config.h"
 #include "core/control_config.h"
@@ -42,6 +48,8 @@ typedef struct {
 } pid_t;
 
 static pid_t p;
+static adaptive_pid_t s_apid;
+static bool s_apid_ready;
 
 static void ensure_handle(void) {
     if (p.h != 0) return;
@@ -76,6 +84,11 @@ void ctrl_pid_init_ext(float kp, float ki, float kd, float sp,
     p.bang_on = false;
     p.at_peak_hi = -1000.0f;
     p.at_peak_lo = 1000.0f;
+
+    if (adaptive_pid_init(&s_apid, (float)p.kp, (float)p.ki, (float)p.kd,
+                          0.0f, (float)p.out_max) == ESP_OK) {
+        s_apid_ready = true;
+    }
 
     ensure_handle();
 }
@@ -229,6 +242,45 @@ float ctrl_pid_compute(float in) {
 
     p.out = out;
     return (float)out;
+}
+
+float ctrl_pid_compute_and_apply(float input) {
+    return ctrl_pid_compute_and_apply_scaled(input, 1.0f);
+}
+
+float ctrl_pid_compute_and_apply_scaled(float input, float scale) {
+    float legacy = ctrl_pid_compute(input) * scale;
+    if (legacy < 0.0f) legacy = 0.0f;
+    if (legacy > (float)p.out_max) legacy = (float)p.out_max;
+
+    bool want_adaptive = s_apid_ready && adaptive_pid_is_enabled() &&
+                         control_config_get_adaptive_pid();
+    if (!want_adaptive) {
+        (void)safety_gate_apply("heater_pid", legacy);
+        return ctrl_heater_get_percent();
+    }
+
+    bool stage_ok = verify_is_stage_enabled(STAGE_PID_AUTOTUNE);
+    bool allow = stage_ok &&
+                 verify_get_shadow_policy() == SHADOW_OFF &&
+                 verify_is_module_verified("adaptive_pid") &&
+                 ctrl_safety_ok();
+
+    float dt = (p.sample_ms > 0.0) ? (float)(p.sample_ms / 1000.0) : 1.0f;
+    float out = adaptive_pid_step(&s_apid, (float)p.sp, input, dt, allow) * scale;
+    if (out < 0.0f) out = 0.0f;
+    if (out > (float)p.out_max) out = (float)p.out_max;
+
+    shadow_log_adaptive("adaptive_pid", (float)p.sp, input, legacy, out,
+                        s_apid.shadow_kp, s_apid.shadow_ki, s_apid.shadow_kd);
+
+    if (allow) {
+        (void)safety_gate_apply("adaptive_pid", out);
+    } else {
+        // Тень/неверифицированный режим: нагрев ведёт обычный PID.
+        (void)safety_gate_apply("heater_pid", legacy);
+    }
+    return ctrl_heater_get_percent();
 }
 
 void ctrl_pid_autotune_start(void) {

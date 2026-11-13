@@ -81,3 +81,7 @@ void            control_config_api_copy(char *out, size_t out_len);
 // --- сервисный режим -------------------------------------------------
 bool            control_config_service_enabled(void);
 esp_err_t       control_config_set_service(bool on);
+
+// --- Многоуровневый адаптивный PID ----------------------------------
+bool            control_config_get_adaptive_pid(void);
+esp_err_t       control_config_set_adaptive_pid(bool on);

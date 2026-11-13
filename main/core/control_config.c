@@ -27,6 +27,7 @@ static uint32_t         s_steps_per_ml = 1000;
 static bool             s_service = false;
 static regulator_type_t s_regulator = REGULATOR_NONE;
 static uint32_t         s_reg_baud = 9600;
+static bool             s_adaptive_pid = false;
 
 // ---------------------------------------------------------------------
 
@@ -92,6 +93,10 @@ static void load(void) {
     if (nvs_get_u8(s_nvs, "reg_type", &u8) == ESP_OK &&
         u8 < REGULATOR_COUNT)
         s_regulator = (regulator_type_t)u8;
+
+    u8 = 0;
+    if (nvs_get_u8(s_nvs, "ad_pid", &u8) == ESP_OK)
+        s_adaptive_pid = (u8 != 0);
 
     u32 = 0;
     if (nvs_get_u32(s_nvs, "reg_baud", &u32) == ESP_OK &&
@@ -392,4 +397,24 @@ const char *control_config_regulator_name(regulator_type_t type) {
     case REGULATOR_NONE:
     default:                return "none";
     }
+}
+
+bool control_config_get_adaptive_pid(void) {
+    lock();
+    bool v = s_adaptive_pid;
+    unlock();
+    return v;
+}
+
+esp_err_t control_config_set_adaptive_pid(bool on) {
+    if (!s_ready) return ESP_ERR_INVALID_STATE;
+
+    lock();
+    s_adaptive_pid = on;
+    esp_err_t err = nvs_set_u8(s_nvs, "ad_pid", on ? 1 : 0);
+    if (err == ESP_OK) err = nvs_commit(s_nvs);
+    unlock();
+
+    ESP_LOGI(TAG, "adaptive PID: %s", on ? "ON" : "off");
+    return err;
 }
