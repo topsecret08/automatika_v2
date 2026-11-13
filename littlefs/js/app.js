@@ -14,6 +14,10 @@ import {
   renderTabBar,
   renderSubMenu
 } from './menu.js';
+import { initTabSwipe, initEdgeBack } from './tab-swipe.js';
+import { initPullToRefresh } from './pull-refresh.js';
+import { attachSwipeAction } from './swipe-delete.js';
+import { haptic } from './gestures.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -297,6 +301,11 @@ function router() {
   else showPage(route.value, false);
 }
 
+function currentGroup() {
+  if (currentPage.startsWith('group:')) return currentPage.slice(6);
+  return groupForPage(currentPage);
+}
+
 // ------------------------------------------------------------------
 // Dashboard
 // ------------------------------------------------------------------
@@ -568,12 +577,15 @@ async function runAction(action) {
         const body = await response.json();
         if (body && body.error) message = String(body.error);
       } catch (_) {}
+      haptic('error');
       toast(message);
       return;
     }
+    haptic('light');
     toast('Команда принята');
     await pollState();
   } catch (_) {
+    haptic('error');
     toast('Нет связи с устройством');
   }
 }
@@ -892,6 +904,26 @@ async function loadProfiles() {
       row.appendChild(main);
       row.appendChild(actions);
       list.appendChild(row);
+
+      attachSwipeAction(row, {
+        label: 'Удалить',
+        onAction: async () => {
+          try {
+            const r = await api('/api/profiles', {
+              method: 'DELETE',
+              body: JSON.stringify({ name })
+            });
+            if (!r.ok) throw new Error(String(r.status));
+            haptic('heavy');
+            toast('Профиль удалён');
+            return true;
+          } catch (_) {
+            haptic('error');
+            toast('Не удалось удалить профиль');
+            return false;
+          }
+        }
+      });
     });
   } catch (_) {
     list.innerHTML = '<div class="empty">Нет связи с устройством</div>';
@@ -1539,14 +1571,35 @@ async function loadLog() {
       message.appendChild(text);
       row.appendChild(message);
 
+      const when = event.ts ? new Date(event.ts * 1000).toLocaleString() : '';
+
       if (event.ts) {
         const time = document.createElement('div');
         time.className = 'log-time';
-        time.textContent = new Date(event.ts * 1000).toLocaleString();
+        time.textContent = when;
         row.appendChild(time);
       }
 
       list.appendChild(row);
+
+      const copyText = `${when} ${typeName} ${event.msg || ''}`.trim();
+      attachSwipeAction(row, {
+        label: 'Копировать',
+        danger: false,
+        removeOnAction: false,
+        onAction: async () => {
+          try {
+            await navigator.clipboard.writeText(copyText);
+            haptic('light');
+            toast('Событие скопировано');
+            return true;
+          } catch (_) {
+            haptic('error');
+            toast('Буфер обмена недоступен');
+            return false;
+          }
+        }
+      });
     });
   } catch (_) {
     list.innerHTML = '<div class="empty">Нет связи с устройством.</div>';
@@ -1622,6 +1675,28 @@ function init() {
   connectWS();
   pollState();
   setInterval(pollState, 4000);
+
+  initTabSwipe({
+    getGroup: currentGroup,
+    onSwitch: (group) => showGroup(group)
+  });
+
+  initEdgeBack({
+    onBack: () => {
+      if (currentPage.startsWith('group:')) {
+        showPage('dashboard');
+      } else if (history.length > 1) {
+        history.back();
+      } else {
+        showPage('dashboard');
+      }
+    }
+  });
+
+  initPullToRefresh({
+    enabled: () => currentPage === 'dashboard',
+    onRefresh: () => pollState()
+  });
 
   // Обновляем производные значения (объём, фракция) на открытой странице.
   setInterval(() => {

@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "ui_ios_theme.h"
 #include "ui_screen_ios.h"
+#include "haptic.h"
 
 #include "config.h"
 #include "core/health.h"
@@ -18,6 +19,7 @@
 #include "esp_timer.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 extern lv_obj_t *ui_make_page(const char *title);
@@ -270,10 +272,57 @@ void ui_menu_build_group(lv_obj_t *parent, int tab, int selected_item) {
 }
 
 // ------------------------------------------------------------------
-// Энкодер
+// Энкодер + flick-жесты
 // ------------------------------------------------------------------
+static int64_t s_last_rotate_us = 0;
+static int s_acc = 0;
+
+void ui_menu_next_tab(void) {
+    s_level = 0;
+    s_tab_index = (s_tab_index + 1) % ui_menu_tab_count();
+    ui_menu_show_root(s_tab_index);
+}
+
+void ui_menu_prev_tab(void) {
+    s_level = 0;
+    s_tab_index = (s_tab_index + ui_menu_tab_count() - 1) % ui_menu_tab_count();
+    ui_menu_show_root(s_tab_index);
+}
+
+void ui_menu_enter(void) { ui_menu_encoder_press(); }
+
+void ui_menu_back(void) {
+    if (s_level == 1) {
+        s_level = 0;
+        ui_menu_show_root(s_tab_index);
+    }
+}
+
+int ui_menu_current_tab(void) { return s_tab_index; }
+int ui_menu_current_level(void) { return s_level; }
+
 void ui_menu_encoder_rotate(int dir) {
     if (dir == 0) return;
+
+    int64_t now = esp_timer_get_time();
+    int64_t dt = now - s_last_rotate_us;
+
+    // Медленное вращение не накапливается бесконечно: пауза >150 мс
+    // сбрасывает счётчик, иначе любой следующий шаг выглядел бы flick-ом.
+    if (dt > 150000) s_acc = 0;
+
+    // Быстрый «пролёт» энкодера (3 шага < 150 мс) — свайп между табами.
+    if (s_last_rotate_us != 0 && dt < 150000 && abs(s_acc) >= 3) {
+        s_acc = 0;
+        s_last_rotate_us = now;
+        if (dir > 0) ui_menu_next_tab();
+        else ui_menu_prev_tab();
+        haptic_short();
+        return;
+    }
+
+    s_last_rotate_us = now;
+    s_acc += dir;
 
     if (s_level == 0) {
         s_tab_index = (s_tab_index + dir + ui_menu_tab_count()) % ui_menu_tab_count();
@@ -291,17 +340,20 @@ void ui_menu_encoder_press(void) {
         s_level = 1;
         s_item_index = 0;
         ui_menu_show_group(s_tab_index, s_item_index);
+        haptic_short();
         return;
     }
 
     ui_menu_item *item = &s_tabs[s_tab_index].items[s_item_index];
     if (item->on_enter) item->on_enter();
+    haptic_short();
 }
 
 void ui_menu_encoder_long_press(void) {
     if (s_level == 1) {
         s_level = 0;
         ui_menu_show_root(s_tab_index);
+        haptic_short();
     }
 }
 

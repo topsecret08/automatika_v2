@@ -41,3 +41,11 @@ void ui_menu_set_state(int tab, int level, int item);
 void ui_menu_encoder_rotate(int dir);
 void ui_menu_encoder_press(void);
 void ui_menu_encoder_long_press(void);
+
+// Жесты/свайпы LCD.
+void ui_menu_next_tab(void);
+void ui_menu_prev_tab(void);
+void ui_menu_enter(void);
+void ui_menu_back(void);
+int  ui_menu_current_tab(void);
+int  ui_menu_current_level(void);

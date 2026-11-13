@@ -2,6 +2,7 @@
 #include "hal_i2c.h"
 #include "config.h"
 #include "ui/ui_fps.h"
+#include "ui/ui_gestures.h"
 #include "esp_log.h"
 #include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
@@ -15,6 +16,8 @@ static i2c_master_dev_handle_t s_dev = NULL;
 #define FT6336_REG_TOUCH1_XH  0x03
 
 static uint8_t s_last_pressed = 0;
+static int16_t s_last_x = 0;
+static int16_t s_last_y = 0;
 
 static bool ft_read_reg(uint8_t reg, uint8_t *buf, size_t len) {
     if (!s_dev) return false;
@@ -27,6 +30,7 @@ static void touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
 
     if (!ft_read_reg(FT6336_REG_TD_STATUS, buf, 5)) {
         data->state = LV_INDEV_STATE_RELEASED;
+        ui_gestures_feed(s_last_x, s_last_y, false);
         return;
     }
 
@@ -38,12 +42,17 @@ static void touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
         data->point.y = y;
         data->state = LV_INDEV_STATE_PRESSED;
 
+        s_last_x = data->point.x;
+        s_last_y = data->point.y;
+        ui_gestures_feed(s_last_x, s_last_y, true);
+
         if (!s_last_pressed) {
             ui_fps_touch_event();
             s_last_pressed = 1;
         }
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
+        ui_gestures_feed(s_last_x, s_last_y, false);
         s_last_pressed = 0;
     }
 }

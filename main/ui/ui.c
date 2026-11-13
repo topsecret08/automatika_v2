@@ -6,6 +6,7 @@
 #include "ui_screen_ios.h"
 #include "ui_menu.h"
 #include "ui_physical.h"
+#include "ui_gestures.h"
 #include "hal/hal_display.h"
 #include "core/menu_engine.h"
 #include "core/menu_tree.h"
@@ -24,6 +25,7 @@ static menu_ctx_t g_menu;
 static lv_obj_t *g_screen = NULL;
 static lv_obj_t *g_toast = NULL;
 static screen_id_t s_current_screen = SCR_NONE;
+static bool s_dashboard_visible = false;
 
 static void cb_welcome_start(lv_event_t *e) {
     (void)e;
@@ -168,21 +170,33 @@ void ui_init(void) {
 // Дашборд в стиле iOS. Живёт в ui.c, потому что использует статический
 // g_screen/clear_screen: иначе после смены экрана остался бы висячий указатель.
 void ui_screen_dashboard_ios_create(void) {
+    ui_menu_set_state(0, 0, 0);
     clear_screen();
     ui_ios_theme_apply(lv_disp_get_default());
     ui_screen_dashboard_ios_build(g_screen);
+    s_dashboard_visible = true;
 }
 
 void ui_menu_show_root(int selected_tab) {
     ui_menu_set_state(selected_tab, 0, 0);
     clear_screen();
     ui_menu_build_root(g_screen, selected_tab);
+    s_dashboard_visible = false;
 }
 
 void ui_menu_show_group(int tab, int selected_item) {
     ui_menu_set_state(tab, 1, selected_item);
     clear_screen();
     ui_menu_build_group(g_screen, tab, selected_item);
+    s_dashboard_visible = false;
+}
+
+bool ui_is_dashboard_visible(void) { return s_dashboard_visible; }
+
+void ui_refresh_dashboard(void) {
+    if (!s_dashboard_visible) return;
+    ui_screen_dashboard_ios_create();
+    ui_toast("Данные обновлены");
 }
 
 void ui_task(void *arg) {
@@ -199,6 +213,7 @@ void ui_task(void *arg) {
         WD_FEED("ui");
         hal_display_lock();
         ui_physical_poll_encoder();
+        ui_gestures_process();
         lv_timer_handler();
         hal_display_unlock();
 

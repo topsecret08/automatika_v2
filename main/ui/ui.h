@@ -6,6 +6,8 @@ void ui_init(void);
 void ui_task(void *arg);
 void ui_toast(const char *msg);
 void ui_main_menu(void);
+bool ui_is_dashboard_visible(void);
+void ui_refresh_dashboard(void);
 void ui_show_welcome(void);
 void ui_show_resume_dialog(void);
 

@@ -34,6 +34,14 @@ extern const uint8_t app_js_start[]     asm("_binary_app_js_start");
 extern const uint8_t app_js_end[]       asm("_binary_app_js_end");
 extern const uint8_t menu_js_start[]    asm("_binary_menu_js_start");
 extern const uint8_t menu_js_end[]      asm("_binary_menu_js_end");
+extern const uint8_t gestures_js_start[] asm("_binary_gestures_js_start");
+extern const uint8_t gestures_js_end[]   asm("_binary_gestures_js_end");
+extern const uint8_t tab_swipe_js_start[] asm("_binary_tab_swipe_js_start");
+extern const uint8_t tab_swipe_js_end[]   asm("_binary_tab_swipe_js_end");
+extern const uint8_t swipe_delete_js_start[] asm("_binary_swipe_delete_js_start");
+extern const uint8_t swipe_delete_js_end[]   asm("_binary_swipe_delete_js_end");
+extern const uint8_t pull_refresh_js_start[] asm("_binary_pull_refresh_js_start");
+extern const uint8_t pull_refresh_js_end[]   asm("_binary_pull_refresh_js_end");
 extern const uint8_t tokens_css_start[] asm("_binary_tokens_css_start");
 extern const uint8_t tokens_css_end[]   asm("_binary_tokens_css_end");
 extern const uint8_t components_css_start[] asm("_binary_components_css_start");
@@ -113,6 +121,22 @@ static esp_err_t h_appjs(httpd_req_t *r) {
 static esp_err_t h_menujs(httpd_req_t *r) {
     return send_embedded(r, "/js/menu.js", "application/javascript; charset=utf-8",
                          menu_js_start, menu_js_end);
+}
+static esp_err_t h_gesturesjs(httpd_req_t *r) {
+    return send_embedded(r, "/js/gestures.js", "application/javascript; charset=utf-8",
+                         gestures_js_start, gestures_js_end);
+}
+static esp_err_t h_tabswipejs(httpd_req_t *r) {
+    return send_embedded(r, "/js/tab-swipe.js", "application/javascript; charset=utf-8",
+                         tab_swipe_js_start, tab_swipe_js_end);
+}
+static esp_err_t h_swipedeletejs(httpd_req_t *r) {
+    return send_embedded(r, "/js/swipe-delete.js", "application/javascript; charset=utf-8",
+                         swipe_delete_js_start, swipe_delete_js_end);
+}
+static esp_err_t h_pullrefreshjs(httpd_req_t *r) {
+    return send_embedded(r, "/js/pull-refresh.js", "application/javascript; charset=utf-8",
+                         pull_refresh_js_start, pull_refresh_js_end);
 }
 static esp_err_t h_tokens(httpd_req_t *r) {
     return send_embedded(r, "/css/tokens.css", "text/css; charset=utf-8",
@@ -325,6 +349,10 @@ static void register_static(httpd_handle_t srv) {
         { .uri="/index.html",    .method=HTTP_GET, .handler=h_index },
         { .uri="/js/app.js",     .method=HTTP_GET, .handler=h_appjs },
         { .uri="/js/menu.js",    .method=HTTP_GET, .handler=h_menujs },
+        { .uri="/js/gestures.js", .method=HTTP_GET, .handler=h_gesturesjs },
+        { .uri="/js/tab-swipe.js", .method=HTTP_GET, .handler=h_tabswipejs },
+        { .uri="/js/swipe-delete.js", .method=HTTP_GET, .handler=h_swipedeletejs },
+        { .uri="/js/pull-refresh.js", .method=HTTP_GET, .handler=h_pullrefreshjs },
         { .uri="/app.js",        .method=HTTP_GET, .handler=h_appjs },
         { .uri="/css/tokens.css",     .method=HTTP_GET, .handler=h_tokens },
         { .uri="/css/components.css", .method=HTTP_GET, .handler=h_components },

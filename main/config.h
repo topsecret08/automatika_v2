@@ -322,6 +322,13 @@
 #define ENCODER_BTN_GPIO        -1
 #define ENCODER_LONG_PRESS_MS   600
 
+// Вибромотор (через MOSFET). На текущей плате не разведён: -1.
+// ВАЖНО: не занимать GPIO 33–37 — это Octal PSRAM у N16R8.
+#ifndef HAPTIC_GPIO
+#define HAPTIC_GPIO             -1
+#endif
+#define HAPTIC_ACTIVE_HIGH      1
+
 // mDNS
 #define MDNS_HOSTNAME       "automatika"
 

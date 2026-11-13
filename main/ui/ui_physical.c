@@ -1,6 +1,7 @@
 #include "ui_physical.h"
 #include "config.h"
 #include "ui_menu.h"
+#include "haptic.h"
 
 #include "core/events.h"
 #include "core/state.h"
@@ -49,6 +50,7 @@ void ui_physical_init(void) {
     led_init(LED_POWER_GPIO);
     led_init(LED_HEAT_GPIO);
     led_init(LED_ALARM_GPIO);
+    haptic_init();
 
 #if ENCODER_A_GPIO >= 0 && ENCODER_B_GPIO >= 0
     if (ENCODER_A_GPIO >= 0 && ENCODER_B_GPIO >= 0) {
