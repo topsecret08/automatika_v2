@@ -15,7 +15,7 @@
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_forecast.h"
 #include "control/fraction_logic.h"
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
 #include "control/reflux.h"
 #include "web/telegram_notify.h"
 #include "config.h"
@@ -106,11 +106,11 @@ static proc_stage_t d_update(float dt) {
     st->column_temp = col;
     st->pressure_bar = column_pressure_bar();
 
-    // SSVC0059 — альтернативная логика отбора. Когда она включена,
+    // Периодический отбор — альтернативная логика отбора. Когда она включена,
     // штатный fraction_update/valve/dose не должен работать: иначе два
     // алгоритма одновременно управляют одним клапаном. Нагрев, reflux и
-    // охлаждение берёт на себя ssvc_mode_tick().
-    if (ssvc_mode_tick(st, 40.0f, BODY_POWER, TAIL_POWER)) return st->stage;
+    // охлаждение берёт на себя fsel_mode_tick().
+    if (fsel_mode_tick(st, 40.0f, BODY_POWER, TAIL_POWER)) return st->stage;
 
     float rate = st->body_rate_ml_min;
     float total_ml = st->heads_collected_ml + st->body_collected_ml +

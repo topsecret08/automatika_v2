@@ -1,6 +1,6 @@
 // Automatika — единая карта меню для PWA.
 //
-// Группировка по задачам пользователя, а не по функциям (iOS HIG):
+// Группировка по задачам пользователя, а не по функциям (UI guidelines):
 // Работа, Подготовка, Диагностика, Система. Внутри — не более 4 пунктов.
 // Этот файл не знает, как рендерить страницы: только данные и разметка
 // навигации. app.js импортирует MENU и рендерит конкретную page.
@@ -23,7 +23,7 @@ export const MENU = {
       { id: 'autotune', label: 'PID-автотюн', page: 'autotune', icon: 'sliders' },
       { id: 'sensors', label: 'Проверка датчиков', page: 'sensors', icon: 'thermometer' },
       { id: 'selection', label: 'Вариант отбора', page: 'selection', icon: 'layers' },
-      { id: 'ssvc', label: 'Параметры SSVC', page: 'ssvc', icon: 'gauge' },
+      { id: 'selection-params', label: 'Параметры отбора', page: 'selection-params', icon: 'gauge' },
     ],
   },
   diagnose: {

@@ -160,7 +160,7 @@ void menu_engine_render(menu_ctx_t *ctx, lv_obj_t *parent) {
             // Стрелка
             lv_obj_t *arr = lv_label_create(btn);
             lv_label_set_text(arr, LV_SYMBOL_RIGHT);
-            lv_obj_set_style_text_color(arr, IOS_GRAY, 0);
+            lv_obj_set_style_text_color(arr, GLASS_GRAY, 0);
             lv_obj_align(arr, LV_ALIGN_RIGHT_MID, 0, 0);
 
             // Контекст

@@ -2,9 +2,10 @@
 #include "ui_fps.h"
 #include "ui_theme.h"
 #include "ui_anim.h"
-#include "ui_ios_theme.h"
-#include "ui_screen_ios.h"
-#include "ui_screen_ssvc.h"
+#include "ui_glass_theme.h"
+#include "ui_screen_home.h"
+#include "ui_screen_selection.h"
+#include "ui_session_indicator.h"
 #include "ui_menu.h"
 #include "ui_physical.h"
 #include "ui_gestures.h"
@@ -13,6 +14,7 @@
 #include "core/menu_tree.h"
 #include "core/events.h"
 #include "core/state.h"
+#include "core/session_manager.h"
 #include "ai/screen_registry.h"
 #include "ai/ui_preloader.h"
 #include "ai/cache_manager.h"
@@ -71,6 +73,8 @@ static void ui_navigate(screen_id_t to) {
 }
 
 static void clear_screen(void) {
+    session_minimize();
+    s_dashboard_visible = false;
     if (g_screen) lv_obj_del(g_screen);
     g_screen = lv_obj_create(NULL);
     ui_style_apply_screen(g_screen);
@@ -168,19 +172,20 @@ void ui_init(void) {
     ui_main_menu();
 }
 
-// Дашборд в стиле iOS. Живёт в ui.c, потому что использует статический
+// Дашборд в стиле glass. Живёт в ui.c, потому что использует статический
 // g_screen/clear_screen: иначе после смены экрана остался бы висячий указатель.
-void ui_screen_dashboard_ios_create(void) {
+void ui_screen_home_create(void) {
     ui_menu_set_state(0, 0, 0);
     clear_screen();
-    ui_ios_theme_apply(lv_disp_get_default());
-    ui_screen_dashboard_ios_build(g_screen);
+    ui_glass_theme_apply(lv_disp_get_default());
+    ui_screen_home_build(g_screen);
     s_dashboard_visible = true;
+    session_restore();
 }
 
-void ui_screen_ssvc_dashboard_create(void) {
+void ui_screen_selection_dashboard_create(void) {
     clear_screen();
-    ui_screen_ssvc_build(g_screen);
+    ui_screen_selection_build(g_screen);
     s_dashboard_visible = false;
 }
 
@@ -202,7 +207,7 @@ bool ui_is_dashboard_visible(void) { return s_dashboard_visible; }
 
 void ui_refresh_dashboard(void) {
     if (!s_dashboard_visible) return;
-    ui_screen_dashboard_ios_create();
+    ui_screen_home_create();
     ui_toast("Данные обновлены");
 }
 
@@ -210,10 +215,11 @@ void ui_task(void *arg) {
     (void)arg;
     wd_register("ui", 2000, false);
 
-    // Первый кадр — iOS-дашборд. Делаем это в задаче UI (ядро 1, prio 8),
+    // Первый кадр — glass-дашборд. Делаем это в задаче UI (ядро 1, prio 8),
     // а не в app_main, чтобы все обращения к LVGL шли из одного контекста.
     hal_display_lock();
-    ui_screen_dashboard_ios_create();
+    ui_session_indicator_init();
+    ui_screen_home_create();
     hal_display_unlock();
 
     while (1) {
@@ -221,6 +227,7 @@ void ui_task(void *arg) {
         hal_display_lock();
         ui_physical_poll_encoder();
         ui_gestures_process();
+        ui_session_indicator_update();
         lv_timer_handler();
         hal_display_unlock();
 

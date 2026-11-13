@@ -121,7 +121,7 @@ static void show_hello_step(void) {
     lv_obj_t *t1 = lv_label_create(scr);
     lv_label_set_text(t1, "АВТОМАТИКА v2.9");
     lv_obj_set_style_text_font(t1, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(t1, IOS_BLUE, 0);
+    lv_obj_set_style_text_color(t1, GLASS_BLUE, 0);
     lv_obj_align(t1, LV_ALIGN_TOP_MID, 0, 30);
 
     lv_obj_t *t2 = lv_label_create(scr);
@@ -181,7 +181,7 @@ static void show_check_step(void) {
 
         lv_obj_t *s = lv_label_create(row);
         lv_label_set_text(s, results[i] ? "✓ OK" : "✗ FAIL");
-        lv_obj_set_style_text_color(s, results[i] ? IOS_GREEN : IOS_RED, 0);
+        lv_obj_set_style_text_color(s, results[i] ? GLASS_GREEN : GLASS_RED, 0);
         lv_obj_align(s, LV_ALIGN_RIGHT_MID, 0, 0);
     }
 
@@ -282,7 +282,7 @@ static void show_done_step(void) {
     lv_obj_t *t = lv_label_create(scr);
     lv_label_set_text(t, "✓ Готово!");
     lv_obj_set_style_text_font(t, &lv_font_montserrat_32, 0);
-    lv_obj_set_style_text_color(t, IOS_GREEN, 0);
+    lv_obj_set_style_text_color(t, GLASS_GREEN, 0);
     lv_obj_align(t, LV_ALIGN_CENTER, 0, -60);
 
     lv_obj_t *h = lv_label_create(scr);

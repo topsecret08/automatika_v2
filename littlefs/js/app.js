@@ -1,4 +1,4 @@
-// Automatika PWA — iOS/Liquid Glass UI.
+// Automatika PWA — glass UI.
 //
 // Работает только с реальными эндпоинтами прошивки:
 //   GET  /api/state, /api/control, /api/health, /api/events
@@ -18,12 +18,13 @@ import { initTabSwipe, initEdgeBack } from './tab-swipe.js';
 import { initPullToRefresh } from './pull-refresh.js';
 import { attachSwipeAction } from './swipe-delete.js';
 import { haptic } from './gestures.js';
+import { updateSession, updateMinimizeState } from './session-widget.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const STORAGE_KEY = 'automatika.apiKey';
-const APP_VERSION = '2.9.4-ios.1';
+const APP_VERSION = '2.9.5-web.1';
 
 const STAGE_NAMES = [
   'Ожидание', 'Нагрев', 'Стабилизация', 'Головы', 'Тело',
@@ -56,7 +57,7 @@ let currentPage = 'dashboard';
 let powerDragging = false;
 let deferredPrompt = null;
 
-const ssvcState = {
+const selectionState = {
   stage: 3,
   tFix: 0,
   openTime: 0,
@@ -68,6 +69,8 @@ const ssvcState = {
   enabled: false,
   active: false
 };
+
+const paramDefs = {};
 
 // ------------------------------------------------------------------
 // API
@@ -214,6 +217,15 @@ async function pollState() {
     if (typeof data.tails !== 'undefined') state.tails = data.tails;
     if (typeof data.safety !== 'undefined') state.safety = data.safety;
     if (typeof data.estop !== 'undefined') state.estop = data.estop;
+    updateSession({
+      running: !!state.running,
+      visible: currentPage === 'dashboard',
+      stage: STAGE_NAMES[state.stage] || '—',
+      tSteam: Number(state.ts || 0),
+      countdown: selectionState.countdown
+    });
+    updateMinimizeState(currentPage === 'dashboard' ? 'dashboard' : 'group',
+                        state.running);
     renderLiveValues();
     pushChartPoint();
   } catch (_) {
@@ -251,7 +263,7 @@ const PAGES = {
   autotune: { render: renderAutotune },
   sensors: { render: renderSensors },
   selection: { render: renderSelection },
-  ssvc: { render: renderSsvc },
+  'selection-params': { render: renderSelectionParams },
   log: { render: renderLog },
   actuators: { render: renderActuators },
   health: { render: renderHealth },
@@ -284,6 +296,7 @@ function setHistory(params) {
 function showPage(page, push = true) {
   if (!PAGES[page]) page = 'dashboard';
   currentPage = page;
+  updateMinimizeState(page, state.running);
   const group = groupForPage(page);
 
   if (push) setHistory({ page });
@@ -303,6 +316,7 @@ function showPage(page, push = true) {
 function showGroup(group, push = true) {
   if (!MENU[group]) group = 'work';
   currentPage = 'group:' + group;
+  updateMinimizeState('group', state.running);
 
   if (push) setHistory({ tab: group });
   renderTabBar(group);
@@ -383,8 +397,8 @@ function renderDashboard() {
     <section class="section">
       <div class="card">
         <div class="card-row">
-          <span class="card-row-title">ОТБОР · SSVC0059</span>
-          <span id="ssvc-stage" class="badge badge-idle">—</span>
+          <span class="card-row-title">ОТБОР · Периодический отбор</span>
+          <span id="sel-stage" class="badge badge-idle">—</span>
         </div>
         <div class="card-row">
           <span class="card-row-title">Клапан</span>
@@ -393,11 +407,11 @@ function renderDashboard() {
             <span id="valve-text" class="card-row-value">—</span>
           </div>
         </div>
-        <div class="card-row clickable" onclick="editParam('t_fix','Температура фиксации (пар), °C',78.5)">
+        <div class="card-row clickable" data-param="t_fix">
           <span class="card-row-title">T фиксации</span>
           <span id="p-tfix" class="card-row-value">—</span>
         </div>
-        <div class="card-row clickable" onclick="editParam('open_time_sec','Время открыт, с',1.5)">
+        <div class="card-row clickable" data-param="open_time">
           <span class="card-row-title">Время открыт</span>
           <span id="p-open" class="card-row-value">—</span>
         </div>
@@ -405,9 +419,37 @@ function renderDashboard() {
           <span class="card-row-title" id="p-countdown-label">До закрытия</span>
           <span id="p-countdown" class="card-row-value">—</span>
         </div>
-        <div class="card-row clickable" onclick="editParam('close_time_sec','Время закрыт, с',8.5)">
+        <div class="card-row clickable" data-param="close_time">
           <span class="card-row-title">Время закрыт</span>
           <span id="p-close" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" data-param="hysteresis">
+          <span class="card-row-title">Гистерезис</span>
+          <span id="p-hyst" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" data-param="decrement">
+          <span class="card-row-title">Декремент</span>
+          <span id="p-decr" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" data-param="reflux">
+          <span class="card-row-title">Флегмовое число</span>
+          <span id="p-reflux" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" data-param="setpoint">
+          <span class="card-row-title">Уставка</span>
+          <span id="p-setpoint" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" data-param="min_open">
+          <span class="card-row-title">Мин. открыт</span>
+          <span id="p-min-open" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" data-param="heads_timer">
+          <span class="card-row-title">Таймер голов</span>
+          <span id="p-heads-timer" class="card-row-value">—</span>
+        </div>
+        <div class="card-row clickable" data-param="tails_end">
+          <span class="card-row-title">Конец хвостов</span>
+          <span id="p-tails-end" class="card-row-value">—</span>
         </div>
         <div class="card-row">
           <span class="card-row-title">Остаток спирта</span>
@@ -435,6 +477,11 @@ function renderDashboard() {
         <button class="btn btn-secondary" type="button" data-action="pause">Пауза</button>
         <button class="btn btn-danger" type="button" data-action="stop">Стоп</button>
       </div>
+      <div class="btn-row mt-8" id="minimize-row" hidden>
+        <button class="btn btn-secondary btn-block" type="button" id="minimize-btn">
+          Свернуть (процесс продолжит работу)
+        </button>
+      </div>
       <div class="btn-row mt-8">
         <button class="btn btn-secondary btn-block" type="button" data-action="safety">
           Сброс аварии
@@ -442,6 +489,12 @@ function renderDashboard() {
       </div>
     </section>
   `;
+
+  $('#minimize-btn')?.addEventListener('click', () => {
+    haptic('light');
+    updateMinimizeState('group', true);
+    showGroup('prepare');
+  });
 
   const slider = $('#power-slider');
   if (slider) {
@@ -454,7 +507,15 @@ function renderDashboard() {
     slider.addEventListener('change', async () => {
       powerDragging = false;
       try {
-        const response = await postJson('/api/power', { power: Number(slider.value) });
+        const response = await postJson('/api/param', {
+          name: 'power',
+          value: Number(slider.value)
+        });
+        if (response.status === 403) {
+          haptic('error');
+          toast('Мощность в PID-режиме управляется регулятором');
+          return;
+        }
         if (!response.ok) throw new Error(String(response.status));
         toast('Мощность: ' + slider.value + '%');
       } catch (_) {
@@ -520,21 +581,24 @@ function renderLiveValues() {
   }
 
   updateStatusOnly();
-  renderSsvcValues();
+  renderSelectionValues();
+
+  const minimizeRow = $('#minimize-row');
+  if (minimizeRow) minimizeRow.hidden = !state.running;
 }
 
 function updateStatusOnly() {
   setStatus(state.online);
 }
 
-function renderSsvcValues() {
-  const enabled = ssvcState.enabled;
-  const stage = $('#ssvc-stage');
+function renderSelectionValues() {
+  const enabled = selectionState.enabled;
+  const stage = $('#sel-stage');
   if (stage) {
     const names = ['ГОЛОВЫ', 'ТЕЛО', 'ХВОСТЫ', 'ГОТОВО'];
     const classes = ['badge-heads', 'badge-body', 'badge-tails', 'badge-done'];
-    stage.textContent = enabled ? (names[ssvcState.stage] || '—') : 'выключен';
-    stage.className = 'badge ' + (enabled ? (classes[ssvcState.stage] || 'badge-idle') : 'badge-idle');
+    stage.textContent = enabled ? (names[selectionState.stage] || '—') : 'выключен';
+    stage.className = 'badge ' + (enabled ? (classes[selectionState.stage] || 'badge-idle') : 'badge-idle');
   }
 
   const dot = $('#valve-dot');
@@ -543,7 +607,7 @@ function renderSsvcValues() {
     if (!enabled) {
       dot.className = 'indicator red';
       valve.textContent = '—';
-    } else if (ssvcState.valveOpen) {
+    } else if (selectionState.valveOpen) {
       dot.className = 'indicator green pulse';
       valve.textContent = 'ОТКРЫТ';
     } else {
@@ -553,77 +617,166 @@ function renderSsvcValues() {
   }
 
   const tfix = $('#p-tfix');
-  if (tfix) tfix.textContent = enabled && ssvcState.tFix > 0 ? ssvcState.tFix.toFixed(2) + '°' : '—';
+  if (tfix) tfix.textContent = enabled && selectionState.tFix > 0 ? selectionState.tFix.toFixed(2) + '°' : '—';
 
   const open = $('#p-open');
-  if (open) open.textContent = enabled ? ssvcState.openTime.toFixed(2) + ' с' : '—';
+  if (open) open.textContent = enabled ? selectionState.openTime.toFixed(2) + ' с' : '—';
 
   const close = $('#p-close');
-  if (close) close.textContent = enabled ? ssvcState.closeTime.toFixed(2) + ' с' : '—';
+  if (close) close.textContent = enabled ? selectionState.closeTime.toFixed(2) + ' с' : '—';
 
   const countdown = $('#p-countdown');
   if (countdown) {
-    countdown.textContent = enabled && ssvcState.countdown > 0
-      ? ssvcState.countdown.toFixed(1) + ' с'
+    countdown.textContent = enabled && selectionState.countdown > 0
+      ? selectionState.countdown.toFixed(1) + ' с'
       : '—';
   }
   const countdownLabel = $('#p-countdown-label');
   if (countdownLabel) {
-    countdownLabel.textContent = ssvcState.valveOpen ? 'До закрытия' : 'До открытия';
+    countdownLabel.textContent = selectionState.valveOpen ? 'До закрытия' : 'До открытия';
   }
 
   const ethanol = $('#p-ethanol');
   if (ethanol) {
-    ethanol.textContent = ssvcState.ethanolMl > 0
-      ? `${Math.round(ssvcState.ethanolMl)} мл · ${Math.round(ssvcState.ethanolPercent)}%`
+    ethanol.textContent = selectionState.ethanolMl > 0
+      ? `${Math.round(selectionState.ethanolMl)} мл · ${Math.round(selectionState.ethanolPercent)}%`
       : '—';
+  }
+
+  renderParamValues();
+}
+
+const PARAM_FALLBACK = {
+  t_fix: { label: 'T фиксации', unit: '°C', min: 0, max: 150, step: 0.1, value: 0, editable: true },
+  open_time: { label: 'Время открыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true },
+  close_time: { label: 'Время закрыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true },
+  hysteresis: { label: 'Гистерезис', unit: '°C', min: 0, max: 20, step: 0.05, value: 0, editable: true },
+  decrement: { label: 'Декремент', unit: '%', min: 0, max: 100, step: 1, value: 0, editable: true },
+  reflux: { label: 'Флегмовое число', unit: ':1', min: 0, max: 10, step: 0.1, value: 0, editable: true },
+  setpoint: { label: 'Уставка', unit: '°C', min: 30, max: 100, step: 0.5, value: 0, editable: false }
+};
+
+async function loadParamDefs() {
+  try {
+    const response = await fetch('/api/param');
+    if (!response.ok) return;
+    const data = await response.json();
+    (data.params || []).forEach((p) => { paramDefs[p.id] = p; });
+    if (currentPage === 'dashboard') renderParamValues();
+  } catch (_) {}
+}
+
+function paramDef(name) {
+  return paramDefs[name] || PARAM_FALLBACK[name] || null;
+}
+
+function renderParamValues() {
+  const rows = {
+    t_fix: ['#p-tfix', (v) => v.toFixed(2) + '°'],
+    open_time: ['#p-open', (v) => v.toFixed(2) + ' с'],
+    close_time: ['#p-close', (v) => v.toFixed(2) + ' с'],
+    hysteresis: ['#p-hyst', (v) => v.toFixed(2) + '°'],
+    decrement: ['#p-decr', (v) => Math.round(v) + '%'],
+    reflux: ['#p-reflux', (v) => v.toFixed(1) + ':1'],
+    setpoint: ['#p-setpoint', (v) => v.toFixed(1) + '°'],
+    min_open: ['#p-min-open', (v) => v.toFixed(2) + ' с'],
+    heads_timer: ['#p-heads-timer', (v) => Math.round(v / 60) + ' мин'],
+    tails_end: ['#p-tails-end', (v) => v.toFixed(1) + '°']
+  };
+
+  for (const [name, [selector, format]] of Object.entries(rows)) {
+    if (!paramDefs[name]) continue;
+    const def = paramDef(name);
+    const el = $(selector);
+    if (def && el) el.textContent = format(Number(def.value || 0));
+    const row = document.querySelector(`[data-param="${name}"]`);
+    if (def && row) {
+      row.classList.toggle('locked', !def.editable);
+      row.classList.toggle('clickable', !!def.editable);
+    }
+  }
+
+  const powerDef = paramDefs.power;
+  const powerSlider = $('#power-slider');
+  if (powerDef && powerSlider) {
+    powerSlider.disabled = !powerDef.editable;
+    powerSlider.title = powerDef.editable
+      ? 'Мощность нагрева'
+      : 'В PID-режиме мощность управляется регулятором';
   }
 }
 
-async function editParam(name, label, current) {
-  const live = {
-    t_fix: ssvcState.tFix,
-    open_time_sec: ssvcState.openTime,
-    close_time_sec: ssvcState.closeTime
-  };
-  const initial = (name in live && ssvcState.enabled)
-    ? Number(live[name])
-    : Number(current || 0);
-  const entered = prompt(`${label}\nТекущее: ${initial}`, String(initial));
+function openParamEditor(name) {
+  const def = paramDef(name);
+  if (!def) return;
+  if (!def.editable) {
+    haptic('error');
+    toast('Нельзя изменить во время работы');
+    return;
+  }
+
+  const initial = Number(def.value || 0);
+  const entered = prompt(
+    `${def.label} (${def.unit})\nДиапазон: ${def.min}…${def.max}`,
+    String(initial)
+  );
   if (entered === null || entered === '' || isNaN(+entered)) return;
 
-  try {
-    const response = await api('/api/ssvc/param', {
-      method: 'POST',
-      body: JSON.stringify({ name, value: +entered })
-    });
+  api('/api/param', {
+    method: 'POST',
+    body: JSON.stringify({ name, value: +entered })
+  }).then(async (response) => {
+    if (response.status === 403) {
+      haptic('error');
+      toast('Заблокировано во время работы');
+      await loadParamDefs();
+      return;
+    }
     if (!response.ok) throw new Error(String(response.status));
     haptic('light');
     toast('Параметр сохранён');
-    pollSsvc();
-  } catch (_) {
+    await loadParamDefs();
+    pollSelection();
+  }).catch(() => {
     haptic('error');
     toast('Не удалось сохранить параметр');
-  }
+  });
 }
-window.editParam = editParam;
 
-async function pollSsvc() {
+window.editParam = openParamEditor;
+
+document.addEventListener('click', (event) => {
+  const row = event.target.closest('[data-param]');
+  if (!row) return;
+  openParamEditor(row.dataset.param);
+});
+
+async function pollSelection() {
   try {
-    const response = await fetch('/api/ssvc/state');
+    const response = await fetch('/api/selection/state');
     if (!response.ok) return;
     const data = await response.json();
-    ssvcState.stage = Number(data.stage ?? 3);
-    ssvcState.tFix = Number(data.t_fix || 0);
-    ssvcState.openTime = Number(data.open_time || 0);
-    ssvcState.closeTime = Number(data.close_time || 0);
-    ssvcState.countdown = Number(data.countdown || 0);
-    ssvcState.ethanolMl = Number(data.ethanol_ml || 0);
-    ssvcState.ethanolPercent = Number(data.ethanol_percent || 0);
-    ssvcState.valveOpen = !!data.valve_open;
-    ssvcState.enabled = !!data.enabled;
-    ssvcState.active = !!data.active;
-    if (currentPage === 'dashboard') renderSsvcValues();
+    selectionState.stage = Number(data.stage ?? 3);
+    selectionState.tFix = Number(data.t_fix || 0);
+    selectionState.openTime = Number(data.open_time || 0);
+    selectionState.closeTime = Number(data.close_time || 0);
+    selectionState.countdown = Number(data.countdown || 0);
+    selectionState.ethanolMl = Number(data.ethanol_ml || 0);
+    selectionState.ethanolPercent = Number(data.ethanol_percent || 0);
+    selectionState.valveOpen = !!data.valve_open;
+    selectionState.enabled = !!data.enabled;
+    selectionState.active = !!data.active;
+    if (paramDefs.t_fix) paramDefs.t_fix.value = selectionState.tFix;
+    if (paramDefs.open_time) paramDefs.open_time.value = selectionState.openTime;
+    if (paramDefs.close_time) paramDefs.close_time.value = selectionState.closeTime;
+    updateSession({
+      running: !!state.running,
+      visible: currentPage === 'dashboard',
+      stage: ['ГОЛОВЫ', 'ТЕЛО', 'ХВОСТЫ', 'ГОТОВО'][selectionState.stage] || '—',
+      tSteam: Number(state.ts || 0),
+      countdown: selectionState.countdown
+    });
+    if (currentPage === 'dashboard') renderSelectionValues();
   } catch (_) {}
 }
 
@@ -1163,14 +1316,14 @@ async function renderSelection() {
 
   app.innerHTML = `
     <section class="section">
-      <div class="section-title">SSVC · вариант отбора</div>
+      <div class="section-title">Отбор · вариант</div>
       <div class="card">
         <div class="card-row">
           <div class="card-row-main">
-            <div class="card-row-title">Использовать SSVC0059</div>
+            <div class="card-row-title">Использовать Периодический отбор</div>
             <div class="card-row-sub">Заменяет старую логику фракций</div>
           </div>
-          <input id="ssvc-enabled" type="checkbox">
+          <input id="sel-enabled" type="checkbox">
         </div>
 
         <div class="card-row">
@@ -1178,7 +1331,7 @@ async function renderSelection() {
             <div class="card-row-title">Профиль режима</div>
             <div class="card-row-sub">open/close и устройство при старте процесса</div>
           </div>
-          <input id="ssvc-auto-defaults" type="checkbox">
+          <input id="sel-auto-defaults" type="checkbox">
         </div>
 
         <div class="field mt-16">
@@ -1221,7 +1374,7 @@ async function renderSelection() {
       <p class="hint">
         Периодический режим открывает клапан на open_time внутри периода.
         Непрерывный для клапана — постоянно открыт; для насоса — постоянная
-        подача. SSVC не отключает E-STOP и safety.
+        подача. Отбор не отключает E-STOP и safety.
       </p>
     </section>
   `;
@@ -1232,11 +1385,11 @@ async function renderSelection() {
   bindSegmented('#seg-sensor');
 
   try {
-    const response = await fetch('/api/ssvc/config');
+    const response = await fetch('/api/selection/config');
     if (response.ok) {
       const cfg = await response.json();
-      $('#ssvc-enabled').checked = !!cfg.enabled;
-      if ($('#ssvc-auto-defaults')) $('#ssvc-auto-defaults').checked = !!cfg.auto_mode_defaults;
+      $('#sel-enabled').checked = !!cfg.enabled;
+      if ($('#sel-auto-defaults')) $('#sel-auto-defaults').checked = !!cfg.auto_mode_defaults;
       setSegment('#seg-device', cfg.out_device);
       setSegment('#seg-transition', cfg.transition_mode);
       setSegment('#seg-select', cfg.select_mode);
@@ -1246,9 +1399,9 @@ async function renderSelection() {
 
   $('#selection-save')?.addEventListener('click', async () => {
     try {
-      const response = await postJson('/api/ssvc/options', {
-        enabled: !!$('#ssvc-enabled')?.checked,
-        auto_mode_defaults: !!$('#ssvc-auto-defaults')?.checked,
+      const response = await postJson('/api/selection/options', {
+        enabled: !!$('#sel-enabled')?.checked,
+        auto_mode_defaults: !!$('#sel-auto-defaults')?.checked,
         out_device: segmentValue('#seg-device'),
         transition_mode: segmentValue('#seg-transition'),
         select_mode: segmentValue('#seg-select'),
@@ -1256,14 +1409,14 @@ async function renderSelection() {
       });
       if (!response.ok) throw new Error(String(response.status));
       toast('Вариант отбора сохранён');
-      pollSsvc();
+      pollSelection();
     } catch (_) {
       toast('Не удалось сохранить вариант отбора');
     }
   });
 }
 
-async function renderSsvc() {
+async function renderSelectionParams() {
   const app = $('#app');
   if (!app) return;
 
@@ -1357,17 +1510,17 @@ async function renderSsvc() {
 
     <section class="section">
       <div class="btn-row">
-        <button class="btn btn-primary" type="button" id="ssvc-save">Сохранить</button>
-        <button class="btn btn-secondary" type="button" id="ssvc-next">След. этап</button>
+        <button class="btn btn-primary" type="button" id="sel-save">Сохранить</button>
+        <button class="btn btn-secondary" type="button" id="sel-next">След. этап</button>
       </div>
       <p class="hint mt-8">
-        «След. этап» работает только при включённом SSVC и запущенном процессе.
+        «След. этап» работает только при включённом отборе и запущенном процессе.
       </p>
     </section>
   `;
 
   try {
-    const response = await fetch('/api/ssvc/config');
+    const response = await fetch('/api/selection/config');
     if (response.ok) {
       const cfg = await response.json();
       if ($('#heads-timer')) $('#heads-timer').value = Math.round((cfg.heads_timer_sec || 0) / 60);
@@ -1402,15 +1555,15 @@ async function renderSsvc() {
       });
       if (!response.ok) throw new Error(String(response.status));
       toast('Заливка сохранена, расчёт остатка сброшен');
-      pollSsvc();
+      pollSelection();
     } catch (_) {
       toast('Не удалось сохранить заливку');
     }
   });
 
-  $('#ssvc-save')?.addEventListener('click', async () => {
+  $('#sel-save')?.addEventListener('click', async () => {
     try {
-      const response = await postJson('/api/ssvc/config', {
+      const response = await postJson('/api/selection/config', {
         heads_timer_sec: Number($('#heads-timer')?.value || 0) * 60,
         heads_open_time_sec: Number($('#heads-open')?.value || 0),
         heads_close_time_sec: Number($('#heads-close')?.value || 0),
@@ -1425,18 +1578,18 @@ async function renderSsvc() {
         tails_close_time_sec: Number($('#tails-close')?.value || 0)
       });
       if (!response.ok) throw new Error(String(response.status));
-      toast('Параметры SSVC сохранены');
+      toast('Параметры отбора сохранены');
     } catch (_) {
-      toast('Не удалось сохранить параметры SSVC');
+      toast('Не удалось сохранить параметры отбора');
     }
   });
 
-  $('#ssvc-next')?.addEventListener('click', async () => {
+  $('#sel-next')?.addEventListener('click', async () => {
     try {
-      const response = await postJson('/api/ssvc/next', {});
+      const response = await postJson('/api/selection/next', {});
       if (!response.ok) throw new Error(String(response.status));
       toast('Переход на следующий этап');
-      pollSsvc();
+      pollSelection();
     } catch (_) {
       toast('Переход недоступен');
     }
@@ -2187,9 +2340,13 @@ function init() {
   router();
   connectWS();
   pollState();
-  pollSsvc();
+  pollSelection();
+  loadParamDefs();
   setInterval(pollState, 4000);
-  setInterval(pollSsvc, 1000);
+  setInterval(pollSelection, 1000);
+  setInterval(loadParamDefs, 4000);
+
+  window.addEventListener('session-restore', () => showPage('dashboard'));
 
   initTabSwipe({
     getGroup: currentGroup,

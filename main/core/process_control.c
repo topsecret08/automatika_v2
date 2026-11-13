@@ -2,12 +2,13 @@
 #include "core/events.h"
 #include "core/estop.h"
 #include "core/state.h"
+#include "core/session_manager.h"
 
 #include "control/ctrl_dose.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/alcohol_balance.h"
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
 #include "modes/mode_base.h"
 
 #include <string.h>
@@ -64,12 +65,13 @@ esp_err_t process_control_start(const char *mode_id) {
     // mode_set() сам останавливает предыдущий режим и дозатор.
     mode_set(m);
 
-    ssvc_apply_mode_defaults(type);
+    fsel_apply_mode_defaults(type);
     abv_reset();
 
     s->type = type;
     s->is_running = true;
     s->is_paused = false;
+    session_note_process_running(true);
 
     events_log(EVENT_INFO, "Process start: %s", m->id ? m->id : "?");
     return ESP_OK;
@@ -83,6 +85,7 @@ void process_control_stop(void) {
     process_state_t *s = state_get();
     s->is_running = false;
     s->is_paused = false;
+    session_note_process_running(false);
 
     events_log(EVENT_INFO, "Process stop");
 }

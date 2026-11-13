@@ -252,7 +252,7 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 Ограничения: загрузка профиля и смена режима из бота не реализованы —
 это меняет уставки и требует подтверждения в веб-интерфейсе.
 
-## 13. SSVC0059
+## 13. Периодический отбор
 
 Дополнительный алгоритм отбора HEADS → BODY → TAILS, выключен по умолчанию.
 При включении заменяет `fraction_update()`/`fraction_apply()` в
@@ -260,16 +260,16 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 
 | Метод | Путь | Доступ | Описание |
 |---|---|---|---|
-| GET | `/api/ssvc/state` | 🔓 | этап, `t_fix`, `open_time`, `close_time`, `countdown`, клапан, спирт |
-| GET | `/api/ssvc/config` | 🔓 | полный конфиг SSVC |
-| POST | `/api/ssvc/config` | 🔑 | частичное обновление параметров |
-| POST | `/api/ssvc/options` | 🔑 | устройство, переходы, режим отбора, датчик, `enabled` |
-| POST | `/api/ssvc/param` | 🔑 | `{"name":...,"value":...}` — inline-редактор |
-| POST | `/api/ssvc/next`, `/api/ssvc/next_stage` | 🔑 | принудительный следующий этап |
+| GET | `/api/selection/state` | 🔓 | этап, `t_fix`, `open_time`, `close_time`, `countdown`, клапан, спирт |
+| GET | `/api/selection/config` | 🔓 | полный конфиг отбора |
+| POST | `/api/selection/config` | 🔑 | частичное обновление параметров |
+| POST | `/api/selection/options` | 🔑 | устройство, переходы, режим отбора, датчик, `enabled` |
+| POST | `/api/selection/param` | 🔑 | `{"name":...,"value":...}` — inline-редактор |
+| POST | `/api/selection/next`, `/api/selection/next_stage` | 🔑 | принудительный следующий этап |
 | GET | `/api/alcohol` | 🔓 | начальная заливка и остаток спирта |
 | POST | `/api/alcohol` | 🔑 | `{"volume_ml":20000,"abv_percent":40}` |
 
-`GET /api/ssvc/state`:
+`GET /api/selection/state`:
 
 ```json
 {"stage":1,"stage_name":"body","t_fix":83.10,
@@ -282,7 +282,7 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 `stage`: 0 — heads, 1 — body, 2 — tails, 3 — done. `countdown` — секунды до
 смены состояния клапана (открытия или закрытия).
 
-`POST /api/ssvc/options`:
+`POST /api/selection/options`:
 
 ```json
 {"enabled":true,"out_device":0,"transition_mode":0,
@@ -294,7 +294,7 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 `sensor`: 0 — T куба, 1 — T пара, 2 — T колонны (по умолчанию 1).
 `auto_mode_defaults`: подставлять тайминги под режим при старте процесса.
 
-`POST /api/ssvc/config` принимает любые поля из таблицы:
+`POST /api/selection/config` принимает любые поля из таблицы:
 
 ```json
 {"heads_timer_sec":3600,"heads_open_time_sec":2.0,"heads_close_time_sec":8.0,
@@ -309,7 +309,7 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 вычисляется `close = period - open`. В ответе `GET` всегда есть и
 `*_period_sec`, и `*_close_time_sec`.
 
-`POST /api/ssvc/param`:
+`POST /api/selection/param`:
 
 ```json
 {"name":"open_time_sec","value":1.5}
@@ -334,7 +334,7 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 каждые 500 мс. Это оценка, зависит от начальной заливки и скорости
 отбора; при старте процесса сбрасывается.
 
-Конфиг хранится в NVS (`ssvc/cfg`) с magic/version. При включённом SSVC
+Конфиг хранится в NVS (`fsel/cfg`) с magic/version. При включённом отборе
 `out_device` синхронизируется с `control_config` (`out_dev`), чтобы
 `ctrl_dose_process()` и `valve_set_pct()` управляли тем же устройством.
 
@@ -346,13 +346,54 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
   уменьшается на `body_decrement_percent` (не чаще раза в секунду), а
   `close_time` растёт так, чтобы период сохранялся.
 - Когда `open_time < body_min_open_time_sec`, этап завершается; в ручном
-  режиме отбор остаётся закрытым до `POST /api/ssvc/next`.
+  режиме отбор остаётся закрытым до `POST /api/selection/next`.
 - TAILS завершается при `T куба >= tails_temperature_end`.
 - `apply_output()` закрывает выход при E-STOP или `!ctrl_safety_ok()`;
   это дополнение к safety-задаче, а не её замена.
 - Непрерывный режим для клапана — постоянно открыт (без ШИМ 50 %, чтобы
   соленоид не дребезжал); для насоса — постоянная подача.
-- `ssvc_mode_tick()` используется дистилляционными режимами (distill,
+- `fsel_mode_tick()` используется дистилляционными режимами (distill,
   rectify, pvk, nbk, vacuum, double): он включает охлаждение, задаёт
   мощность по этапу, reflux и `state->stage`. Beer/ferment не
   перехватываются.
+
+## 14. Сессия и редактируемые параметры
+
+| Метод | Путь | Доступ | Описание |
+|---|---|---|---|
+| GET | `/api/session/state` | 🔓 | состояние, `running`, `visible`, `paused` |
+| POST | `/api/session/minimize` | 🔑 | пользователь ушёл с главного экрана |
+| POST | `/api/session/restore` | 🔑 | пользователь вернулся |
+| POST | `/api/session/stop` | 🔑 | остановка, тело `{"confirm":true}` |
+| GET | `/api/param` | 🔓 | реестр параметров с текущими значениями |
+| POST | `/api/param` | 🔑 | `{"name":"open_time","value":1.5}` |
+
+`GET /api/session/state`:
+
+```json
+{"state":2,"state_name":"minimized","running":1,"visible":0,"paused":0}
+```
+
+`state`: 0 — idle, 1 — running visible, 2 — running minimized, 3 — paused.
+
+`GET /api/param`:
+
+```json
+{"running":1,"params":[
+ {"id":"t_fix","label":"T фиксации","unit":"°C","value":83.1,
+  "min":0,"max":150,"step":0.1,"editable":1,"editable_running":1}
+]}
+```
+
+`POST /api/param` при успехе возвращает `{"ok":true,"name":"open_time","value":1.5}`.
+Если параметр существует, но заблокирован на время работы:
+
+```json
+HTTP 403
+{"ok":false,"error":"locked_while_running"}
+```
+
+Правила реестра: `editable_running=false` — только до старта (уставка);
+мощность заблокирована в PID-режиме; калибровка и safety в реестр не входят.
+Имена-алиасы (`open_time_sec`, `body_hysteresis_c` и т.п.) принимаются для
+совместимости с прежним inline-редактором.

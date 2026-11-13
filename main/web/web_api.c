@@ -14,6 +14,7 @@
 #include "core/profiles.h"
 #include "core/roles.h"
 #include "core/session_recovery.h"
+#include "core/session_manager.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "core/flags.h"
@@ -29,8 +30,9 @@
 #include "control/pump_doser.h"
 #include "control/ctrl_pid.h"
 #include "control/fraction_logic.h"
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
 #include "control/alcohol_balance.h"
+#include "control/param_registry.h"
 #include "control/pid_autotune.h"
 #include "control/reflux.h"
 #include "level/level_sensor.h"
@@ -1225,31 +1227,31 @@ static esp_err_t h_backup_telegram(httpd_req_t *r) {
     return send_json(r, "{\"status\":\"queued\"}");
 }
 
-static void ssvc_state_json(char *out, size_t out_len) {
-    ssvc_state_t st;
-    ssvc_get_state(&st);
+static void fsel_state_json(char *out, size_t out_len) {
+    fsel_state_t st;
+    fsel_get_state(&st);
     snprintf(out, out_len,
              "{\"stage\":%d,\"stage_name\":\"%s\",\"t_fix\":%.2f,"
              "\"open_time\":%.2f,\"close_time\":%.2f,\"period\":%.2f,"
              "\"countdown\":%.2f,\"valve_open\":%d,"
              "\"ethanol_ml\":%.1f,\"ethanol_percent\":%.1f,"
              "\"active\":%d,\"enabled\":%d}",
-             (int)st.stage, ssvc_stage_name(st.stage), st.t_fix,
+             (int)st.stage, fsel_stage_name(st.stage), st.t_fix,
              st.open_time_sec, st.close_time_sec, st.period_sec,
              st.countdown_sec, st.valve_open ? 1 : 0,
              st.ethanol_remaining_ml, st.ethanol_percent,
-             st.active ? 1 : 0, ssvc_is_enabled() ? 1 : 0);
+             st.active ? 1 : 0, fsel_is_enabled() ? 1 : 0);
 }
 
-static esp_err_t h_ssvc_state(httpd_req_t *r) {
+static esp_err_t h_fsel_state(httpd_req_t *r) {
     char json[512];
-    ssvc_state_json(json, sizeof(json));
+    fsel_state_json(json, sizeof(json));
     return send_json(r, json);
 }
 
-static void ssvc_config_json(char *out, size_t out_len) {
-    ssvc_config_t c;
-    ssvc_get_config(&c);
+static void fsel_config_json(char *out, size_t out_len) {
+    fsel_config_t c;
+    fsel_get_config(&c);
     snprintf(out, out_len,
              "{\"enabled\":%d,\"out_device\":%d,\"transition_mode\":%d,"
              "\"select_mode\":%d,\"sensor\":%d,\"auto_mode_defaults\":%d,"
@@ -1276,10 +1278,10 @@ static void ssvc_config_json(char *out, size_t out_len) {
              c.tails_open_time_sec + c.tails_close_time_sec);
 }
 
-static esp_err_t h_ssvc_config(httpd_req_t *r) {
+static esp_err_t h_fsel_config(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
         char json[768];
-        ssvc_config_json(json, sizeof(json));
+        fsel_config_json(json, sizeof(json));
         return send_json(r, json);
     }
 
@@ -1292,8 +1294,8 @@ static esp_err_t h_ssvc_config(httpd_req_t *r) {
     cJSON *root = cJSON_Parse(body);
     if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
 
-    ssvc_config_t cfg;
-    ssvc_get_config(&cfg);
+    fsel_config_t cfg;
+    fsel_get_config(&cfg);
 
     const cJSON *v;
     if ((v = cJSON_GetObjectItemCaseSensitive(root, "enabled")) != NULL) {
@@ -1301,13 +1303,13 @@ static esp_err_t h_ssvc_config(httpd_req_t *r) {
         else if (cJSON_IsNumber(v)) cfg.enabled = v->valueint != 0;
     }
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "out_device"))))
-        cfg.out_device = (ssvc_out_device_t)v->valueint;
+        cfg.out_device = (fsel_out_device_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "transition_mode"))))
-        cfg.transition_mode = (ssvc_transition_t)v->valueint;
+        cfg.transition_mode = (fsel_transition_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "select_mode"))))
-        cfg.select_mode = (ssvc_select_mode_t)v->valueint;
+        cfg.select_mode = (fsel_select_mode_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "sensor"))))
-        cfg.sensor = (ssvc_sensor_t)v->valueint;
+        cfg.sensor = (fsel_sensor_t)v->valueint;
 
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_timer_sec"))))
         cfg.heads_timer_sec = (uint32_t)v->valuedouble;
@@ -1360,7 +1362,7 @@ static esp_err_t h_ssvc_config(httpd_req_t *r) {
 
     // Мягкая валидация диапазонов: лучше 400, чем конфиг, который
     // блокирует отбор навсегда.
-    bool periodic = cfg.select_mode == SSVC_SELECT_PERIODIC;
+    bool periodic = cfg.select_mode == FSEL_SELECT_PERIODIC;
     if ((periodic &&
          (cfg.heads_open_time_sec + cfg.heads_close_time_sec <= 0.0f ||
           cfg.body_open_time_sec + cfg.body_close_time_sec <= 0.0f ||
@@ -1374,14 +1376,14 @@ static esp_err_t h_ssvc_config(httpd_req_t *r) {
         return send_err(r, "400 Bad Request", "{\"error\":\"invalid range\"}");
     }
 
-    esp_err_t err = ssvc_set_config(&cfg);
-    if (err == ESP_OK) err = ssvc_config_save(&cfg);
+    esp_err_t err = fsel_set_config(&cfg);
+    if (err == ESP_OK) err = fsel_config_save(&cfg);
     if (err != ESP_OK) return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
 
     return send_json(r, "{\"status\":\"ok\"}");
 }
 
-static esp_err_t h_ssvc_options(httpd_req_t *r) {
+static esp_err_t h_fsel_options(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
     char body[192];
@@ -1391,18 +1393,18 @@ static esp_err_t h_ssvc_options(httpd_req_t *r) {
     cJSON *root = cJSON_Parse(body);
     if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
 
-    ssvc_config_t cfg;
-    ssvc_get_config(&cfg);
+    fsel_config_t cfg;
+    fsel_get_config(&cfg);
 
     const cJSON *v;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "out_device"))))
-        cfg.out_device = (ssvc_out_device_t)v->valueint;
+        cfg.out_device = (fsel_out_device_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "transition_mode"))))
-        cfg.transition_mode = (ssvc_transition_t)v->valueint;
+        cfg.transition_mode = (fsel_transition_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "select_mode"))))
-        cfg.select_mode = (ssvc_select_mode_t)v->valueint;
+        cfg.select_mode = (fsel_select_mode_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "sensor"))))
-        cfg.sensor = (ssvc_sensor_t)v->valueint;
+        cfg.sensor = (fsel_sensor_t)v->valueint;
     if (cJSON_IsBool((v = cJSON_GetObjectItemCaseSensitive(root, "enabled"))))
         cfg.enabled = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItemCaseSensitive(root, "auto_mode_defaults")) != NULL) {
@@ -1411,26 +1413,26 @@ static esp_err_t h_ssvc_options(httpd_req_t *r) {
     }
     cJSON_Delete(root);
 
-    esp_err_t err = ssvc_set_config(&cfg);
-    if (err == ESP_OK) err = ssvc_config_save(&cfg);
+    esp_err_t err = fsel_set_config(&cfg);
+    if (err == ESP_OK) err = fsel_config_save(&cfg);
     if (err != ESP_OK) return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
 
     char json[320];
-    ssvc_state_json(json, sizeof(json));
+    fsel_state_json(json, sizeof(json));
     return send_json(r, json);
 }
 
-static esp_err_t h_ssvc_next(httpd_req_t *r) {
+static esp_err_t h_fsel_next(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-    ssvc_force_next_stage();
+    fsel_force_next_stage();
     char json[512];
-    ssvc_state_json(json, sizeof(json));
+    fsel_state_json(json, sizeof(json));
     return send_json(r, json);
 }
 
 // Точечное редактирование параметра из PWA/LCD/Telegram:
 // {"name":"open_time_sec","value":1.5}
-static esp_err_t h_ssvc_param(httpd_req_t *r) {
+static esp_err_t h_fsel_param(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
     char body[192];
@@ -1449,7 +1451,7 @@ static esp_err_t h_ssvc_param(httpd_req_t *r) {
                         "{\"error\":\"name and value required\"}");
     }
 
-    esp_err_t err = ssvc_set_param(name->valuestring, (float)value->valuedouble);
+    esp_err_t err = fsel_set_param(name->valuestring, (float)value->valuedouble);
     cJSON_Delete(root);
 
     if (err == ESP_ERR_INVALID_ARG)
@@ -1458,7 +1460,7 @@ static esp_err_t h_ssvc_param(httpd_req_t *r) {
         return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
 
     char json[512];
-    ssvc_state_json(json, sizeof(json));
+    fsel_state_json(json, sizeof(json));
     return send_json(r, json);
 }
 
@@ -1516,6 +1518,134 @@ static esp_err_t h_alcohol(httpd_req_t *r) {
 
     char json[320];
     abv_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static void session_state_json(char *out, size_t out_len) {
+    session_state_t state = session_get_state();
+    snprintf(out, out_len,
+             "{\"state\":%d,\"state_name\":\"%s\","
+             "\"running\":%d,\"visible\":%d,\"paused\":%d}",
+             (int)state, session_state_name(state),
+             session_is_running() ? 1 : 0,
+             session_is_visible() ? 1 : 0,
+             session_is_paused() ? 1 : 0);
+}
+
+static esp_err_t h_session_state(httpd_req_t *r) {
+    char json[192];
+    session_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static esp_err_t h_session_minimize(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    session_minimize();
+    char json[192];
+    session_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static esp_err_t h_session_restore(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    session_restore();
+    char json[192];
+    session_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static esp_err_t h_session_stop(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[96];
+    int n = recv_body(r, body, sizeof(body));
+    bool confirmed = false;
+    if (n > 0) {
+        cJSON *root = cJSON_Parse(body);
+        if (root) {
+            const cJSON *c = cJSON_GetObjectItemCaseSensitive(root, "confirm");
+            confirmed = cJSON_IsTrue(c);
+            cJSON_Delete(root);
+        }
+    }
+    if (!confirmed) {
+        return send_err(r, "400 Bad Request",
+                        "{\"ok\":false,\"error\":\"confirmation_required\"}");
+    }
+
+    session_stop();
+    char json[192];
+    session_state_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static esp_err_t h_param_get(httpd_req_t *r) {
+    char json[2048];
+    int off = snprintf(json, sizeof(json), "{\"running\":%d,\"params\":[",
+                       session_is_running() ? 1 : 0);
+
+    for (int i = 0; i < param_count() && off > 0 &&
+                    off < (int)sizeof(json); i++) {
+        const param_def_t *p = param_get_at(i);
+        if (!p) continue;
+        bool locked = param_is_locked((param_id_t)i);
+        off += snprintf(json + off, sizeof(json) - (size_t)off,
+                        "%s{\"id\":\"%s\",\"label\":\"%s\",\"unit\":\"%s\","
+                        "\"value\":%.2f,\"min\":%.2f,\"max\":%.2f,\"step\":%.2f,"
+                        "\"editable\":%d,\"editable_running\":%d}",
+                        i ? "," : "", p->id, p->label, p->unit,
+                        (double)param_read((param_id_t)i),
+                        (double)p->min, (double)p->max, (double)p->step,
+                        locked ? 0 : 1, p->editable_running ? 1 : 0);
+    }
+
+    if (off > 0 && off < (int)sizeof(json) - 3) {
+        snprintf(json + off, sizeof(json) - (size_t)off, "]}");
+        return send_json(r, json);
+    }
+    return send_err(r, "500 Internal Server Error", "{\"error\":\"json\"}");
+}
+
+static esp_err_t h_param_post(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[192];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0)
+        return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root)
+        return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    const cJSON *name = cJSON_GetObjectItemCaseSensitive(root, "name");
+    const cJSON *value = cJSON_GetObjectItemCaseSensitive(root, "value");
+    if (!cJSON_IsString(name) || !name->valuestring || !cJSON_IsNumber(value)) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request",
+                        "{\"ok\":false,\"error\":\"name and value required\"}");
+    }
+
+    const param_def_t *def = param_get_by_name(name->valuestring);
+    if (!def) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request",
+                        "{\"ok\":false,\"error\":\"unknown_parameter\"}");
+    }
+
+    param_id_t id = (param_id_t)(def - param_get_at(0));
+    float v = (float)value->valuedouble;
+    bool ok = param_write(id, v);
+    cJSON_Delete(root);
+
+    if (!ok) {
+        return send_err(r, "403 Forbidden",
+                        "{\"ok\":false,\"error\":\"locked_while_running\"}");
+    }
+
+    char json[160];
+    snprintf(json, sizeof(json), "{\"ok\":true,\"name\":\"%s\",\"value\":%.2f}",
+             def->id, (double)param_read(id));
     return send_json(r, json);
 }
 
@@ -1599,15 +1729,21 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/i18n",                .method=HTTP_GET,  .handler=h_i18n },
         { .uri="/api/i18n",                .method=HTTP_POST, .handler=h_i18n },
         { .uri="/api/backup/telegram",     .method=HTTP_POST, .handler=h_backup_telegram },
-        { .uri="/api/ssvc/state",          .method=HTTP_GET,  .handler=h_ssvc_state },
-        { .uri="/api/ssvc/config",         .method=HTTP_GET,  .handler=h_ssvc_config },
-        { .uri="/api/ssvc/config",         .method=HTTP_POST, .handler=h_ssvc_config },
-        { .uri="/api/ssvc/options",        .method=HTTP_POST, .handler=h_ssvc_options },
-        { .uri="/api/ssvc/next",           .method=HTTP_POST, .handler=h_ssvc_next },
-        { .uri="/api/ssvc/next_stage",     .method=HTTP_POST, .handler=h_ssvc_next },
-        { .uri="/api/ssvc/param",          .method=HTTP_POST, .handler=h_ssvc_param },
+        { .uri="/api/selection/state",          .method=HTTP_GET,  .handler=h_fsel_state },
+        { .uri="/api/selection/config",         .method=HTTP_GET,  .handler=h_fsel_config },
+        { .uri="/api/selection/config",         .method=HTTP_POST, .handler=h_fsel_config },
+        { .uri="/api/selection/options",        .method=HTTP_POST, .handler=h_fsel_options },
+        { .uri="/api/selection/next",           .method=HTTP_POST, .handler=h_fsel_next },
+        { .uri="/api/selection/next_stage",     .method=HTTP_POST, .handler=h_fsel_next },
+        { .uri="/api/selection/param",          .method=HTTP_POST, .handler=h_fsel_param },
         { .uri="/api/alcohol",             .method=HTTP_GET,  .handler=h_alcohol },
         { .uri="/api/alcohol",             .method=HTTP_POST, .handler=h_alcohol },
+        { .uri="/api/session/state",       .method=HTTP_GET,  .handler=h_session_state },
+        { .uri="/api/session/minimize",    .method=HTTP_POST, .handler=h_session_minimize },
+        { .uri="/api/session/restore",     .method=HTTP_POST, .handler=h_session_restore },
+        { .uri="/api/session/stop",        .method=HTTP_POST, .handler=h_session_stop },
+        { .uri="/api/param",               .method=HTTP_GET,  .handler=h_param_get },
+        { .uri="/api/param",               .method=HTTP_POST, .handler=h_param_post },
         { .uri="/api/env",                 .method=HTTP_GET,  .handler=h_env },
     };
     for (size_t i = 0; i < sizeof(extra)/sizeof(*extra); i++) {

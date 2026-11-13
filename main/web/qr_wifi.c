@@ -73,7 +73,7 @@ void qr_show_custom(const char *title, const char *payload) {
     snprintf(buf, sizeof(buf), "%.90s", payload);
     lv_label_set_text(txt, buf);
     lv_obj_set_style_text_font(txt, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(txt, IOS_GRAY, 0);
+    lv_obj_set_style_text_color(txt, GLASS_GRAY, 0);
     lv_obj_align(txt, LV_ALIGN_BOTTOM_MID, 0, -40);
 
     free(modules);

@@ -6,7 +6,7 @@
 #include "hal/hal_adc.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_pid.h"
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
 #include "config.h"
 
 typedef enum { PVK_WATER, PVK_STEAM, PVK_AUTO } pvk_mode_t;
@@ -29,7 +29,7 @@ static proc_stage_t p_update(float dt) {
     state_get()->jacket_temp = jacket;
     state_get()->cube_temp = cube;
 
-    if (ssvc_mode_tick(state_get(), 50.0f, 60.0f, 75.0f))
+    if (fsel_mode_tick(state_get(), 50.0f, 60.0f, 75.0f))
         return state_get()->stage;
     state_get()->pressure_bar = pres;
 

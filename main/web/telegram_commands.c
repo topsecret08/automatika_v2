@@ -12,7 +12,8 @@
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/fraction_logic.h"
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
+#include "control/param_registry.h"
 #include "control/alcohol_balance.h"
 #include "control/pid_autotune.h"
 
@@ -41,6 +42,14 @@ static const char *KEYBOARD_MAIN =
     "[{\"text\":\"⚙ Подготовка\",\"callback_data\":\"menu_prepare\"}],"
     "[{\"text\":\"🔍 Диагностика\",\"callback_data\":\"menu_diagnose\"}],"
     "[{\"text\":\"🛠 Система\",\"callback_data\":\"menu_system\"}]"
+    "]}";
+
+static const char *KEYBOARD_STATUS =
+    "{\"inline_keyboard\":["
+    "[{\"text\":\"Статус\",\"callback_data\":\"status\"},{\"text\":\"Фракция\",\"callback_data\":\"fraction\"}],"
+    "[{\"text\":\"T фиксации\",\"callback_data\":\"edit_t_fix\"},{\"text\":\"Время открыт\",\"callback_data\":\"edit_open\"}],"
+    "[{\"text\":\"Время закрыт\",\"callback_data\":\"edit_close\"},{\"text\":\"Гистерезис\",\"callback_data\":\"edit_hyst\"}],"
+    "[{\"text\":\"Главное меню\",\"callback_data\":\"menu_main\"}]"
     "]}";
 
 static const char *KEYBOARD_WORK =
@@ -245,7 +254,7 @@ static char *tg_get_updates(const char *token, long long offset) {
 // ------------------------------------------------------------------
 static void send_help(const char *chat) {
     const char *text =
-        "Automatika v2.9.4\n\n"
+        "Automatika v2.9.5\n\n"
         "Выберите задачу. Внутри группы — действия; текстовые команды\n"
         "/status, /run, /stop, /power, /param, /log сохранены для совместимости.";
     tg_send(chat, text, KEYBOARD_MAIN);
@@ -351,13 +360,13 @@ static void send_status(const char *chat) {
         s->power_percent,
         fraction_ru(fraction_get()),
         s->body_rate_ml_min,
-        ssvc_is_valve_open() ? "открыт" : "закрыт",
+        fsel_is_valve_open() ? "открыт" : "закрыт",
         abv_get_remaining_ml(), abv_get_remaining_percent(),
         estop_is_pressed() ? "активен" : "нет",
         ctrl_safety_ok() ? "ok" : "сработала",
         (unsigned)(s->elapsed_sec / 60));
 
-    tg_send(chat, buf, KEYBOARD_MAIN);
+    tg_send(chat, buf, KEYBOARD_STATUS);
 }
 
 static void send_log(const char *chat) {
@@ -515,23 +524,28 @@ static void handle_command(const char *chat, const char *text) {
         float value = 0.0f;
         if (sscanf(args, "%39s %f", name, &value) != 2) {
             tg_send(chat,
-                    "Формат: /param open_time_sec 1.5\n"
-                    "Имена: open_time_sec, close_time_sec, period_sec, t_fix,\n"
-                    "body_hysteresis_c, body_decrement_percent,\n"
-                    "body_min_open_time_sec, heads_timer_sec,\n"
-                    "tails_temperature_end.",
+                    "Формат: /param open_time 1.5\n"
+                    "Имена: t_fix, open_time, close_time, hysteresis,\n"
+                    "decrement, min_open, heads_timer, tails_end,\n"
+                    "reflux, power, setpoint.",
                     NULL);
             return;
         }
-        esp_err_t err = ssvc_set_param(name, value);
-        char buf[128];
-        if (err == ESP_OK) {
-            snprintf(buf, sizeof(buf), "Параметр %s = %.2f сохранён.", name,
-                     (double)value);
-        } else if (err == ESP_ERR_INVALID_ARG) {
+
+        const param_def_t *def = param_get_by_name(name);
+        char buf[160];
+        if (!def) {
             snprintf(buf, sizeof(buf), "Неизвестный параметр: %s", name);
         } else {
-            snprintf(buf, sizeof(buf), "Не удалось сохранить %s (NVS).", name);
+            param_id_t id = (param_id_t)(def - param_get_at(0));
+            if (param_write(id, value)) {
+                snprintf(buf, sizeof(buf), "%s = %.2f %s — сохранено.",
+                         def->label, (double)param_read(id), def->unit);
+            } else {
+                snprintf(buf, sizeof(buf),
+                         "Параметр «%s» заблокирован во время работы.",
+                         def->label);
+            }
         }
         tg_send(chat, buf, NULL);
         return;
@@ -573,10 +587,12 @@ static void handle_callback(cJSON *callback) {
         send_fraction(chat);
     } else if (strcmp(data, "edit_open") == 0 ||
                strcmp(data, "edit_close") == 0 ||
-               strcmp(data, "edit_tfix") == 0) {
-        const char *name = strcmp(data, "edit_close") == 0 ? "close_time_sec" :
-                           strcmp(data, "edit_tfix") == 0 ? "t_fix" :
-                           "open_time_sec";
+               strcmp(data, "edit_t_fix") == 0 ||
+               strcmp(data, "edit_hyst") == 0) {
+        const char *name = strcmp(data, "edit_close") == 0 ? "close_time" :
+                           strcmp(data, "edit_t_fix") == 0 ? "t_fix" :
+                           strcmp(data, "edit_hyst") == 0 ? "hysteresis" :
+                           "open_time";
         char buf[160];
         snprintf(buf, sizeof(buf),
                  "Введите новое значение:\n/param %s <значение>", name);

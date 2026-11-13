@@ -1,9 +1,10 @@
-#include "ui_screen_ssvc.h"
+#include "ui_screen_selection.h"
 #include "ui.h"
 #include "ui_menu.h"
-#include "ui_ios_theme.h"
+#include "ui_glass_theme.h"
 
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
+#include "control/param_registry.h"
 
 #include <stdio.h>
 
@@ -15,63 +16,41 @@ static lv_obj_t *s_countdown;
 static lv_obj_t *s_valve_dot;
 static lv_obj_t *s_valve_text;
 static lv_obj_t *s_ethanol;
-static lv_obj_t *s_state;
+static lv_obj_t *s_hyst;
+static lv_obj_t *s_decr;
 static lv_timer_t *s_timer;
 static lv_timer_t *s_pulse_timer;
 
 // ------------------------------------------------------------------
-// Модальный редактор параметра
+// Модальный редактор параметра (реестр общий с REST и Telegram)
 // ------------------------------------------------------------------
-typedef enum {
-    P_TFIX = 0,
-    P_OPEN,
-    P_CLOSE,
-} ssvc_param_id_t;
-
 static lv_obj_t *s_modal;
 static lv_obj_t *s_modal_value;
-static ssvc_param_id_t s_modal_param;
+static param_id_t s_modal_param;
 static float s_modal_edit;
 
-static const char *param_label(ssvc_param_id_t id) {
-    switch (id) {
-    case P_TFIX:  return "T фиксации, °C";
-    case P_OPEN:  return "Время открыт, с";
-    case P_CLOSE: return "Время закрыт, с";
-    default:      return "Параметр";
-    }
+static const char *param_label(param_id_t id) {
+    const param_def_t *def = param_get_def(id);
+    return def ? def->label : "Параметр";
 }
 
-static const char *param_name(ssvc_param_id_t id) {
-    switch (id) {
-    case P_TFIX:  return "t_fix";
-    case P_OPEN:  return "open_time_sec";
-    case P_CLOSE: return "close_time_sec";
-    default:      return "";
-    }
+static float param_step(param_id_t id) {
+    const param_def_t *def = param_get_def(id);
+    return def ? def->step : 0.1f;
 }
 
-static float param_step(ssvc_param_id_t id) {
-    return (id == P_TFIX) ? 0.1f : 0.1f;
+static float param_min(param_id_t id) {
+    const param_def_t *def = param_get_def(id);
+    return def ? def->min : 0.0f;
 }
 
-static float param_min(ssvc_param_id_t id) {
-    return (id == P_TFIX) ? 0.0f : 0.0f;
+static float param_max(param_id_t id) {
+    const param_def_t *def = param_get_def(id);
+    return def ? def->max : 0.0f;
 }
 
-static float param_max(ssvc_param_id_t id) {
-    return (id == P_TFIX) ? 150.0f : 3600.0f;
-}
-
-static float param_current(ssvc_param_id_t id) {
-    ssvc_state_t st;
-    ssvc_get_state(&st);
-    switch (id) {
-    case P_TFIX:  return st.t_fix;
-    case P_OPEN:  return st.open_time_sec;
-    case P_CLOSE: return st.close_time_sec;
-    default:      return 0.0f;
-    }
+static float param_current(param_id_t id) {
+    return param_read(id);
 }
 
 static void modal_update_value(void) {
@@ -104,12 +83,21 @@ static void modal_step_cb(lv_event_t *event) {
 
 static void modal_ok_cb(lv_event_t *event) {
     (void)event;
-    ssvc_set_param(param_name(s_modal_param), s_modal_edit);
+    if (!param_write(s_modal_param, s_modal_edit)) {
+        modal_close();
+        ui_toast("Параметр заблокирован во время работы");
+        return;
+    }
     modal_close();
     ui_toast("Параметр сохранён");
 }
 
-static void open_edit_modal(ssvc_param_id_t id) {
+static void open_edit_modal(param_id_t id) {
+    if (!param_can_edit(id)) {
+        ui_toast("Нельзя изменить во время работы");
+        return;
+    }
+
     modal_close();
 
     s_modal_param = id;
@@ -118,7 +106,7 @@ static void open_edit_modal(ssvc_param_id_t id) {
     s_modal = lv_obj_create(lv_scr_act());
     lv_obj_set_size(s_modal, 340, 200);
     lv_obj_center(s_modal);
-    lv_obj_set_style_bg_color(s_modal, UI_IOS_CARD, 0);
+    lv_obj_set_style_bg_color(s_modal, UI_GLASS_CARD, 0);
     lv_obj_set_style_bg_opa(s_modal, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(s_modal, 20, 0);
     lv_obj_set_style_border_width(s_modal, 0, 0);
@@ -132,11 +120,11 @@ static void open_edit_modal(ssvc_param_id_t id) {
     lv_obj_t *title = lv_label_create(s_modal);
     lv_label_set_text(title, param_label(id));
     lv_obj_set_style_text_font(title, &lv_font_cyr_16, 0);
-    lv_obj_set_style_text_color(title, UI_IOS_TEXT_2, 0);
+    lv_obj_set_style_text_color(title, UI_GLASS_TEXT_2, 0);
 
     s_modal_value = lv_label_create(s_modal);
     lv_obj_set_style_text_font(s_modal_value, &lv_font_cyr_24, 0);
-    lv_obj_set_style_text_color(s_modal_value, UI_IOS_TEXT, 0);
+    lv_obj_set_style_text_color(s_modal_value, UI_GLASS_TEXT, 0);
     modal_update_value();
 
     lv_obj_t *row = lv_obj_create(s_modal);
@@ -150,28 +138,28 @@ static void open_edit_modal(ssvc_param_id_t id) {
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_EVENLY,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    lv_obj_t *minus = ui_ios_btn_create(row, "−", UI_IOS_CARD_2);
+    lv_obj_t *minus = ui_glass_btn_create(row, "−", UI_GLASS_CARD_2);
     lv_obj_set_width(minus, 72);
     lv_obj_add_event_cb(minus, modal_step_cb, LV_EVENT_CLICKED, (void *)(intptr_t)-1);
 
-    lv_obj_t *plus = ui_ios_btn_create(row, "+", UI_IOS_CARD_2);
+    lv_obj_t *plus = ui_glass_btn_create(row, "+", UI_GLASS_CARD_2);
     lv_obj_set_width(plus, 72);
     lv_obj_add_event_cb(plus, modal_step_cb, LV_EVENT_CLICKED, (void *)(intptr_t)1);
 
-    lv_obj_t *ok = ui_ios_btn_create(row, "OK", UI_IOS_ACCENT);
+    lv_obj_t *ok = ui_glass_btn_create(row, "OK", UI_GLASS_ACCENT);
     lv_obj_set_width(ok, 96);
     lv_obj_add_event_cb(ok, modal_ok_cb, LV_EVENT_CLICKED, NULL);
 
-    lv_obj_t *cancel = ui_ios_btn_create(s_modal, "Отмена", UI_IOS_CARD_2);
+    lv_obj_t *cancel = ui_glass_btn_create(s_modal, "Отмена", UI_GLASS_CARD_2);
     lv_obj_set_width(cancel, lv_pct(100));
     lv_obj_add_event_cb(cancel, modal_cancel_cb, LV_EVENT_CLICKED, NULL);
 }
 
-bool ui_screen_ssvc_modal_active(void) {
+bool ui_screen_selection_modal_active(void) {
     return s_modal != NULL;
 }
 
-bool ui_screen_ssvc_modal_rotate(int dir) {
+bool ui_screen_selection_modal_rotate(int dir) {
     if (!s_modal || dir == 0) return false;
     s_modal_edit += (float)dir * param_step(s_modal_param);
     if (s_modal_edit < param_min(s_modal_param)) s_modal_edit = param_min(s_modal_param);
@@ -180,27 +168,31 @@ bool ui_screen_ssvc_modal_rotate(int dir) {
     return true;
 }
 
-bool ui_screen_ssvc_modal_press(void) {
+bool ui_screen_selection_modal_press(void) {
     if (!s_modal) return false;
-    ssvc_set_param(param_name(s_modal_param), s_modal_edit);
+    if (!param_write(s_modal_param, s_modal_edit)) {
+        modal_close();
+        ui_toast("Параметр заблокирован во время работы");
+        return true;
+    }
     modal_close();
     ui_toast("Параметр сохранён");
     return true;
 }
 
 static void param_click_cb(lv_event_t *event) {
-    open_edit_modal((ssvc_param_id_t)(intptr_t)lv_event_get_user_data(event));
+    open_edit_modal((param_id_t)(intptr_t)lv_event_get_user_data(event));
 }
 
 // ------------------------------------------------------------------
 // Экран
 // ------------------------------------------------------------------
-static const char *stage_ru(ssvc_stage_t stage) {
+static const char *stage_ru(fsel_stage_t stage) {
     switch (stage) {
-    case SSVC_STAGE_HEADS: return "ГОЛОВЫ";
-    case SSVC_STAGE_BODY:  return "ТЕЛО";
-    case SSVC_STAGE_TAILS: return "ХВОСТЫ";
-    case SSVC_STAGE_DONE:  return "ГОТОВО";
+    case FSEL_STAGE_HEADS: return "ГОЛОВЫ";
+    case FSEL_STAGE_BODY:  return "ТЕЛО";
+    case FSEL_STAGE_TAILS: return "ХВОСТЫ";
+    case FSEL_STAGE_DONE:  return "ГОТОВО";
     default:               return "—";
     }
 }
@@ -231,7 +223,7 @@ static lv_obj_t *row_create(lv_obj_t *parent) {
 
 static lv_obj_t *stat_block(lv_obj_t *parent, const char *caption,
                             lv_color_t value_color, bool clickable,
-                            ssvc_param_id_t id) {
+                            param_id_t id) {
     lv_obj_t *box = lv_obj_create(parent);
     lv_obj_set_flex_grow(box, 1);
     lv_obj_set_height(box, LV_SIZE_CONTENT);
@@ -242,7 +234,7 @@ static lv_obj_t *stat_block(lv_obj_t *parent, const char *caption,
     lv_obj_set_flex_flow(box, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(box, 1, 0);
 
-    label(box, caption, &lv_font_cyr_16, UI_IOS_TEXT_2);
+    label(box, caption, &lv_font_cyr_16, UI_GLASS_TEXT_2);
     lv_obj_t *value = label(box, "—", &lv_font_cyr_24, value_color);
 
     if (clickable) {
@@ -257,7 +249,7 @@ static void pulse_cb(lv_timer_t *timer) {
     (void)timer;
     if (!s_valve_dot) return;
     static bool big = false;
-    bool open = ssvc_is_valve_open();
+    bool open = fsel_is_valve_open();
     if (!open) {
         big = false;
         lv_obj_set_size(s_valve_dot, 12, 12);
@@ -271,8 +263,8 @@ static void update_cb(lv_timer_t *timer) {
     (void)timer;
     if (!s_stage) return;
 
-    ssvc_state_t st;
-    ssvc_get_state(&st);
+    fsel_state_t st;
+    fsel_get_state(&st);
 
     lv_label_set_text(s_stage, stage_ru(st.stage));
 
@@ -302,13 +294,16 @@ static void update_cb(lv_timer_t *timer) {
     }
     lv_label_set_text(s_ethanol, buf);
 
+    snprintf(buf, sizeof(buf), "%.2f°", (double)param_read(PARAM_HYSTERESIS));
+    lv_label_set_text(s_hyst, buf);
+    snprintf(buf, sizeof(buf), "%.0f%%", (double)param_read(PARAM_DECREMENT));
+    lv_label_set_text(s_decr, buf);
+
     lv_label_set_text(s_valve_text, st.valve_open ? "ОТКРЫТ" : "ЗАКРЫТ");
     lv_obj_set_style_text_color(s_valve_text,
-        st.valve_open ? UI_IOS_GREEN : UI_IOS_RED, 0);
+        st.valve_open ? UI_GLASS_GREEN : UI_GLASS_RED, 0);
     lv_obj_set_style_bg_color(s_valve_dot,
-        st.valve_open ? UI_IOS_GREEN : UI_IOS_RED, 0);
-
-    lv_label_set_text(s_state, st.active ? "SSVC активен" : "SSVC не активен");
+        st.valve_open ? UI_GLASS_GREEN : UI_GLASS_RED, 0);
 }
 
 static void screen_delete_cb(lv_event_t *event) {
@@ -323,13 +318,14 @@ static void screen_delete_cb(lv_event_t *event) {
         s_pulse_timer = NULL;
     }
     s_stage = s_tfix = s_open = s_close = s_countdown = NULL;
-    s_valve_dot = s_valve_text = s_ethanol = s_state = NULL;
+    s_valve_dot = s_valve_text = s_ethanol = NULL;
+    s_hyst = s_decr = NULL;
 }
 
 static void next_cb(lv_event_t *event) {
     (void)event;
-    ssvc_force_next_stage();
-    ui_toast("Следующий этап SSVC");
+    fsel_force_next_stage();
+    ui_toast("Следующий этап отбора");
 }
 
 static void back_cb(lv_event_t *event) {
@@ -337,13 +333,13 @@ static void back_cb(lv_event_t *event) {
     ui_menu_show_root(0);
 }
 
-void ui_screen_ssvc_build(lv_obj_t *parent) {
+void ui_screen_selection_build(lv_obj_t *parent) {
     if (!parent) return;
 
-    lv_obj_set_style_bg_color(parent, UI_IOS_BG, 0);
+    lv_obj_set_style_bg_color(parent, UI_GLASS_BG, 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_all(parent, 10, 0);
-    lv_obj_set_style_pad_row(parent, 6, 0);
+    lv_obj_set_style_pad_all(parent, 8, 0);
+    lv_obj_set_style_pad_row(parent, 4, 0);
     lv_obj_set_flex_flow(parent, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(parent, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -364,20 +360,20 @@ void ui_screen_ssvc_build(lv_obj_t *parent) {
     lv_obj_t *back = lv_btn_create(header);
     lv_obj_set_size(back, 36, 30);
     lv_obj_set_style_radius(back, 10, 0);
-    lv_obj_set_style_bg_color(back, UI_IOS_CARD, 0);
+    lv_obj_set_style_bg_color(back, UI_GLASS_CARD, 0);
     lv_obj_t *bl = label(back, LV_SYMBOL_LEFT, &lv_font_cyr_16, lv_color_white());
     lv_obj_center(bl);
     lv_obj_add_event_cb(back, back_cb, LV_EVENT_CLICKED, NULL);
 
-    label(header, "SSVC0059", &lv_font_cyr_24, UI_IOS_TEXT);
+    label(header, "Периодический отбор", &lv_font_cyr_24, UI_GLASS_TEXT);
 
-    lv_obj_t *card = ui_ios_card_create(parent);
-    lv_obj_set_style_pad_all(card, 10, 0);
-    lv_obj_set_style_pad_row(card, 6, 0);
+    lv_obj_t *card = ui_glass_card_create(parent);
+    lv_obj_set_style_pad_all(card, 8, 0);
+    lv_obj_set_style_pad_row(card, 4, 0);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
 
     lv_obj_t *row1 = row_create(card);
-    s_stage = stat_block(row1, "ЭТАП", UI_IOS_TEXT, false, P_TFIX);
+    s_stage = stat_block(row1, "ЭТАП", UI_GLASS_TEXT, false, PARAM_T_FIX);
 
     lv_obj_t *valve_box = lv_obj_create(row1);
     lv_obj_set_flex_grow(valve_box, 1);
@@ -388,7 +384,7 @@ void ui_screen_ssvc_build(lv_obj_t *parent) {
     lv_obj_clear_flag(valve_box, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(valve_box, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(valve_box, 1, 0);
-    label(valve_box, "КЛАПАН", &lv_font_cyr_16, UI_IOS_TEXT_2);
+    label(valve_box, "КЛАПАН", &lv_font_cyr_16, UI_GLASS_TEXT_2);
     lv_obj_t *vrow = lv_obj_create(valve_box);
     lv_obj_set_width(vrow, LV_SIZE_CONTENT);
     lv_obj_set_height(vrow, LV_SIZE_CONTENT);
@@ -404,28 +400,30 @@ void ui_screen_ssvc_build(lv_obj_t *parent) {
     s_valve_dot = lv_obj_create(vrow);
     lv_obj_set_size(s_valve_dot, 12, 12);
     lv_obj_set_style_radius(s_valve_dot, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(s_valve_dot, UI_IOS_RED, 0);
+    lv_obj_set_style_bg_color(s_valve_dot, UI_GLASS_RED, 0);
     lv_obj_set_style_bg_opa(s_valve_dot, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(s_valve_dot, 0, 0);
     lv_obj_clear_flag(s_valve_dot, LV_OBJ_FLAG_SCROLLABLE);
 
-    s_valve_text = label(vrow, "—", &lv_font_cyr_24, UI_IOS_TEXT_2);
+    s_valve_text = label(vrow, "—", &lv_font_cyr_24, UI_GLASS_TEXT_2);
 
     lv_obj_t *row2 = row_create(card);
-    s_tfix = stat_block(row2, "T ФИКСАЦИИ", UI_IOS_TEXT, true, P_TFIX);
-    s_countdown = stat_block(row2, "ДО ЗАКРЫТИЯ", UI_IOS_TEXT, false, P_TFIX);
+    s_tfix = stat_block(row2, "T ФИКСАЦИИ", UI_GLASS_TEXT, true, PARAM_T_FIX);
+    s_countdown = stat_block(row2, "ДО ПЕРЕКЛЮЧ.", UI_GLASS_TEXT, false, PARAM_T_FIX);
 
     lv_obj_t *row3 = row_create(card);
-    s_open = stat_block(row3, "ОТКРЫТ", UI_IOS_TEXT, true, P_OPEN);
-    s_close = stat_block(row3, "ЗАКРЫТ", UI_IOS_TEXT, true, P_CLOSE);
+    s_open = stat_block(row3, "ОТКРЫТ", UI_GLASS_TEXT, true, PARAM_OPEN_TIME);
+    s_close = stat_block(row3, "ЗАКРЫТ", UI_GLASS_TEXT, true, PARAM_CLOSE_TIME);
 
-    s_ethanol = stat_block(card, "ОСТАТОК СПИРТА", UI_IOS_ACCENT, false, P_TFIX);
+    lv_obj_t *row4 = row_create(card);
+    s_hyst = stat_block(row4, "ГИСТЕРЕЗИС", UI_GLASS_TEXT, true, PARAM_HYSTERESIS);
+    s_decr = stat_block(row4, "ДЕКРЕМЕНТ", UI_GLASS_TEXT, true, PARAM_DECREMENT);
+
+    s_ethanol = stat_block(card, "ОСТАТОК СПИРТА", UI_GLASS_ACCENT, false, PARAM_T_FIX);
     lv_obj_set_flex_grow(lv_obj_get_parent(s_ethanol), 0);
     lv_obj_set_width(lv_obj_get_parent(s_ethanol), lv_pct(100));
 
-    s_state = label(parent, "SSVC не активен", &lv_font_cyr_16, UI_IOS_TEXT_2);
-
-    lv_obj_t *btn = ui_ios_btn_create(parent, "СЛЕД. ЭТАП", UI_IOS_ACCENT);
+    lv_obj_t *btn = ui_glass_btn_create(parent, "СЛЕД. ЭТАП", UI_GLASS_ACCENT);
     lv_obj_set_width(btn, lv_pct(100));
     lv_obj_add_event_cb(btn, next_cb, LV_EVENT_CLICKED, NULL);
 

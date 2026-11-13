@@ -14,6 +14,8 @@
 #include "core/health.h"
 #include "core/nvs_migration.h"
 #include "core/state.h"
+#include "core/session_manager.h"
+#include "control/param_registry.h"
 #include "core/events.h"
 #include "core/roles.h"
 #include "core/flags.h"
@@ -48,7 +50,7 @@
 #include "hal/pressure_sensor.h"
 
 #include "control/ctrl_safety.h"
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
 #include "control/alcohol_balance.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_dose.h"
@@ -137,6 +139,8 @@ void app_main(void) {
     roles_init();
     flags_init();
     state_init();
+    session_init();
+    param_registry_init();
     wd_init();
 
     // 2. Аппаратная аварийная кнопка — раньше любых исполнителей.
@@ -202,7 +206,7 @@ void app_main(void) {
     scale_init(PIN_HX711_DOUT, PIN_HX711_SCK);
     sensor_calib_init();
     ctrl_safety_init();
-    ssvc_init();
+    fsel_init();
     alcohol_init_t abv_cfg;
     abv_config_load(&abv_cfg);
     abv_init(&abv_cfg);
@@ -283,7 +287,7 @@ void app_main(void) {
     // safety и estop — максимальный приоритет на ядре 1.
     SPAWN(estop_task,         "estop",     STACK_ESTOP,       PRIO_ESTOP,        CORE_REALTIME_UI);
     SPAWN(ctrl_safety_task,   "safety",    STACK_SAFETY,      PRIO_SAFETY,       CORE_REALTIME_UI);
-    SPAWN(ssvc_task,          "ssvc",      4096,              5,                 CORE_REALTIME_UI);
+    SPAWN(fsel_task,          "fsel",      4096,              5,                 CORE_REALTIME_UI);
     SPAWN(mode_task,          "mode",      STACK_MODE,        PRIO_MODE,         CORE_REALTIME_UI);
     SPAWN(ws_telemetry_task,  "ws_tel",    4096,              PRIO_TELEMETRY,    CORE_REALTIME_UI);
     SPAWN(ui_task,            "ui",        STACK_UI,          PRIO_UI,           CORE_REALTIME_UI);

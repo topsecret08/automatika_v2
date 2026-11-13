@@ -53,7 +53,7 @@ lv_obj_t* ui_build_screen_header(lv_obj_t *parent, const char *title) {
     lv_obj_set_style_shadow_width(back, 0, 0);
     lv_obj_t *bl = lv_label_create(back);
     lv_label_set_text(bl, LV_SYMBOL_LEFT);
-    lv_obj_set_style_text_color(bl, IOS_BLUE, 0);
+    lv_obj_set_style_text_color(bl, GLASS_BLUE, 0);
     lv_obj_center(bl);
     lv_obj_add_event_cb(back, cb_back_to_menu, LV_EVENT_CLICKED, NULL);
 
@@ -142,8 +142,8 @@ void ui_build_list(lv_obj_t *parent, const ui_list_item_t *items, int count) {
         lv_label_set_text(t, it->title);
         lv_obj_set_style_text_font(t, &lv_font_montserrat_16, 0);
         lv_obj_set_style_text_color(t,
-            it->is_destructive ? IOS_RED :
-            (ui_theme_is_dark() ? IOS_LABEL_D : IOS_LABEL_L), 0);
+            it->is_destructive ? GLASS_RED :
+            (ui_theme_is_dark() ? GLASS_LABEL_D : GLASS_LABEL_L), 0);
         lv_obj_align(t, LV_ALIGN_LEFT_MID, it->icon ? 32 : 0,
                      it->subtitle ? -8 : 0);
 
@@ -161,16 +161,16 @@ void ui_build_list(lv_obj_t *parent, const ui_list_item_t *items, int count) {
         } else if (it->value) {
             lv_obj_t *v = lv_label_create(row);
             lv_label_set_text(v, it->value);
-            lv_obj_set_style_text_color(v, IOS_GRAY, 0);
+            lv_obj_set_style_text_color(v, GLASS_GRAY, 0);
             lv_obj_align(v, LV_ALIGN_RIGHT_MID, -20, 0);
             lv_obj_t *ar = lv_label_create(row);
             lv_label_set_text(ar, LV_SYMBOL_RIGHT);
-            lv_obj_set_style_text_color(ar, IOS_GRAY, 0);
+            lv_obj_set_style_text_color(ar, GLASS_GRAY, 0);
             lv_obj_align(ar, LV_ALIGN_RIGHT_MID, 0, 0);
         } else {
             lv_obj_t *ar = lv_label_create(row);
             lv_label_set_text(ar, LV_SYMBOL_RIGHT);
-            lv_obj_set_style_text_color(ar, IOS_GRAY, 0);
+            lv_obj_set_style_text_color(ar, GLASS_GRAY, 0);
             lv_obj_align(ar, LV_ALIGN_RIGHT_MID, 0, 0);
         }
 
@@ -230,7 +230,7 @@ lv_obj_t* ui_build_slider(lv_obj_t *parent, const ui_slider_t *s) {
     lv_slider_set_value(sl, (int)(*s->value * 10), LV_ANIM_ON);
     lv_obj_set_width(sl, LV_PCT(100));
     lv_obj_align(sl, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_style_bg_color(sl, IOS_BLUE, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(sl, GLASS_BLUE, LV_PART_INDICATOR);
 
     lv_obj_set_user_data(sl, (void*)s);
     lv_obj_add_event_cb(sl, cb_slider_changed, LV_EVENT_VALUE_CHANGED, NULL);

@@ -2,22 +2,22 @@
 #include "lvgl.h"
 #include <stdbool.h>
 
-#define IOS_BLUE     lv_color_hex(0x007AFF)
-#define IOS_GREEN    lv_color_hex(0x34C759)
-#define IOS_RED      lv_color_hex(0xFF3B30)
-#define IOS_ORANGE   lv_color_hex(0xFF9500)
-#define IOS_YELLOW   lv_color_hex(0xFFCC00)
-#define IOS_PURPLE   lv_color_hex(0xAF52DE)
-#define IOS_PINK     lv_color_hex(0xFF2D55)
-#define IOS_TEAL     lv_color_hex(0x5AC8FA)
-#define IOS_INDIGO   lv_color_hex(0x5856D6)
-#define IOS_GRAY     lv_color_hex(0x8E8E93)
-#define IOS_LIGHT_BG lv_color_hex(0xF2F2F7)
-#define IOS_DARK_BG  lv_color_hex(0x000000)
-#define IOS_CARD_L   lv_color_hex(0xFFFFFF)
-#define IOS_CARD_D   lv_color_hex(0x1C1C1E)
-#define IOS_LABEL_L  lv_color_hex(0x000000)
-#define IOS_LABEL_D  lv_color_hex(0xFFFFFF)
+#define GLASS_BLUE     lv_color_hex(0x007AFF)
+#define GLASS_GREEN    lv_color_hex(0x34C759)
+#define GLASS_RED      lv_color_hex(0xFF3B30)
+#define GLASS_ORANGE   lv_color_hex(0xFF9500)
+#define GLASS_YELLOW   lv_color_hex(0xFFCC00)
+#define GLASS_PURPLE   lv_color_hex(0xAF52DE)
+#define GLASS_PINK     lv_color_hex(0xFF2D55)
+#define GLASS_TEAL     lv_color_hex(0x5AC8FA)
+#define GLASS_INDIGO   lv_color_hex(0x5856D6)
+#define GLASS_GRAY     lv_color_hex(0x8E8E93)
+#define GLASS_LIGHT_BG lv_color_hex(0xF2F2F7)
+#define GLASS_DARK_BG  lv_color_hex(0x000000)
+#define GLASS_CARD_L   lv_color_hex(0xFFFFFF)
+#define GLASS_CARD_D   lv_color_hex(0x1C1C1E)
+#define GLASS_LABEL_L  lv_color_hex(0x000000)
+#define GLASS_LABEL_D  lv_color_hex(0xFFFFFF)
 
 typedef enum { THEME_LIGHT, THEME_DARK, THEME_AUTO } theme_mode_t;
 

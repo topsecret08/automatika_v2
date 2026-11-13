@@ -1,7 +1,7 @@
 #pragma once
 
-#define FW_VERSION          "2.9.4"
-#define FW_NAME             "Automatika v2.9.4"
+#define FW_VERSION          "2.9.5"
+#define FW_NAME             "Automatika v2.9.5"
 
 // ============================================================
 // GPIO
@@ -260,28 +260,28 @@
 #define FRAC_BODY_MAX_ML    2000.0f
 #define FRAC_TAILS_END_T    98.0f
 
-// SSVC0059: периодический отбор с фиксацией температуры тела.
-// Значения по умолчанию; меняются через /api/ssvc/config и inline-редактор.
-#define SSVC_DEFAULT_ENABLED          0
-#define SSVC_HEADS_TIMER_SEC          3600u
-#define SSVC_HEADS_OPEN_SEC           2.0f
-#define SSVC_HEADS_CLOSE_SEC          8.0f
-#define SSVC_BODY_OPEN_SEC            1.5f
-#define SSVC_BODY_CLOSE_SEC           8.5f
-#define SSVC_BODY_HYSTERESIS_C        0.2f
-#define SSVC_BODY_DECREMENT_PERCENT   10.0f
-#define SSVC_BODY_MIN_OPEN_SEC        0.1f
-#define SSVC_BODY_FIX_DELAY_SEC       0u
-#define SSVC_TAILS_END_T              98.0f
-#define SSVC_TAILS_OPEN_SEC           1.0f
-#define SSVC_TAILS_CLOSE_SEC          9.0f
+// Периодический отбор: периодический отбор с фиксацией температуры тела.
+// Значения по умолчанию; меняются через /api/selection/config и inline-редактор.
+#define FSEL_DEFAULT_ENABLED          0
+#define FSEL_HEADS_TIMER_SEC          3600u
+#define FSEL_HEADS_OPEN_SEC           2.0f
+#define FSEL_HEADS_CLOSE_SEC          8.0f
+#define FSEL_BODY_OPEN_SEC            1.5f
+#define FSEL_BODY_CLOSE_SEC           8.5f
+#define FSEL_BODY_HYSTERESIS_C        0.2f
+#define FSEL_BODY_DECREMENT_PERCENT   10.0f
+#define FSEL_BODY_MIN_OPEN_SEC        0.1f
+#define FSEL_BODY_FIX_DELAY_SEC       0u
+#define FSEL_TAILS_END_T              98.0f
+#define FSEL_TAILS_OPEN_SEC           1.0f
+#define FSEL_TAILS_CLOSE_SEC          9.0f
 
-// Тайминги SSVC под конкретный режим (подставляются при старте, пока
+// Тайминги FSEL под конкретный режим (подставляются при старте, пока
 // пользователь не изменил параметры вручную).
-#define SSVC_MODE_DISTILL_OPEN_SEC    0.5f
-#define SSVC_MODE_DISTILL_CLOSE_SEC   4.5f
-#define SSVC_MODE_RECTIFY_OPEN_SEC    1.5f
-#define SSVC_MODE_RECTIFY_CLOSE_SEC   8.5f
+#define FSEL_MODE_DISTILL_OPEN_SEC    0.5f
+#define FSEL_MODE_DISTILL_CLOSE_SEC   4.5f
+#define FSEL_MODE_RECTIFY_OPEN_SEC    1.5f
+#define FSEL_MODE_RECTIFY_CLOSE_SEC   8.5f
 
 // Начальные параметры расчёта остатка спирта (abv/cfg в NVS).
 #define ABV_VOLUME_START_ML           20000.0f

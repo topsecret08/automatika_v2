@@ -5,7 +5,7 @@
 #include "esp_err.h"
 #include "core/state.h"
 
-// SSVC0059: отбор HEADS → BODY → TAILS.
+// Периодический отбор: отбор HEADS → BODY → TAILS.
 //
 // HEADS: периодический отбор по таймеру.
 // BODY:  фиксация T_fix по пару, гистерезис, декремент open_time до min → TAILS.
@@ -16,42 +16,42 @@
 // выход принудительно закрывается.
 
 typedef enum {
-    SSVC_STAGE_HEADS = 0,
-    SSVC_STAGE_BODY,
-    SSVC_STAGE_TAILS,
-    SSVC_STAGE_DONE,
-} ssvc_stage_t;
+    FSEL_STAGE_HEADS = 0,
+    FSEL_STAGE_BODY,
+    FSEL_STAGE_TAILS,
+    FSEL_STAGE_DONE,
+} fsel_stage_t;
 
 typedef enum {
-    SSVC_OUT_VALVE = 0,
-    SSVC_OUT_PUMP,
-} ssvc_out_device_t;
+    FSEL_OUT_VALVE = 0,
+    FSEL_OUT_PUMP,
+} fsel_out_device_t;
 
 typedef enum {
-    SSVC_TRANSITION_AUTO = 0,
-    SSVC_TRANSITION_MANUAL,
-} ssvc_transition_t;
+    FSEL_TRANSITION_AUTO = 0,
+    FSEL_TRANSITION_MANUAL,
+} fsel_transition_t;
 
 typedef enum {
-    SSVC_SELECT_PERIODIC = 0,
-    SSVC_SELECT_CONTINUOUS,
-} ssvc_select_mode_t;
+    FSEL_SELECT_PERIODIC = 0,
+    FSEL_SELECT_CONTINUOUS,
+} fsel_select_mode_t;
 
 typedef enum {
-    SSVC_SENSOR_CUBE = 0,     // T куба
-    SSVC_SENSOR_STEAM,        // T пара (царга с поправкой на давление)
-    SSVC_SENSOR_COLUMN,       // T колонны
-} ssvc_sensor_t;
+    FSEL_SENSOR_CUBE = 0,     // T куба
+    FSEL_SENSOR_STEAM,        // T пара (царга с поправкой на давление)
+    FSEL_SENSOR_COLUMN,       // T колонны
+} fsel_sensor_t;
 
 typedef struct {
     uint32_t magic;
     uint16_t version;
 
     bool enabled;
-    ssvc_out_device_t out_device;
-    ssvc_transition_t transition_mode;
-    ssvc_select_mode_t select_mode;
-    ssvc_sensor_t sensor;
+    fsel_out_device_t out_device;
+    fsel_transition_t transition_mode;
+    fsel_select_mode_t select_mode;
+    fsel_sensor_t sensor;
     // При старте процесса подставлять тайминги под режим, пока пользователь
     // не изменил параметры вручную.
     bool auto_mode_defaults;
@@ -73,10 +73,10 @@ typedef struct {
     float    tails_temperature_end;
     float    tails_open_time_sec;
     float    tails_close_time_sec;
-} ssvc_config_t;
+} fsel_config_t;
 
 typedef struct {
-    ssvc_stage_t stage;
+    fsel_stage_t stage;
     float        open_time_sec;        // текущее (с декрементом для BODY)
     float        close_time_sec;       // текущее время закрытия
     float        period_sec;           // open + close
@@ -89,47 +89,52 @@ typedef struct {
     float        ethanol_remaining_ml; // остаток этанола в кубе
     float        ethanol_percent;      // % от начального
     bool         active;
-} ssvc_state_t;
+} fsel_state_t;
 
-void      ssvc_defaults(ssvc_config_t *cfg);
-esp_err_t ssvc_config_load(ssvc_config_t *cfg);
-esp_err_t ssvc_config_save(const ssvc_config_t *cfg);
+void      fsel_defaults(fsel_config_t *cfg);
+esp_err_t fsel_config_load(fsel_config_t *cfg);
+esp_err_t fsel_config_save(const fsel_config_t *cfg);
 
-void ssvc_init(void);
-void ssvc_task(void *arg);
-void ssvc_start(void);
-void ssvc_stop(void);
-void ssvc_update(float t_stage, float t_cube, float pressure_hpa);
-void ssvc_force_next_stage(void);
+void fsel_init(void);
+void fsel_task(void *arg);
+void fsel_start(void);
+void fsel_stop(void);
+void fsel_update(float t_stage, float t_cube, float pressure_hpa);
+void fsel_force_next_stage(void);
 
 // Точечное изменение параметра из REST/Telegram/LCD. Обновляет и
 // сохранённый конфиг, и текущее состояние этапа; сохраняет NVS.
 // Имена: open_time_sec, close_time_sec, period_sec, t_fix,
 // body_hysteresis_c, body_decrement_percent, body_min_open_time_sec,
 // heads_timer_sec, tails_temperature_end.
-esp_err_t ssvc_set_param(const char *name, float value);
+esp_err_t fsel_set_param(const char *name, float value);
 
 // Подставить тайминги под режим (только при auto_mode_defaults).
-void ssvc_apply_mode_defaults(process_type_t type);
+void fsel_apply_mode_defaults(process_type_t type);
 
-// Общая ветка SSVC для дистилляционных режимов: охлаждение, нагрев по
+// Общая ветка FSEL для дистилляционных режимов: охлаждение, нагрев по
 // этапу, reflux и stage в state. Возвращает true, если режим перехвачен и
 // штатная логика режима должна выйти.
-bool ssvc_mode_tick(process_state_t *st, float power_heads,
+bool fsel_mode_tick(process_state_t *st, float power_heads,
                     float power_body, float power_tails);
 
-ssvc_stage_t ssvc_get_stage(void);
-float        ssvc_get_open_time(void);
-float        ssvc_get_close_time(void);
-float        ssvc_get_countdown(void);
-float        ssvc_get_t_fix(void);
-bool         ssvc_is_valve_open(void);
-bool         ssvc_is_enabled(void);
-bool         ssvc_is_active(void);
+fsel_stage_t fsel_get_stage(void);
+float        fsel_get_open_time(void);
+float        fsel_get_close_time(void);
+float        fsel_get_countdown(void);
+float        fsel_get_t_fix(void);
+float        fsel_get_hysteresis(void);
+float        fsel_get_decrement(void);
+float        fsel_get_min_open_time(void);
+float        fsel_get_heads_timer_sec(void);
+float        fsel_get_tails_end_temp(void);
+bool         fsel_is_valve_open(void);
+bool         fsel_is_enabled(void);
+bool         fsel_is_active(void);
 
-void ssvc_get_state(ssvc_state_t *out);
-void ssvc_get_config(ssvc_config_t *out);
-esp_err_t ssvc_set_config(const ssvc_config_t *cfg);
+void fsel_get_state(fsel_state_t *out);
+void fsel_get_config(fsel_config_t *out);
+esp_err_t fsel_set_config(const fsel_config_t *cfg);
 
-const char *ssvc_stage_name(ssvc_stage_t stage);
-const char *ssvc_sensor_name(ssvc_sensor_t sensor);
+const char *fsel_stage_name(fsel_stage_t stage);
+const char *fsel_sensor_name(fsel_sensor_t sensor);

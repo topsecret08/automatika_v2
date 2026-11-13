@@ -138,7 +138,7 @@ curl -s http://$HOST/api/health
 
 ## 11. PWA на телефоне
 
-1. Открыть `https://$HOST` в Chrome (Android) или Safari (iOS).
+1. Открыть `https://$HOST` в Chrome (Android) или Safari (iPhone).
 2. Принять самоподписанный сертификат (или установить `cert.pem`
    как доверенный — см. [PWA_INSTALL.md](../user/PWA_INSTALL.md)).
 3. Chrome: появится кнопка «Установить»; Safari: «Поделиться» →
@@ -149,7 +149,7 @@ curl -s http://$HOST/api/health
    - ярлыки «Дашборд», «Журнал», «Настройки» работают;
    - при отключении Wi-Fi показывается offline-страница, затем
      восстанавливается соединение.
-5. DevTools → Application → Cache Storage: кэш `automatika-v293-ios-4`
+5. DevTools → Application → Cache Storage: кэш `automatika-v294-1`
    содержит оболочку.
 
 ## 12. Регрессия после прошивки

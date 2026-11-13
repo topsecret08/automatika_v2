@@ -1,4 +1,4 @@
-/* Automatika — iOS components.
+/* Automatika — glass components.
  *
  * Стекло используется только для навигации (шапка, tab bar).
  * Контентные карточки — плотные, чтобы цифры оставались читаемыми.
@@ -201,7 +201,7 @@
   50%      { opacity: 0.7; transform: scale(1.15); }
 }
 
-/* Строка, редактируемая по тапу (inline-редактор SSVC). */
+/* Строка, редактируемая по тапу (inline-редактор отбора). */
 .card-row.clickable {
   cursor: pointer;
   transition: background 0.2s ease;
@@ -219,12 +219,60 @@
   opacity: 0.4;
   font-size: 14px;
 }
+.card-row.locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.card-row.locked::after {
+  content: '🔒';
+  margin-left: var(--space-8);
+  opacity: 0.7;
+  font-size: 13px;
+}
 .valve-inline {
   display: flex;
   align-items: center;
   gap: var(--space-8);
 }
 .valve-inline .card-row-value { font-size: 17px; }
+
+/* Плавающий индикатор активной сессии (виден вне главного экрана). */
+#session-widget {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 64px);
+  left: 16px;
+  right: 16px;
+  min-height: 52px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(10, 132, 255, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4);
+  color: #fff;
+  z-index: 900;
+  cursor: pointer;
+  animation: session-slide-down 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+@keyframes session-slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.sw-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  animation: indicator-pulse 1.2s infinite;
+  flex: 0 0 auto;
+}
+.sw-info { flex: 1; min-width: 0; }
+.sw-title { font: 600 15px var(--font-stack); }
+.sw-sub { font: 12px var(--font-stack); opacity: 0.85; }
+.sw-return { font-size: 20px; font-weight: 600; }
 
 /* ------------------------------------------------------------------ */
 /* KPI-сетка                                                           */

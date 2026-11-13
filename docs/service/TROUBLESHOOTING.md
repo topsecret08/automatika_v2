@@ -109,7 +109,7 @@
    `application/manifest+json`.
 4. DevTools → Application → Manifest: иконки 192/512 загружены.
 5. DevTools → Application → Service Workers: статус `activated`.
-6. На iOS установка — только через Safari → «Поделиться» →
+6. На iPhone установка — только через Safari → «Поделиться» →
    «На экран "Домой"».
 
 ### 2.7. Телеметрия не обновляется

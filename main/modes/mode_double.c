@@ -6,7 +6,7 @@
 #include "control/ctrl_heater.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
-#include "control/fraction_ssvc.h"
+#include "control/fraction_periodic.h"
 #include <math.h>
 
 static int s_pass = 1;
@@ -21,7 +21,7 @@ static proc_stage_t db_update(float dt) {
     float cube = hal_1wire_read(0);
     state_get()->cube_temp = cube;
 
-    if (ssvc_mode_tick(state_get(), 60.0f, 65.0f, 75.0f))
+    if (fsel_mode_tick(state_get(), 60.0f, 65.0f, 75.0f))
         return state_get()->stage;
 
     ctrl_heater_set_percent(70.0f);

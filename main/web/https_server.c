@@ -141,7 +141,7 @@ static esp_err_t generate_pair(void) {
     mbedtls_x509write_crt_set_serial_raw(&crt, serial, sizeof(serial));
     mbedtls_x509write_crt_set_validity(&crt, WEB_CERT_VALID_FROM, WEB_CERT_VALID_TO);
     // CA:TRUE нужен, чтобы сертификат можно было установить как доверенный
-    // корень на Android/iOS. pathlen=0 — он не подписывает другие сертификаты.
+    // корень на Android/glass. pathlen=0 — он не подписывает другие сертификаты.
     mbedtls_x509write_crt_set_basic_constraints(&crt, 1, 0);
     mbedtls_x509write_crt_set_key_usage(&crt,
         MBEDTLS_X509_KU_DIGITAL_SIGNATURE | MBEDTLS_X509_KU_KEY_CERT_SIGN);

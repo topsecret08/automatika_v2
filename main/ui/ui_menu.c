@@ -1,8 +1,8 @@
 #include "ui_menu.h"
 #include "ui.h"
-#include "ui_ios_theme.h"
-#include "ui_screen_ios.h"
-#include "ui_screen_ssvc.h"
+#include "ui_glass_theme.h"
+#include "ui_screen_home.h"
+#include "ui_screen_selection.h"
 #include "haptic.h"
 
 #include "config.h"
@@ -43,12 +43,12 @@ static const char *fraction_ru(fraction_t f) {
 // ------------------------------------------------------------------
 // Действия
 // ------------------------------------------------------------------
-static void enter_dashboard(void) { ui_screen_dashboard_ios_create(); }
+static void enter_dashboard(void) { ui_screen_home_create(); }
 
 static void enter_fraction(void);
 static void enter_profiles(void);
 static void enter_calibration(void);
-static void enter_ssvc(void)     { ui_screen_ssvc_dashboard_create(); }
+static void enter_fsel(void)     { ui_screen_selection_dashboard_create(); }
 static void enter_autotune(void) { ui_settings_pid(); }
 static void enter_sensors(void)  { ui_diag_ds18b20(); }
 static void enter_log(void)      { ui_show_logs(); }
@@ -63,7 +63,7 @@ static void enter_about(void);
 static void enter_start(void) {
     if (process_control_start(NULL) == ESP_OK) {
         ui_toast("Процесс запущен");
-        ui_screen_dashboard_ios_create();
+        ui_screen_home_create();
     } else {
         ui_toast("Запуск запрещён: E-STOP или защита");
     }
@@ -72,7 +72,7 @@ static void enter_start(void) {
 static void enter_stop(void) {
     process_control_stop();
     ui_toast("Процесс остановлен");
-    ui_screen_dashboard_ios_create();
+    ui_screen_home_create();
 }
 
 // ------------------------------------------------------------------
@@ -81,7 +81,7 @@ static void enter_stop(void) {
 ui_menu_item menu_work[] = {
     { "Дашборд",         enter_dashboard, NULL, 0 },
     { "Текущая фракция", enter_fraction,  NULL, 0 },
-    { "SSVC",            enter_ssvc,      NULL, 0 },
+    { "Отбор",           enter_fsel,      NULL, 0 },
     { "СТАРТ",           enter_start,     NULL, 0 },
     { "СТОП",            enter_stop,      NULL, 0 },
 };
@@ -176,7 +176,7 @@ static lv_obj_t *make_label(lv_obj_t *parent, const char *text, const lv_font_t 
 void ui_menu_build_root(lv_obj_t *parent, int selected_tab) {
     if (!parent) return;
 
-    lv_obj_set_style_bg_color(parent, UI_IOS_BG, 0);
+    lv_obj_set_style_bg_color(parent, UI_GLASS_BG, 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(parent, 12, 0);
     lv_obj_set_style_pad_row(parent, 6, 0);
@@ -185,7 +185,7 @@ void ui_menu_build_root(lv_obj_t *parent, int selected_tab) {
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
 
-    make_label(parent, "Меню", &lv_font_cyr_24, UI_IOS_TEXT);
+    make_label(parent, "Меню", &lv_font_cyr_24, UI_GLASS_TEXT);
 
     for (int i = 0; i < ui_menu_tab_count(); i++) {
         lv_obj_t *btn = lv_btn_create(parent);
@@ -193,7 +193,7 @@ void ui_menu_build_root(lv_obj_t *parent, int selected_tab) {
         lv_obj_set_height(btn, 54);
         lv_obj_set_style_radius(btn, 16, 0);
         lv_obj_set_style_bg_color(btn,
-            (i == selected_tab) ? UI_IOS_ACCENT : UI_IOS_CARD, 0);
+            (i == selected_tab) ? UI_GLASS_ACCENT : UI_GLASS_CARD, 0);
         lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(btn, 0, 0);
         lv_obj_set_style_pad_left(btn, 16, 0);
@@ -216,7 +216,7 @@ void ui_menu_build_group(lv_obj_t *parent, int tab, int selected_item) {
 
     ui_tab_t *t = &s_tabs[tab];
 
-    lv_obj_set_style_bg_color(parent, UI_IOS_BG, 0);
+    lv_obj_set_style_bg_color(parent, UI_GLASS_BG, 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(parent, 12, 0);
     lv_obj_set_style_pad_row(parent, 6, 0);
@@ -241,7 +241,7 @@ void ui_menu_build_group(lv_obj_t *parent, int tab, int selected_item) {
     lv_obj_t *back = lv_btn_create(header);
     lv_obj_set_size(back, 36, 30);
     lv_obj_set_style_radius(back, 10, 0);
-    lv_obj_set_style_bg_color(back, UI_IOS_CARD, 0);
+    lv_obj_set_style_bg_color(back, UI_GLASS_CARD, 0);
     lv_obj_set_style_bg_opa(back, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(back, 0, 0);
     lv_obj_t *back_label = make_label(back, LV_SYMBOL_LEFT, &lv_font_cyr_16, lv_color_white());
@@ -249,7 +249,7 @@ void ui_menu_build_group(lv_obj_t *parent, int tab, int selected_item) {
     lv_obj_add_event_cb(back, back_click_cb, LV_EVENT_CLICKED,
                         (void *)(intptr_t)tab);
 
-    make_label(header, t->label, &lv_font_cyr_24, UI_IOS_TEXT);
+    make_label(header, t->label, &lv_font_cyr_24, UI_GLASS_TEXT);
 
     for (int i = 0; i < t->count; i++) {
         lv_obj_t *btn = lv_btn_create(parent);
@@ -257,7 +257,7 @@ void ui_menu_build_group(lv_obj_t *parent, int tab, int selected_item) {
         lv_obj_set_height(btn, 42);
         lv_obj_set_style_radius(btn, 12, 0);
         lv_obj_set_style_bg_color(btn,
-            (i == selected_item) ? UI_IOS_ACCENT : UI_IOS_CARD, 0);
+            (i == selected_item) ? UI_GLASS_ACCENT : UI_GLASS_CARD, 0);
         lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(btn, 0, 0);
         lv_obj_set_style_pad_left(btn, 14, 0);
@@ -267,7 +267,7 @@ void ui_menu_build_group(lv_obj_t *parent, int tab, int selected_item) {
                               LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
         make_label(btn, t->items[i].label, &lv_font_cyr_16, lv_color_white());
-        make_label(btn, LV_SYMBOL_RIGHT, &lv_font_cyr_16, UI_IOS_TEXT_2);
+        make_label(btn, LV_SYMBOL_RIGHT, &lv_font_cyr_16, UI_GLASS_TEXT_2);
 
         lv_obj_add_event_cb(btn, item_click_cb, LV_EVENT_CLICKED,
                             (void *)&t->items[i]);
@@ -307,7 +307,7 @@ int ui_menu_current_level(void) { return s_level; }
 void ui_menu_encoder_rotate(int dir) {
     if (dir == 0) return;
 
-    if (ui_screen_ssvc_modal_active() && ui_screen_ssvc_modal_rotate(dir)) {
+    if (ui_screen_selection_modal_active() && ui_screen_selection_modal_rotate(dir)) {
         haptic_short();
         return;
     }
@@ -344,7 +344,7 @@ void ui_menu_encoder_rotate(int dir) {
 }
 
 void ui_menu_encoder_press(void) {
-    if (ui_screen_ssvc_modal_active() && ui_screen_ssvc_modal_press()) {
+    if (ui_screen_selection_modal_active() && ui_screen_selection_modal_press()) {
         haptic_short();
         return;
     }
@@ -363,7 +363,7 @@ void ui_menu_encoder_press(void) {
 }
 
 void ui_menu_encoder_long_press(void) {
-    if (ui_screen_ssvc_modal_active()) return;
+    if (ui_screen_selection_modal_active()) return;
     if (s_level == 1) {
         s_level = 0;
         ui_menu_show_root(s_tab_index);
@@ -380,7 +380,7 @@ static lv_obj_t *menu_label(lv_obj_t *parent, const char *text) {
     lv_obj_set_width(label, lv_pct(100));
     lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_font(label, &lv_font_cyr_16, 0);
-    lv_obj_set_style_text_color(label, UI_IOS_TEXT, 0);
+    lv_obj_set_style_text_color(label, UI_GLASS_TEXT, 0);
     return label;
 }
 
@@ -439,7 +439,7 @@ static void enter_calibration(void) {
     lv_obj_t *btn = lv_btn_create(c);
     lv_obj_set_size(btn, 180, 44);
     lv_obj_set_style_radius(btn, 12, 0);
-    lv_obj_set_style_bg_color(btn, UI_IOS_ACCENT, 0);
+    lv_obj_set_style_bg_color(btn, UI_GLASS_ACCENT, 0);
     lv_obj_t *lbl = make_label(btn, "10 мл", &lv_font_cyr_16, lv_color_white());
     lv_obj_center(lbl);
     lv_obj_add_event_cb(btn, dose_10_cb, LV_EVENT_CLICKED, NULL);
@@ -492,7 +492,7 @@ static void enter_api(void) {
     lv_obj_t *btn = lv_btn_create(c);
     lv_obj_set_size(btn, 180, 44);
     lv_obj_set_style_radius(btn, 12, 0);
-    lv_obj_set_style_bg_color(btn, UI_IOS_ACCENT, 0);
+    lv_obj_set_style_bg_color(btn, UI_GLASS_ACCENT, 0);
     lv_obj_t *lbl = make_label(btn, "Показать QR", &lv_font_cyr_16, lv_color_white());
     lv_obj_center(lbl);
     lv_obj_add_event_cb(btn, qr_cb, LV_EVENT_CLICKED, NULL);

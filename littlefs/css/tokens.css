@@ -1,6 +1,6 @@
-/* Automatika — iOS/Liquid Glass design tokens.
+/* Automatika — glass design tokens.
  *
- * 8pt-сетка, концентрические радиусы, системный шрифт SF Pro.
+ * 8pt-сетка, концентрические радиусы, системный шрифт system font.
  * Тёмная тема включается через prefers-color-scheme.
  */
 :root {
@@ -21,9 +21,9 @@
   --radius-badge: 8px;
   --radius-capsule: 9999px;
 
-  /* Typography — SF Pro stack */
-  --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display",
-                "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  /* Typography — system font stack */
+  --font-stack: -apple-system, BlinkMacSystemFont, "system font Display",
+                "system font Text", "Segoe UI", Roboto, sans-serif;
 
   /* Colors — Light */
   --bg-primary: #f2f2f7;
@@ -50,7 +50,7 @@
   --ease-spring: cubic-bezier(0.4, 0, 0.2, 1.4);
   --duration: 300ms;
 
-  /* iOS tap target */
+  /* glass tap target */
   --tap-target: 44px;
 
   /* Layout */

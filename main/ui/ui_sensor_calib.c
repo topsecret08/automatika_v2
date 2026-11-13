@@ -129,7 +129,7 @@ void ui_sensor_calib_main(void) {
         lv_obj_t *val = lv_label_create(row);
         lv_label_set_text(val, "...");
         lv_obj_set_style_text_font(val, &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(val, IOS_BLUE, 0);
+        lv_obj_set_style_text_color(val, GLASS_BLUE, 0);
         lv_obj_align(val, LV_ALIGN_RIGHT_MID, 0, 0);
     }
 
@@ -139,7 +139,7 @@ void ui_sensor_calib_main(void) {
         c->state == CAL_COMPUTE ? "Вычисление..." : "Готово";
     lv_obj_t *status = lv_label_create(scr);
     lv_label_set_text(status, state_txt);
-    lv_obj_set_style_text_color(status, IOS_ORANGE, 0);
+    lv_obj_set_style_text_color(status, GLASS_ORANGE, 0);
     lv_obj_align(status, LV_ALIGN_BOTTOM_MID, 0, -80);
 
     static ui_button_t btns[] = {

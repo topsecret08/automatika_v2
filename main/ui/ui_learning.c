@@ -54,7 +54,7 @@ void ui_learning_quiz(const void *lesson) {
     lv_obj_t *q = lv_label_create(c);
     lv_label_set_text(q, l->quiz_q);
     lv_obj_set_style_text_font(q, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_color(q, IOS_BLUE, 0);
+    lv_obj_set_style_text_color(q, GLASS_BLUE, 0);
     lv_obj_set_width(q, LV_PCT(100));
     lv_label_set_long_mode(q, LV_LABEL_LONG_WRAP);
     lv_obj_align(q, LV_ALIGN_BOTTOM_LEFT, 0, -160);
