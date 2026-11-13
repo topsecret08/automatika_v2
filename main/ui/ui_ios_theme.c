@@ -3,7 +3,7 @@
 void ui_ios_theme_apply(lv_disp_t *disp) {
     // Тёмная тема: на LCD 480x320 белый фон даёт засветку и блики.
     lv_theme_t *th = lv_theme_default_init(disp,
-        UI_IOS_ACCENT, UI_IOS_RED, true, &lv_font_montserrat_16);
+        UI_IOS_ACCENT, UI_IOS_RED, true, &lv_font_cyr_16);
     if (th && disp) {
         lv_disp_set_theme(disp, th);
     }
@@ -40,7 +40,7 @@ lv_obj_t *ui_ios_btn_create(lv_obj_t *parent, const char *text, lv_color_t color
     lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, text ? text : "");
     lv_obj_set_style_text_color(label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(label, &lv_font_cyr_16, 0);
     lv_obj_center(label);
     return btn;
 }
@@ -58,13 +58,13 @@ lv_obj_t *ui_ios_stat_create(lv_obj_t *parent, const char *caption, const char *
     lv_obj_t *cap = lv_label_create(cont);
     lv_label_set_text(cap, caption ? caption : "");
     lv_obj_set_style_text_color(cap, UI_IOS_TEXT_2, 0);
-    lv_obj_set_style_text_font(cap, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(cap, &lv_font_cyr_16, 0);
     lv_obj_align(cap, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lv_obj_t *val = lv_label_create(cont);
     lv_label_set_text(val, value ? value : "");
     lv_obj_set_style_text_color(val, UI_IOS_TEXT, 0);
-    lv_obj_set_style_text_font(val, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(val, &lv_font_cyr_24, 0);
     lv_obj_align(val, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     return cont;
 }

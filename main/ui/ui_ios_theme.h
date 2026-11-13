@@ -23,6 +23,12 @@
 #define UI_IOS_RADIUS    20
 #define UI_IOS_BTN_R     12
 
+// Кириллические шрифты, сгенерированные из Segoe UI (16 и 24 px, bpp 2).
+// Montserrat в LVGL не содержит кириллицу, поэтому для русского текста
+// используем эти. Объявлены в ui/ui_ios_theme.h, лежат в ui/fonts/.
+LV_FONT_DECLARE(lv_font_cyr_16);
+LV_FONT_DECLARE(lv_font_cyr_24);
+
 // Применяет тему к дисплею: акцент, destructive-цвет, тёмный режим,
 // шрифт по умолчанию. Вызывать после инициализации LVGL.
 void ui_ios_theme_apply(lv_disp_t *disp);

@@ -49,6 +49,7 @@ idf_component_register(
         "ai/cache_manager.c" "ai/ui_preloader.c"
         "ai/nn_pie.c" "ai/screen_serialize.c"
         "ui/ui.c" "ui/ui_theme.c" "ui/ui_ios_theme.c" "ui/ui_screen_ios.c"
+        "ui/fonts/lv_font_cyr_16.c" "ui/fonts/lv_font_cyr_24.c"
         "ui/ui_builder.c"
         "ui/ui_screens.c" "ui/ui_screens_full.c" "ui/ui_welcome.c"
         "ui/ui_graph_sqlite.c"

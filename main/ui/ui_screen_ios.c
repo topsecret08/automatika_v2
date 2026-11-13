@@ -112,7 +112,7 @@ static lv_obj_t *make_caption(lv_obj_t *parent, const char *text) {
     lv_obj_t *label = lv_label_create(parent);
     lv_label_set_text(label, text);
     lv_obj_set_style_text_color(label, UI_IOS_TEXT_2, 0);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(label, &lv_font_cyr_16, 0);
     return label;
 }
 
@@ -134,7 +134,7 @@ static lv_obj_t *make_kpi(lv_obj_t *parent, const char *caption) {
     lv_obj_t *value = lv_label_create(card);
     lv_label_set_text(value, "--.-°");
     lv_obj_set_style_text_color(value, UI_IOS_TEXT, 0);
-    lv_obj_set_style_text_font(value, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(value, &lv_font_cyr_24, 0);
     return value;
 }
 
@@ -166,7 +166,7 @@ void ui_screen_dashboard_ios_build(lv_obj_t *parent) {
     lv_obj_t *title = lv_label_create(header);
     lv_label_set_text(title, "Дистилляция");
     lv_obj_set_style_text_color(title, UI_IOS_TEXT, 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_font(title, &lv_font_cyr_24, 0);
 
     lv_obj_t *right = lv_obj_create(header);
     lv_obj_set_size(right, LV_SIZE_CONTENT, 24);
@@ -182,7 +182,7 @@ void ui_screen_dashboard_ios_build(lv_obj_t *parent) {
     s_stage = lv_label_create(right);
     lv_label_set_text(s_stage, "Ожидание");
     lv_obj_set_style_text_color(s_stage, UI_IOS_TEXT_2, 0);
-    lv_obj_set_style_text_font(s_stage, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(s_stage, &lv_font_cyr_16, 0);
 
     s_dot = lv_obj_create(right);
     lv_obj_set_size(s_dot, 10, 10);
@@ -215,7 +215,7 @@ void ui_screen_dashboard_ios_build(lv_obj_t *parent) {
     s_steam = lv_label_create(value_row);
     lv_label_set_text(s_steam, "--.-°");
     lv_obj_set_style_text_color(s_steam, UI_IOS_TEXT, 0);
-    lv_obj_set_style_text_font(s_steam, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(s_steam, &lv_font_cyr_24, 0);
 
     s_badge = lv_label_create(value_row);
     lv_label_set_text(s_badge, "—");
@@ -226,12 +226,12 @@ void ui_screen_dashboard_ios_build(lv_obj_t *parent) {
     lv_obj_set_style_pad_top(s_badge, 4, 0);
     lv_obj_set_style_pad_bottom(s_badge, 4, 0);
     lv_obj_set_style_text_color(s_badge, UI_IOS_TEXT, 0);
-    lv_obj_set_style_text_font(s_badge, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(s_badge, &lv_font_cyr_16, 0);
 
     s_footer = lv_label_create(main);
     lv_label_set_text(s_footer, "Отбор 0 мл/мин · 0 мл");
     lv_obj_set_style_text_color(s_footer, UI_IOS_TEXT_2, 0);
-    lv_obj_set_style_text_font(s_footer, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(s_footer, &lv_font_cyr_16, 0);
 
     // Два KPI: куб и мощность.
     lv_obj_t *kpi_row = lv_obj_create(parent);
