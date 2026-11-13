@@ -22,6 +22,30 @@
 > [«Внешние регуляторы»](#внешние-регуляторы-мощности) и
 > [`USER_GUIDE.md`](docs/user/USER_GUIDE.md).
 
+### Модули V0.5 alfa
+
+| Модуль | Файлы | Назначение |
+|---|---|---|
+| Конвейер датчиков | `main/hal/sensor_pipeline.{h,c}` | валидация, медиана, Калман, давление |
+| Интеграция 1-Wire | `main/hal/hal_1wire.c` | сглаженные и компенсированные readings, тренд |
+| Алгоритмы отбора | `main/control/select_algorithm.{h,c}` | классический, тренд, адаптивный |
+| Периодический отбор | `main/control/fraction_periodic.{h,c}` | этапы, декремент, алгоритмы |
+| Внешний регулятор | `main/control/regulator_driver.{h,c}` | KVIC, РМВ-К, SEM, SSR/ШИМ |
+| Настройки регулятора | `main/core/control_config.{h,c}` | тип, скорость UART, NVS |
+| Экран выбора | `main/ui/ui_screen_advanced.{h,c}` | алгоритм и регулятор на LCD |
+| Тесты | `test/main/test_sensor_pipeline.c`, `test_selection_logic.c`, `test_interface_conflicts.c` | Unity |
+
+Проверка сборки и тестов:
+
+```bash
+# прошивка
+idf.py build
+
+# тестовый проект (Unity, запуск на устройстве)
+idf.py -C test build
+idf.py -C test -p COM5 flash monitor
+```
+
 > **v2.9.2 — продуктивные модули:** OTA с автоматическим откатом по
 > результату health-check, миграция NVS (schema v1→v3), бэкап/восстановление
 > конфигурации, WebSocket-телеметрия `/ws/telemetry`, Telegram-уведомления
