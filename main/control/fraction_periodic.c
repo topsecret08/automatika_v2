@@ -31,7 +31,7 @@ static const char *TAG = "FSEL";
 #define FSEL_NVS_NAMESPACE "fsel"
 #define FSEL_NVS_KEY       "cfg"
 #define FSEL_CFG_MAGIC     0x4653454Cu   // "FSEL"
-#define FSEL_CFG_VERSION   2
+#define FSEL_CFG_VERSION   3
 
 static fsel_config_t s_cfg;
 static fsel_state_t  s_st;
@@ -58,6 +58,9 @@ static bool config_valid(const fsel_config_t *cfg) {
     if (cfg->transition_mode > FSEL_TRANSITION_MANUAL) return false;
     if (cfg->select_mode > FSEL_SELECT_CONTINUOUS) return false;
     if (cfg->sensor > FSEL_SENSOR_COLUMN) return false;
+    if (cfg->algo >= ALGO_COUNT) return false;
+    if (cfg->trend_pause_c_per_min <= 0.0f ||
+        cfg->trend_decrement_c_per_min < 0.0f) return false;
     if (cfg->body_min_open_time_sec <= 0.0f) return false;
     if (cfg->body_decrement_percent < 0.0f || cfg->body_decrement_percent > 100.0f)
         return false;
@@ -124,6 +127,10 @@ void fsel_defaults(fsel_config_t *cfg) {
     cfg->select_mode = FSEL_SELECT_PERIODIC;
     cfg->sensor = FSEL_SENSOR_STEAM;
     cfg->auto_mode_defaults = true;
+    cfg->algo = ALGO_CLASSIC;
+    cfg->trend_pause_c_per_min = TREND_PAUSE_C_PER_MIN;
+    cfg->trend_decrement_c_per_min = TREND_DECREMENT_C_PER_MIN;
+    cfg->trend_window_sec = TREND_WINDOW_SEC;
 
     cfg->heads_timer_sec = FSEL_HEADS_TIMER_SEC;
     cfg->heads_open_time_sec = FSEL_HEADS_OPEN_SEC;
@@ -366,13 +373,58 @@ void fsel_update(float t_stage, float t_cube, float pressure_hpa) {
             }
         }
 
-        if (s_st.t_fix_ready &&
-            t_stage > (s_st.t_fix + cfg.body_hysteresis_c)) {
-            // Гистерезис: закрыть и уменьшить open_time, но не чаще раза
-            // в секунду. period сохраняем, поэтому close_time растёт.
-            if (s_last_decrement_us == 0 || (now - s_last_decrement_us) >= 1000000LL) {
+        {
+            int ch = (cfg.sensor == FSEL_SENSOR_CUBE) ? 0 : 1;
+            float trend = hal_1wire_trend(ch);
+            s_st.trend_c_per_min = trend;
+
+            algo_config_t ac = {
+                .algo = cfg.algo,
+                .trend_pause_c_per_min = cfg.trend_pause_c_per_min,
+                .trend_decrement_c_per_min = cfg.trend_decrement_c_per_min,
+            };
+            algo_result_t ar = algo_evaluate(&ac, trend, t_stage,
+                                             s_st.t_fix,
+                                             cfg.body_hysteresis_c);
+
+            bool classic = (cfg.algo == ALGO_CLASSIC ||
+                            cfg.algo == ALGO_ADAPTIVE);
+            bool overshoot = classic && s_st.t_fix_ready &&
+                             t_stage > (s_st.t_fix + cfg.body_hysteresis_c);
+
+            if (ar == ALGO_RESULT_PAUSE || overshoot) {
+                if ((overshoot || ar == ALGO_RESULT_DECREMENT) &&
+                    (s_last_decrement_us == 0 ||
+                     (now - s_last_decrement_us) >= 1000000LL)) {
+                    s_last_decrement_us = now;
+                    float pct = cfg.body_decrement_percent *
+                                algo_decrement_multiplier(&ac, ar);
+                    fsel_apply_decrement(pct);
+
+                    if (s_st.open_time_sec < cfg.body_min_open_time_sec) {
+                        if (cfg.transition_mode == FSEL_TRANSITION_AUTO) {
+                            enter_tails(&cfg);
+                        } else {
+                            s_body_exhausted = true;
+                            s_st.valve_open = false;
+                            s_st.countdown_sec = 0.0f;
+                            apply_output(false, &cfg);
+                        }
+                        return;
+                    }
+                }
+                s_st.valve_open = false;
+                s_st.countdown_sec = 0.0f;
+                apply_output(false, &cfg);
+                return;
+            }
+
+            if (ar == ALGO_RESULT_DECREMENT &&
+                (s_last_decrement_us == 0 ||
+                 (now - s_last_decrement_us) >= 1000000LL)) {
                 s_last_decrement_us = now;
-                s_st.open_time_sec *= (1.0f - cfg.body_decrement_percent / 100.0f);
+                fsel_apply_decrement(cfg.body_decrement_percent *
+                                     algo_decrement_multiplier(&ac, ar));
                 if (s_st.open_time_sec < cfg.body_min_open_time_sec) {
                     if (cfg.transition_mode == FSEL_TRANSITION_AUTO) {
                         enter_tails(&cfg);
@@ -384,13 +436,7 @@ void fsel_update(float t_stage, float t_cube, float pressure_hpa) {
                     }
                     return;
                 }
-                s_st.close_time_sec = s_st.period_sec - s_st.open_time_sec;
-                if (s_st.close_time_sec < 0.0f) s_st.close_time_sec = 0.0f;
             }
-            s_st.valve_open = false;
-            s_st.countdown_sec = 0.0f;
-            apply_output(false, &cfg);
-            return;
         }
         break;
 
@@ -485,6 +531,39 @@ float fsel_get_open_time(void) { return s_st.open_time_sec; }
 float fsel_get_close_time(void) { return s_st.close_time_sec; }
 float fsel_get_countdown(void) { return s_st.countdown_sec; }
 float fsel_get_t_fix(void) { return s_st.t_fix; }
+float fsel_get_trend(void) { return s_st.trend_c_per_min; }
+select_algo_t fsel_get_algo(void) { return s_cfg.algo; }
+
+void fsel_apply_decrement(float percent) {
+    if (!isfinite(percent) || percent <= 0.0f) return;
+    if (percent > 100.0f) percent = 100.0f;
+
+    s_st.open_time_sec *= (1.0f - percent / 100.0f);
+    if (s_st.open_time_sec < 0.0f) s_st.open_time_sec = 0.0f;
+    s_st.close_time_sec = s_st.period_sec - s_st.open_time_sec;
+    if (s_st.close_time_sec < 0.0f) s_st.close_time_sec = 0.0f;
+}
+
+esp_err_t fsel_set_algo(select_algo_t algo) {
+    if (algo >= ALGO_COUNT) return ESP_ERR_INVALID_ARG;
+
+    fsel_config_t cfg;
+    taskENTER_CRITICAL(&s_mux);
+    s_cfg.algo = algo;
+    s_cfg.auto_mode_defaults = false;
+    cfg = s_cfg;
+    taskEXIT_CRITICAL(&s_mux);
+    fsel_config_save(&cfg);
+
+    // Смена алгоритма на ходу не должна тащить старый декремент.
+    if (s_st.active && s_st.stage == FSEL_STAGE_BODY) {
+        s_st.open_time_sec = FSEL_BODY_OPEN_SEC;
+        s_st.close_time_sec = FSEL_BODY_CLOSE_SEC;
+        s_st.period_sec = s_st.open_time_sec + s_st.close_time_sec;
+        s_st.last_cycle_start_us = now_us();
+    }
+    return ESP_OK;
+}
 float fsel_get_hysteresis(void) { return s_cfg.body_hysteresis_c; }
 float fsel_get_decrement(void) { return s_cfg.body_decrement_percent; }
 float fsel_get_min_open_time(void) { return s_cfg.body_min_open_time_sec; }
@@ -523,10 +602,20 @@ esp_err_t fsel_set_config(const fsel_config_t *cfg) {
     copy.magic = FSEL_CFG_MAGIC;
     copy.version = FSEL_CFG_VERSION;
 
+    select_algo_t old_algo;
     taskENTER_CRITICAL(&s_mux);
+    old_algo = s_cfg.algo;
     s_cfg = copy;
     taskEXIT_CRITICAL(&s_mux);
     sync_output_device(&s_cfg);
+
+    if (copy.algo != old_algo && s_st.active &&
+        s_st.stage == FSEL_STAGE_BODY) {
+        s_st.open_time_sec = FSEL_BODY_OPEN_SEC;
+        s_st.close_time_sec = FSEL_BODY_CLOSE_SEC;
+        s_st.period_sec = s_st.open_time_sec + s_st.close_time_sec;
+        s_st.last_cycle_start_us = now_us();
+    }
     return ESP_OK;
 }
 
@@ -546,13 +635,16 @@ esp_err_t fsel_set_param(const char *name, float value) {
 
     if (strcmp(name, "open_time_sec") == 0) {
         float open = clampf(value, 0.0f, 3600.0f);
-        float close = use_runtime ? s_st.close_time_sec
-                                  : stage_cfg_close(&cfg, stage);
+        float period = use_runtime ? s_st.period_sec
+                                   : (stage_cfg_open(&cfg, stage) +
+                                      stage_cfg_close(&cfg, stage));
+        if (period < open) period = open + 0.1f;
+        float close = algo_close_time(period, open);
         stage_cfg_set(&cfg, stage, open, close);
         if (use_runtime) {
             s_st.open_time_sec = open;
             s_st.close_time_sec = close;
-            s_st.period_sec = open + close;
+            s_st.period_sec = period;
         }
         timing_changed = true;
     } else if (strcmp(name, "close_time_sec") == 0) {
@@ -770,13 +862,14 @@ void fsel_task(void *arg) {
         fsel_config_t cfg;
         fsel_get_config(&cfg);
 
-        float cube = hal_1wire_read_fast(0);
-        float column = hal_1wire_read_fast(1);
         float pressure = baro_get_pressure_hpa();
+        float cube = hal_1wire_read_compensated(0, pressure);
+        float column = hal_1wire_read_compensated(1, pressure);
         float t_stage = cube;
 
         if (cfg.sensor == FSEL_SENSOR_STEAM) {
-            t_stage = baro_correct_boiling_point(column, pressure);
+            // Компенсация давления уже выполнена конвейером.
+            t_stage = column;
         } else if (cfg.sensor == FSEL_SENSOR_COLUMN) {
             t_stage = column;
         }

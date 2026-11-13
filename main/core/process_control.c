@@ -42,6 +42,10 @@ esp_err_t process_control_start(const char *mode_id) {
         events_log(EVENT_WARNING, "Start rejected: safety/estop");
         return ESP_ERR_INVALID_STATE;
     }
+    if (state_get()->is_running) {
+        events_log(EVENT_WARNING, "Start rejected: already running");
+        return ESP_ERR_INVALID_STATE;
+    }
 
     process_state_t *s = state_get();
     process_type_t type = s->type;

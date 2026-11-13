@@ -1,4 +1,5 @@
 #include "ctrl_heater.h"
+#include "regulator_driver.h"
 #include "hal/hal_dac.h"
 #include "hal/hal_1wire.h"
 #include "control/ctrl_safety.h"
@@ -16,6 +17,7 @@ static volatile bool  s_trend_cut = false;
 void ctrl_heater_init(void) {
     hal_dac_init();
     hal_dac_set_percent(0);
+    regulator_init_from_config();
 }
 
 // Упреждающий анализ: если t° куба растёт (temp_filter_is_rising), снижаем
@@ -48,7 +50,12 @@ void ctrl_heater_set_percent(float pct) {
     float out = trend_guard(pct);
 
     s_pct = out;
-    hal_dac_set_percent(out);
+    if (regulator_is_external()) {
+        hal_dac_set_percent(0);
+        regulator_set_power(out);
+    } else {
+        hal_dac_set_percent(out);
+    }
     state_get()->power_percent = out;
 }
 
@@ -62,7 +69,12 @@ bool ctrl_heater_service_set(float pct) {
     if (pct > 100) pct = 100;
 
     s_pct = pct;
-    hal_dac_set_percent(pct);
+    if (regulator_is_external()) {
+        hal_dac_set_percent(0);
+        regulator_set_power(pct);
+    } else {
+        hal_dac_set_percent(pct);
+    }
     state_get()->power_percent = pct;
     return true;
 }

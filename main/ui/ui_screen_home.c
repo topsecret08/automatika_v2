@@ -22,6 +22,7 @@ static lv_obj_t *s_badge;
 static lv_obj_t *s_stage;
 static lv_obj_t *s_footer;
 static lv_obj_t *s_dot;
+static lv_obj_t *s_start_btn;
 static lv_timer_t *s_timer;
 
 static void screen_delete_cb(lv_event_t *event) {
@@ -31,6 +32,7 @@ static void screen_delete_cb(lv_event_t *event) {
         s_timer = NULL;
     }
     s_steam = s_cube = s_power = s_badge = s_stage = s_footer = s_dot = NULL;
+    s_start_btn = NULL;
 }
 
 static void update_dashboard(lv_timer_t *timer) {
@@ -90,6 +92,13 @@ static void update_dashboard(lv_timer_t *timer) {
         : (st->is_running ? UI_GLASS_GREEN : UI_GLASS_TEXT_2);
     lv_obj_set_style_bg_color(s_dot, dot, 0);
     lv_obj_set_style_bg_opa(s_dot, LV_OPA_COVER, 0);
+
+    if (s_start_btn) {
+        if (st->is_running || alarm)
+            lv_obj_add_state(s_start_btn, LV_STATE_DISABLED);
+        else
+            lv_obj_clear_state(s_start_btn, LV_STATE_DISABLED);
+    }
 }
 
 static void start_cb(lv_event_t *event) {
@@ -265,6 +274,7 @@ void ui_screen_home_build(lv_obj_t *parent) {
     lv_obj_set_style_pad_column(buttons, 8, 0);
 
     lv_obj_t *start = ui_glass_btn_create(buttons, "Старт", UI_GLASS_ACCENT);
+    s_start_btn = start;
     lv_obj_set_flex_grow(start, 1);
     lv_obj_add_event_cb(start, start_cb, LV_EVENT_CLICKED, NULL);
 

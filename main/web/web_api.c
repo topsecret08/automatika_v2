@@ -33,6 +33,7 @@
 #include "control/fraction_periodic.h"
 #include "control/alcohol_balance.h"
 #include "control/param_registry.h"
+#include "control/regulator_driver.h"
 #include "control/pid_autotune.h"
 #include "control/reflux.h"
 #include "level/level_sensor.h"
@@ -292,16 +293,20 @@ static esp_err_t h_safety(httpd_req_t *r) {
 // --- установки управления (control_config) ----------------------------
 static esp_err_t h_control(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
-        char json[256];
+        char json[320];
         snprintf(json, sizeof(json),
                  "{\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
-                 "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u}",
+                 "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
+                 "\"regulator\":%d,\"regulator_name\":\"%s\",\"reg_baud\":%u}",
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
                  control_config_get_hys(),
                  control_config_get_rate_ml_min(),
                  control_config_get_flow_ml_min(),
-                 (unsigned)control_config_get_steps_per_ml());
+                 (unsigned)control_config_get_steps_per_ml(),
+                 (int)control_config_get_regulator(),
+                 control_config_regulator_name(control_config_get_regulator()),
+                 (unsigned)control_config_get_regulator_baud());
         return send_json(r, json);
     }
 
@@ -333,6 +338,19 @@ static esp_err_t h_control(httpd_req_t *r) {
     v = cJSON_GetObjectItemCaseSensitive(root, "steps_per_ml");
     if (err == ESP_OK && cJSON_IsNumber(v))
         err = control_config_set_steps_per_ml((uint32_t)v->valueint);
+    v = cJSON_GetObjectItemCaseSensitive(root, "regulator");
+    if (err == ESP_OK && cJSON_IsNumber(v)) {
+        err = control_config_set_regulator((regulator_type_t)v->valueint);
+        if (err == ESP_OK) regulator_init_from_config();
+    }
+    v = cJSON_GetObjectItemCaseSensitive(root, "reg_baud");
+    if (err == ESP_OK && cJSON_IsNumber(v)) {
+        err = control_config_set_regulator_baud((uint32_t)v->valueint);
+        if (err == ESP_OK) regulator_init_from_config();
+    }
+    v = cJSON_GetObjectItemCaseSensitive(root, "algo");
+    if (err == ESP_OK && cJSON_IsNumber(v))
+        err = fsel_set_algo((select_algo_t)v->valueint);
 
     cJSON_Delete(root);
 
@@ -829,11 +847,12 @@ static esp_err_t h_config_import(httpd_req_t *r) {
 // Единая точка изменения конфигурации (аналог SETUP.md-команд из задания).
 static esp_err_t h_config(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
-        char json[384];
+        char json[512];
         snprintf(json, sizeof(json),
                  "{\"schema\":%u,\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
                  "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
-                 "\"service\":%d,\"api_key_set\":%d,\"lua\":%d}",
+                 "\"service\":%d,\"api_key_set\":%d,\"lua\":%d,"
+                 "\"algo\":%d,\"regulator\":%d,\"reg_baud\":%u}",
                  (unsigned)nvs_migration_schema_version(),
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
@@ -843,7 +862,10 @@ static esp_err_t h_config(httpd_req_t *r) {
                  (unsigned)control_config_get_steps_per_ml(),
                  control_config_service_enabled() ? 1 : 0,
                  control_config_api_has_key() ? 1 : 0,
-                 lua_engine_enabled() ? 1 : 0);
+                 lua_engine_enabled() ? 1 : 0,
+                 (int)fsel_get_algo(),
+                 (int)control_config_get_regulator(),
+                 (unsigned)control_config_get_regulator_baud());
         return send_json(r, json);
     }
 
@@ -1233,12 +1255,12 @@ static void fsel_state_json(char *out, size_t out_len) {
     snprintf(out, out_len,
              "{\"stage\":%d,\"stage_name\":\"%s\",\"t_fix\":%.2f,"
              "\"open_time\":%.2f,\"close_time\":%.2f,\"period\":%.2f,"
-             "\"countdown\":%.2f,\"valve_open\":%d,"
+             "\"countdown\":%.2f,\"valve_open\":%d,\"trend\":%.2f,"
              "\"ethanol_ml\":%.1f,\"ethanol_percent\":%.1f,"
              "\"active\":%d,\"enabled\":%d}",
              (int)st.stage, fsel_stage_name(st.stage), st.t_fix,
              st.open_time_sec, st.close_time_sec, st.period_sec,
-             st.countdown_sec, st.valve_open ? 1 : 0,
+             st.countdown_sec, st.valve_open ? 1 : 0, st.trend_c_per_min,
              st.ethanol_remaining_ml, st.ethanol_percent,
              st.active ? 1 : 0, fsel_is_enabled() ? 1 : 0);
 }
@@ -1255,6 +1277,8 @@ static void fsel_config_json(char *out, size_t out_len) {
     snprintf(out, out_len,
              "{\"enabled\":%d,\"out_device\":%d,\"transition_mode\":%d,"
              "\"select_mode\":%d,\"sensor\":%d,\"auto_mode_defaults\":%d,"
+             "\"algo\":%d,\"trend_pause_c_per_min\":%.2f,"
+             "\"trend_decrement_c_per_min\":%.2f,\"trend_window_sec\":%.0f,"
              "\"heads_timer_sec\":%u,\"heads_open_time_sec\":%.2f,"
              "\"heads_close_time_sec\":%.2f,\"heads_period_sec\":%.2f,"
              "\"body_open_time_sec\":%.2f,\"body_close_time_sec\":%.2f,"
@@ -1266,6 +1290,8 @@ static void fsel_config_json(char *out, size_t out_len) {
              c.enabled ? 1 : 0, (int)c.out_device, (int)c.transition_mode,
              (int)c.select_mode, (int)c.sensor,
              c.auto_mode_defaults ? 1 : 0,
+             (int)c.algo, c.trend_pause_c_per_min,
+             c.trend_decrement_c_per_min, c.trend_window_sec,
              (unsigned)c.heads_timer_sec, c.heads_open_time_sec,
              c.heads_close_time_sec,
              c.heads_open_time_sec + c.heads_close_time_sec,
@@ -1280,14 +1306,14 @@ static void fsel_config_json(char *out, size_t out_len) {
 
 static esp_err_t h_fsel_config(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
-        char json[768];
+        char json[1024];
         fsel_config_json(json, sizeof(json));
         return send_json(r, json);
     }
 
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
-    char body[512];
+    char body[768];
     int n = recv_body(r, body, sizeof(body));
     if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
 
@@ -1310,6 +1336,14 @@ static esp_err_t h_fsel_config(httpd_req_t *r) {
         cfg.select_mode = (fsel_select_mode_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "sensor"))))
         cfg.sensor = (fsel_sensor_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "algo"))))
+        cfg.algo = (select_algo_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "trend_pause_c_per_min"))))
+        cfg.trend_pause_c_per_min = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "trend_decrement_c_per_min"))))
+        cfg.trend_decrement_c_per_min = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "trend_window_sec"))))
+        cfg.trend_window_sec = (float)v->valuedouble;
 
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "heads_timer_sec"))))
         cfg.heads_timer_sec = (uint32_t)v->valuedouble;
@@ -1386,7 +1420,7 @@ static esp_err_t h_fsel_config(httpd_req_t *r) {
 static esp_err_t h_fsel_options(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
-    char body[192];
+    char body[256];
     int n = recv_body(r, body, sizeof(body));
     if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
 
@@ -1405,6 +1439,14 @@ static esp_err_t h_fsel_options(httpd_req_t *r) {
         cfg.select_mode = (fsel_select_mode_t)v->valueint;
     if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "sensor"))))
         cfg.sensor = (fsel_sensor_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "algo"))))
+        cfg.algo = (select_algo_t)v->valueint;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "trend_pause_c_per_min"))))
+        cfg.trend_pause_c_per_min = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "trend_decrement_c_per_min"))))
+        cfg.trend_decrement_c_per_min = (float)v->valuedouble;
+    if (cJSON_IsNumber((v = cJSON_GetObjectItemCaseSensitive(root, "trend_window_sec"))))
+        cfg.trend_window_sec = (float)v->valuedouble;
     if (cJSON_IsBool((v = cJSON_GetObjectItemCaseSensitive(root, "enabled"))))
         cfg.enabled = cJSON_IsTrue(v);
     if ((v = cJSON_GetObjectItemCaseSensitive(root, "auto_mode_defaults")) != NULL) {
@@ -1649,6 +1691,32 @@ static esp_err_t h_param_post(httpd_req_t *r) {
     return send_json(r, json);
 }
 
+static esp_err_t h_fsel_algo(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[96];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "algo");
+    int algo = cJSON_IsNumber(v) ? v->valueint : -1;
+    cJSON_Delete(root);
+
+    if (algo < 0 || algo >= ALGO_COUNT)
+        return send_err(r, "400 Bad Request", "{\"error\":\"algo\"}");
+
+    esp_err_t err = fsel_set_algo((select_algo_t)algo);
+    if (err != ESP_OK)
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs\"}");
+
+    char json[128];
+    snprintf(json, sizeof(json), "{\"algo\":%d,\"name\":\"%s\"}",
+             algo, algo_name((select_algo_t)algo));
+    return send_json(r, json);
+}
+
 static esp_err_t h_env(httpd_req_t *r) {
     char json[384];
     snprintf(json, sizeof(json),
@@ -1736,6 +1804,7 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/selection/next",           .method=HTTP_POST, .handler=h_fsel_next },
         { .uri="/api/selection/next_stage",     .method=HTTP_POST, .handler=h_fsel_next },
         { .uri="/api/selection/param",          .method=HTTP_POST, .handler=h_fsel_param },
+        { .uri="/api/selection/algo",           .method=HTTP_POST, .handler=h_fsel_algo },
         { .uri="/api/alcohol",             .method=HTTP_GET,  .handler=h_alcohol },
         { .uri="/api/alcohol",             .method=HTTP_POST, .handler=h_alcohol },
         { .uri="/api/session/state",       .method=HTTP_GET,  .handler=h_session_state },

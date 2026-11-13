@@ -24,7 +24,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const STORAGE_KEY = 'automatika.apiKey';
-const APP_VERSION = '2.9.5-web.1';
+const APP_VERSION = 'V0.5-alfa';
 
 const STAGE_NAMES = [
   'Ожидание', 'Нагрев', 'Стабилизация', 'Головы', 'Тело',
@@ -221,7 +221,7 @@ async function pollState() {
       running: !!state.running,
       visible: currentPage === 'dashboard',
       stage: STAGE_NAMES[state.stage] || '—',
-      tSteam: Number(state.ts || 0),
+      tSteam: Number(state.ts),
       countdown: selectionState.countdown
     });
     updateMinimizeState(currentPage === 'dashboard' ? 'dashboard' : 'group',
@@ -583,6 +583,11 @@ function renderLiveValues() {
   updateStatusOnly();
   renderSelectionValues();
 
+  const startBtn = document.querySelector('[data-action="start"]');
+  if (startBtn) startBtn.disabled = !!state.running;
+  const pauseBtn = document.querySelector('[data-action="pause"]');
+  if (pauseBtn) pauseBtn.disabled = !state.running;
+
   const minimizeRow = $('#minimize-row');
   if (minimizeRow) minimizeRow.hidden = !state.running;
 }
@@ -773,7 +778,7 @@ async function pollSelection() {
       running: !!state.running,
       visible: currentPage === 'dashboard',
       stage: ['ГОЛОВЫ', 'ТЕЛО', 'ХВОСТЫ', 'ГОТОВО'][selectionState.stage] || '—',
-      tSteam: Number(state.ts || 0),
+      tSteam: Number(state.ts),
       countdown: selectionState.countdown
     });
     if (currentPage === 'dashboard') renderSelectionValues();
@@ -1067,6 +1072,26 @@ function renderCalibration() {
         </div>
 
         <div class="field">
+          <span class="field-label">Внешний регулятор мощности</span>
+          <div class="segmented" id="reg-seg">
+            <button type="button" data-val="0" class="active">Нет</button>
+            <button type="button" data-val="1">KVIC</button>
+            <button type="button" data-val="2">РМВ-К</button>
+            <button type="button" data-val="3">SEM</button>
+            <button type="button" data-val="4">SSR</button>
+          </div>
+          <p class="hint mt-8">
+            UART-регуляторы подключайте только через оптронную развязку.
+            Земли контроллера и силовой части не соединяйте.
+          </p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="reg-baud">Скорость UART, бод</label>
+          <input id="reg-baud" class="input" type="number" min="1200" max="115200" step="1" inputmode="numeric" value="9600">
+        </div>
+
+        <div class="field">
           <label class="field-label" for="rate">Скорость отбора, мл/мин</label>
           <input id="rate" class="input" type="number" min="0" max="200" step="0.1" inputmode="decimal" placeholder="0.0">
         </div>
@@ -1118,12 +1143,15 @@ function renderCalibration() {
 
   bindSegmented('#ctrl-seg');
   bindSegmented('#out-seg');
+  bindSegmented('#reg-seg');
 
   $('#control-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const body = {
       ctrl_mode: Number($('#ctrl-seg .active')?.dataset.val || 0),
       out_dev: Number($('#out-seg .active')?.dataset.val || 0),
+      regulator: Number($('#reg-seg .active')?.dataset.val || 0),
+      reg_baud: Number($('#reg-baud')?.value || 9600),
       rate_mlmin: Number($('#rate')?.value || 0),
       hys: Number($('#hys')?.value || 0),
       steps_per_ml: Number($('#steps')?.value || 1)
@@ -1359,6 +1387,15 @@ async function renderSelection() {
         </div>
 
         <div class="field">
+          <span class="field-label">Алгоритм отбора</span>
+          <div class="segmented" id="seg-algo">
+            <button type="button" data-val="0" class="active">Классический</button>
+            <button type="button" data-val="1">Тренд</button>
+            <button type="button" data-val="2">Адаптивный</button>
+          </div>
+        </div>
+
+        <div class="field">
           <span class="field-label">Датчик этапа</span>
           <div class="segmented" id="seg-sensor">
             <button type="button" data-val="0" class="active">T куба</button>
@@ -1382,6 +1419,7 @@ async function renderSelection() {
   bindSegmented('#seg-device');
   bindSegmented('#seg-transition');
   bindSegmented('#seg-select');
+  bindSegmented('#seg-algo');
   bindSegmented('#seg-sensor');
 
   try {
@@ -1393,6 +1431,7 @@ async function renderSelection() {
       setSegment('#seg-device', cfg.out_device);
       setSegment('#seg-transition', cfg.transition_mode);
       setSegment('#seg-select', cfg.select_mode);
+      setSegment('#seg-algo', cfg.algo);
       setSegment('#seg-sensor', cfg.sensor);
     }
   } catch (_) {}
@@ -1405,6 +1444,7 @@ async function renderSelection() {
         out_device: segmentValue('#seg-device'),
         transition_mode: segmentValue('#seg-transition'),
         select_mode: segmentValue('#seg-select'),
+        algo: segmentValue('#seg-algo'),
         sensor: segmentValue('#seg-sensor')
       });
       if (!response.ok) throw new Error(String(response.status));
@@ -2126,6 +2166,8 @@ async function loadControlSettings() {
     };
     setActive('#ctrl-seg', data.ctrl_mode);
     setActive('#out-seg', data.out_dev);
+    setActive('#reg-seg', data.regulator);
+    if ($('#reg-baud')) $('#reg-baud').value = data.reg_baud || 9600;
 
     if ($('#rate')) $('#rate').value = Number(data.rate_mlmin || 0).toFixed(1);
     if ($('#hys')) $('#hys').value = Number(data.hys || 0).toFixed(1);

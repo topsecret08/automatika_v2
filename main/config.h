@@ -1,7 +1,7 @@
 #pragma once
 
-#define FW_VERSION          "2.9.5"
-#define FW_NAME             "Automatika v2.9.5"
+#define FW_VERSION          "V0.5 alfa"
+#define FW_NAME             "Automatika V0.5 alfa"
 
 // ============================================================
 // GPIO
@@ -282,6 +282,18 @@
 #define FSEL_MODE_DISTILL_CLOSE_SEC   4.5f
 #define FSEL_MODE_RECTIFY_OPEN_SEC    1.5f
 #define FSEL_MODE_RECTIFY_CLOSE_SEC   8.5f
+
+// Тренд-анализ: пауза и декремент по °C/мин.
+#define TREND_PAUSE_C_PER_MIN         0.3f
+#define TREND_DECREMENT_C_PER_MIN     0.1f
+#define TREND_WINDOW_SEC              60.0f
+
+// Внешний регулятор мощности. Пины по умолчанию не назначены: при -1
+// драйвер не активируется, нагрев идёт через внутренний DAC.
+#define REG_UART_NUM                  1
+#define REG_UART_TX_GPIO             -1
+#define REG_UART_RX_GPIO             -1
+#define REG_SSR_GPIO                 -1
 
 // Начальные параметры расчёта остатка спирта (abv/cfg в NVS).
 #define ABV_VOLUME_START_ML           20000.0f

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "core/state.h"
+#include "select_algorithm.h"
 
 // Периодический отбор: отбор HEADS → BODY → TAILS.
 //
@@ -56,6 +57,12 @@ typedef struct {
     // не изменил параметры вручную.
     bool auto_mode_defaults;
 
+    // Алгоритм отбора и пороги тренда.
+    select_algo_t algo;
+    float trend_pause_c_per_min;
+    float trend_decrement_c_per_min;
+    float trend_window_sec;
+
     // HEADS
     uint32_t heads_timer_sec;
     float    heads_open_time_sec;
@@ -88,6 +95,7 @@ typedef struct {
     bool         t_fix_ready;
     float        ethanol_remaining_ml; // остаток этанола в кубе
     float        ethanol_percent;      // % от начального
+    float        trend_c_per_min;      // тренд T пара
     bool         active;
 } fsel_state_t;
 
@@ -108,6 +116,9 @@ void fsel_force_next_stage(void);
 // body_hysteresis_c, body_decrement_percent, body_min_open_time_sec,
 // heads_timer_sec, tails_temperature_end.
 esp_err_t fsel_set_param(const char *name, float value);
+esp_err_t fsel_set_algo(select_algo_t algo);
+select_algo_t fsel_get_algo(void);
+void      fsel_apply_decrement(float percent);
 
 // Подставить тайминги под режим (только при auto_mode_defaults).
 void fsel_apply_mode_defaults(process_type_t type);
@@ -123,6 +134,7 @@ float        fsel_get_open_time(void);
 float        fsel_get_close_time(void);
 float        fsel_get_countdown(void);
 float        fsel_get_t_fix(void);
+float        fsel_get_trend(void);
 float        fsel_get_hysteresis(void);
 float        fsel_get_decrement(void);
 float        fsel_get_min_open_time(void);

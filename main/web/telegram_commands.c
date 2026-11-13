@@ -1,6 +1,7 @@
 #include "telegram_bot.h"
 
 #include "config.h"
+#include "core/control_config.h"
 #include "core/events.h"
 #include "core/estop.h"
 #include "core/flags.h"
@@ -14,6 +15,7 @@
 #include "control/fraction_logic.h"
 #include "control/fraction_periodic.h"
 #include "control/param_registry.h"
+#include "control/regulator_driver.h"
 #include "control/alcohol_balance.h"
 #include "control/pid_autotune.h"
 
@@ -254,9 +256,10 @@ static char *tg_get_updates(const char *token, long long offset) {
 // ------------------------------------------------------------------
 static void send_help(const char *chat) {
     const char *text =
-        "Automatika v2.9.5\n\n"
+        "Automatika V0.5 alfa\n\n"
         "Выберите задачу. Внутри группы — действия; текстовые команды\n"
-        "/status, /run, /stop, /power, /param, /log сохранены для совместимости.";
+        "/status, /run, /stop, /power, /param, /algo, /regulator, /log\n"
+        "сохранены для совместимости.";
     tg_send(chat, text, KEYBOARD_MAIN);
 }
 
@@ -515,6 +518,42 @@ static void handle_command(const char *chat, const char *text) {
         tg_send(chat, buf, NULL);
         return;
     }
+    if (strcmp(command, "algo") == 0) {
+        if (!args[0]) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), "Алгоритм: %s",
+                     algo_name(fsel_get_algo()));
+            tg_send(chat, buf, NULL);
+            return;
+        }
+        select_algo_t algo = algo_parse(args);
+        esp_err_t err = fsel_set_algo(algo);
+        tg_send(chat, err == ESP_OK ? "Алгоритм изменён." :
+                "Не удалось изменить алгоритм.", NULL);
+        return;
+    }
+    if (strcmp(command, "regulator") == 0) {
+        if (!args[0]) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), "Регулятор: %s",
+                     control_config_regulator_name(
+                         control_config_get_regulator()));
+            tg_send(chat, buf, NULL);
+            return;
+        }
+        regulator_type_t type = REGULATOR_NONE;
+        if (strcmp(args, "kvic") == 0) type = REGULATOR_KVIC;
+        else if (strcmp(args, "rmvk") == 0) type = REGULATOR_RMVK;
+        else if (strcmp(args, "sem") == 0) type = REGULATOR_SEM_AVR;
+        else if (strcmp(args, "ssr") == 0) type = REGULATOR_SSR_PWM;
+        esp_err_t err = control_config_set_regulator(type);
+        if (err == ESP_OK) regulator_init_from_config();
+        char buf[96];
+        snprintf(buf, sizeof(buf), "Регулятор: %s",
+                 control_config_regulator_name(type));
+        tg_send(chat, err == ESP_OK ? buf : "Не удалось сохранить.", NULL);
+        return;
+    }
     if (strcmp(command, "log") == 0) {
         send_log(chat);
         return;
@@ -539,8 +578,15 @@ static void handle_command(const char *chat, const char *text) {
         } else {
             param_id_t id = (param_id_t)(def - param_get_at(0));
             if (param_write(id, value)) {
-                snprintf(buf, sizeof(buf), "%s = %.2f %s — сохранено.",
-                         def->label, (double)param_read(id), def->unit);
+                float actual = param_read(id);
+                if (fabsf(actual - value) > 0.01f) {
+                    snprintf(buf, sizeof(buf),
+                             "%s = %.2f %s — скорректировано до диапазона.",
+                             def->label, (double)actual, def->unit);
+                } else {
+                    snprintf(buf, sizeof(buf), "%s = %.2f %s — сохранено.",
+                             def->label, (double)actual, def->unit);
+                }
             } else {
                 snprintf(buf, sizeof(buf),
                          "Параметр «%s» заблокирован во время работы.",

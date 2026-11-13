@@ -186,7 +186,7 @@ void app_main(void) {
     }
     time_sync_init();
 
-    hal_dac_init();
+    ctrl_heater_init();
     hal_relay_init();
     hal_display_init();
     hal_touch_init();

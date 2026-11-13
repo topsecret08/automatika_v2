@@ -75,15 +75,17 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | POST | `/api/safety` | 🔑 | сброс программной защёлки safety |
 | POST | `/api/estop` | 🔑 | программная фиксация E-STOP |
 | POST | `/api/dose` | 🔑 | `{"volume_ml":10,"rate_mlmin":60}` |
-| POST | `/api/control` | 🔑 | параметры регулирования (см. ниже) |
+| POST | `/api/control` | 🔑 | параметры регулирования и внешний регулятор (см. ниже) |
 
 `POST /api/control` / `POST /api/config`:
 
 ```json
 {"ctrl_mode":1,"out_dev":0,"hys":0.5,
- "rate_mlmin":60,"flow_mlmin":2.0,"steps_per_ml":320}
+ "rate_mlmin":60,"flow_mlmin":2.0,"steps_per_ml":320,
+ "regulator":1,"reg_baud":9600}
 ```
 
+`regulator`: 0 — нет, 1 — KVIC, 2 — РМВ-К, 3 — SEM, 4 — SSR/ШИМ.
 Все поля необязательны; меняются только переданные.
 
 ## 4. События и сессии
@@ -265,6 +267,7 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
 | POST | `/api/selection/config` | 🔑 | частичное обновление параметров |
 | POST | `/api/selection/options` | 🔑 | устройство, переходы, режим отбора, датчик, `enabled` |
 | POST | `/api/selection/param` | 🔑 | `{"name":...,"value":...}` — inline-редактор |
+| POST | `/api/selection/algo` | 🔑 | `{"algo":0|1|2}` — классический/тренд/адаптивный |
 | POST | `/api/selection/next`, `/api/selection/next_stage` | 🔑 | принудительный следующий этап |
 | GET | `/api/alcohol` | 🔓 | начальная заливка и остаток спирта |
 | POST | `/api/alcohol` | 🔑 | `{"volume_ml":20000,"abv_percent":40}` |
@@ -302,7 +305,8 @@ Inline-кнопки: `run`, `stop`, `restart`, `status`, `log`, `estop_ack`.
  "body_hysteresis_c":0.2,"body_decrement_percent":10,
  "body_min_open_time_sec":0.1,"body_temp_fix_delay_sec":0,
  "tails_temperature_end":98.0,"tails_open_time_sec":1.0,
- "tails_close_time_sec":9.0,"auto_mode_defaults":false}
+ "tails_close_time_sec":9.0,"auto_mode_defaults":false,
+ "algo":2,"trend_pause_c_per_min":0.3,"trend_decrement_c_per_min":0.1}
 ```
 
 `*_period_sec` при записи поддерживается для совместимости: из периода
@@ -398,3 +402,31 @@ HTTP 403
 `heads_timer` в реестре задаётся в минутах, остальные тайминги — в секундах.
 Имена-алиасы (`open_time_sec`, `body_hysteresis_c` и т.п.) принимаются для
 совместимости с прежним inline-редактором.
+
+## 15. Датчики и внешние регуляторы
+
+Температурный конвейер (`hal/sensor_pipeline.c`):
+
+1. валидация (85 °C, −127 °C, диапазон);
+2. медиана по 5;
+3. Калман с оценкой тренда °C/мин;
+4. компенсация давления относительно 1013.25 гПа.
+
+`hal_1wire_read()` возвращает сглаженное значение, `hal_1wire_read_fast()` —
+сырое для safety, `hal_1wire_read_compensated(idx, hpa)` — с поправкой,
+`hal_1wire_trend(idx)` — тренд. Невалидное значение — `NAN`.
+
+Внешний регулятор (`control/regulator_driver.c`) выбирается в
+`POST /api/control` полем `regulator`:
+
+| Значение | Тип | Интерфейс |
+|---|---|---|
+| 0 | нет | внутренний DAC |
+| 1 | KVIC | UART, `Pxxx` |
+| 2 | РМВ-К | UART, `Pxxx` |
+| 3 | SEM | UART, `Pxxx` |
+| 4 | SSR/ШИМ | LEDC 5 кГц |
+
+Скорость — `reg_baud`. Пины — `REG_UART_TX_GPIO`, `REG_UART_RX_GPIO`,
+`REG_SSR_GPIO` в `config.h`. UART подключается только через оптронную
+развязку; при `-1` драйвер не активируется.

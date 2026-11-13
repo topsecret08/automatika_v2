@@ -25,6 +25,8 @@ static float            s_rate = DOSER_RATE_MIN_MLMIN;
 static float            s_flow = DOSER_FLOW_DEFAULT_MLMIN;
 static uint32_t         s_steps_per_ml = 1000;
 static bool             s_service = false;
+static regulator_type_t s_regulator = REGULATOR_NONE;
+static uint32_t         s_reg_baud = 9600;
 
 // ---------------------------------------------------------------------
 
@@ -85,6 +87,16 @@ static void load(void) {
     u8 = 0;
     if (nvs_get_u8(s_nvs, "svc", &u8) == ESP_OK)
         s_service = (u8 != 0);
+
+    u8 = 0;
+    if (nvs_get_u8(s_nvs, "reg_type", &u8) == ESP_OK &&
+        u8 < REGULATOR_COUNT)
+        s_regulator = (regulator_type_t)u8;
+
+    u32 = 0;
+    if (nvs_get_u32(s_nvs, "reg_baud", &u32) == ESP_OK &&
+        u32 >= 1200 && u32 <= 115200)
+        s_reg_baud = u32;
 
     s_api_key[sizeof(s_api_key) - 1] = '\0';
 }
@@ -329,4 +341,55 @@ esp_err_t control_config_set_service(bool on) {
 
     ESP_LOGW(TAG, "service mode: %s", on ? "ON" : "off");
     return err;
+}
+
+// --- Внешний регулятор ------------------------------------------------
+
+regulator_type_t control_config_get_regulator(void) {
+    lock();
+    regulator_type_t t = s_regulator;
+    unlock();
+    return t;
+}
+
+esp_err_t control_config_set_regulator(regulator_type_t type) {
+    if (!s_ready || type >= REGULATOR_COUNT) return ESP_ERR_INVALID_ARG;
+
+    lock();
+    s_regulator = type;
+    esp_err_t err = nvs_set_u8(s_nvs, "reg_type", (uint8_t)type);
+    if (err == ESP_OK) err = nvs_commit(s_nvs);
+    unlock();
+
+    ESP_LOGI(TAG, "regulator: %s", control_config_regulator_name(type));
+    return err;
+}
+
+uint32_t control_config_get_regulator_baud(void) {
+    lock();
+    uint32_t baud = s_reg_baud;
+    unlock();
+    return baud;
+}
+
+esp_err_t control_config_set_regulator_baud(uint32_t baud) {
+    if (!s_ready || baud < 1200 || baud > 115200) return ESP_ERR_INVALID_ARG;
+
+    lock();
+    s_reg_baud = baud;
+    esp_err_t err = nvs_set_u32(s_nvs, "reg_baud", baud);
+    if (err == ESP_OK) err = nvs_commit(s_nvs);
+    unlock();
+    return err;
+}
+
+const char *control_config_regulator_name(regulator_type_t type) {
+    switch (type) {
+    case REGULATOR_KVIC:    return "kvic";
+    case REGULATOR_RMVK:    return "rmvk";
+    case REGULATOR_SEM_AVR: return "sem_avr";
+    case REGULATOR_SSR_PWM: return "ssr_pwm";
+    case REGULATOR_NONE:
+    default:                return "none";
+    }
 }

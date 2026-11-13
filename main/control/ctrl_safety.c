@@ -195,7 +195,11 @@ void ctrl_safety_task(void *arg) {
         int64_t now_abv = esp_timer_get_time();
         if (s_last_abv_us == 0 || (now_abv - s_last_abv_us) >= 500000LL) {
             s_last_abv_us = now_abv;
-            abv_update(cube, baro_get_pressure_hpa());
+            float p_hpa = baro_get_pressure_hpa();
+            // Прогнать конвейер независимо от того, вызывали ли его режимы.
+            (void)hal_1wire_read_compensated(0, p_hpa);
+            (void)hal_1wire_read_compensated(1, p_hpa);
+            abv_update(cube, p_hpa);
         }
 
         vTaskDelay(pdMS_TO_TICKS(SAFETY_PERIOD_MS));

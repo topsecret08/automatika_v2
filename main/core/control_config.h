@@ -28,6 +28,15 @@ typedef enum {
     OUTPUT_DEVICE_COUNT
 } output_device_t;
 
+typedef enum {
+    REGULATOR_NONE = 0,          // внутренний DAC/ШИМ
+    REGULATOR_KVIC,              // внешний UART-регулятор
+    REGULATOR_RMVK,              // внешний UART-регулятор
+    REGULATOR_SEM_AVR,           // внешний UART-регулятор
+    REGULATOR_SSR_PWM,           // внешний SSR по ШИМ
+    REGULATOR_COUNT
+} regulator_type_t;
+
 #define API_KEY_LEN        33        // 32 hex + '\0'
 #define API_KEY_NVS_NS     "automatika"
 #define API_KEY_NVS_KEY    "api_key"
@@ -51,6 +60,13 @@ esp_err_t       control_config_set_flow_ml_min(float flow);
 
 uint32_t        control_config_get_steps_per_ml(void);
 esp_err_t       control_config_set_steps_per_ml(uint32_t steps);
+
+// --- Внешний регулятор мощности -------------------------------------
+regulator_type_t control_config_get_regulator(void);
+esp_err_t        control_config_set_regulator(regulator_type_t type);
+uint32_t         control_config_get_regulator_baud(void);
+esp_err_t        control_config_set_regulator_baud(uint32_t baud);
+const char      *control_config_regulator_name(regulator_type_t type);
 
 // --- API key ---------------------------------------------------------
 bool            control_config_api_has_key(void);

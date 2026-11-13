@@ -66,6 +66,8 @@ static void modal_close(void) {
         s_modal = NULL;
         s_modal_value = NULL;
     }
+    lv_group_t *g = lv_group_get_default();
+    if (g) lv_group_set_editing(g, false);
 }
 
 static void modal_cancel_cb(lv_event_t *event) {
@@ -102,6 +104,9 @@ static void open_edit_modal(param_id_t id) {
 
     s_modal_param = id;
     s_modal_edit = param_current(id);
+
+    lv_group_t *group = lv_group_get_default();
+    if (group) lv_group_set_editing(group, true);
 
     s_modal = lv_obj_create(lv_scr_act());
     lv_obj_set_size(s_modal, 340, 200);

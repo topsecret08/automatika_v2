@@ -59,8 +59,13 @@ void ui_session_indicator_update(void) {
     steam = baro_correct_boiling_point(steam, baro_get_pressure_hpa());
 
     char buf[96];
-    snprintf(buf, sizeof(buf), "● %s · %.1f° →",
-             state_stage_name(st->stage), (double)steam);
+    if (isfinite(steam) && steam > -50.0f) {
+        snprintf(buf, sizeof(buf), "● %s · %.1f° →",
+                 state_stage_name(st->stage), (double)steam);
+    } else {
+        snprintf(buf, sizeof(buf), "● %s · --.-° →",
+                 state_stage_name(st->stage));
+    }
     lv_label_set_text(s_label, buf);
     lv_obj_clear_flag(s_btn, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(s_btn);

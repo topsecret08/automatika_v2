@@ -14,7 +14,12 @@ idf_component_register(
         "test_level_logic.c"
         "test_event_log.c"
         "test_pump_doser.c"
+        "test_sensor_pipeline.c"
+        "test_selection_logic.c"
+        "test_interface_conflicts.c"
         "${PROD_DIR}/hal/temp_filter.c"
+        "${PROD_DIR}/hal/sensor_pipeline.c"
+        "${PROD_DIR}/control/select_algorithm.c"
         "${PROD_DIR}/level/level_sensor.c"
         "${PROD_DIR}/core/event_log.c"
         "${PROD_DIR}/core/events.c"
@@ -31,4 +36,5 @@ idf_component_register(
         driver
         esp_timer
         sdmmc
+    WHOLE_ARCHIVE
 )

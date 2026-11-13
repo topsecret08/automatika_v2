@@ -1,5 +1,6 @@
 #include "hal_1wire.h"
 #include "temp_filter.h"
+#include "sensor_pipeline.h"
 #include "config.h"
 #include "nvs.h"
 #include "onewire_bus.h"
@@ -39,6 +40,10 @@ static float   s_calibrated[MAX_SENSORS];
 static float   s_latest_cal[MAX_SENSORS];
 static int64_t s_update_us[MAX_SENSORS];
 static bool    s_have[MAX_SENSORS];
+static TempPipeline s_pipe[MAX_SENSORS];
+static bool    s_pipe_ready[MAX_SENSORS];
+static int64_t s_pipe_source_us[MAX_SENSORS];
+static float   s_pipe_out[MAX_SENSORS];
 
 static onewire_bus_handle_t s_bus = NULL;
 static SemaphoreHandle_t s_bus_mtx = NULL;
@@ -160,6 +165,11 @@ esp_err_t hal_1wire_init(void) {
         }
     }
     onewire_del_device_iter(it);
+    for (int i = 0; i < count; i++) {
+        s_pipe_source_us[i] = -1;
+        s_pipe_out[i] = -127.0f;
+        s_pipe_ready[i] = false;
+    }
     ESP_LOGI(TAG, "Found %d DS18B20 (12-bit)", count);
 
     if (count > 0) {
@@ -218,8 +228,53 @@ float hal_1wire_read(int idx) {
     int64_t now = esp_timer_get_time();
     xSemaphoreTake(s_cache_mtx, portMAX_DELAY);
     float v = cache_fresh(idx, now) ? s_calibrated[idx] : -127.0f;
+    if (cache_fresh(idx, now)) {
+        if (!s_pipe_ready[idx]) {
+            temp_pipeline_init(&s_pipe[idx], 0.01f, 0.1f);
+            s_pipe_ready[idx] = true;
+            s_pipe_source_us[idx] = 0;
+        }
+        if (s_update_us[idx] != s_pipe_source_us[idx]) {
+            s_pipe_source_us[idx] = s_update_us[idx];
+            float filtered = temp_pipeline_update(&s_pipe[idx], v, 1013.25f);
+            s_pipe_out[idx] = isfinite(filtered) ? filtered : -127.0f;
+        }
+        v = s_pipe_out[idx];
+    }
     xSemaphoreGive(s_cache_mtx);
     return v;
+}
+
+float hal_1wire_read_compensated(int idx, float pressure_hpa) {
+    if (idx < 0 || idx >= count || !s_cache_mtx) return -127.0f;
+    int64_t now = esp_timer_get_time();
+    xSemaphoreTake(s_cache_mtx, portMAX_DELAY);
+    float v = cache_fresh(idx, now) ? s_calibrated[idx] : -127.0f;
+    if (cache_fresh(idx, now)) {
+        if (!s_pipe_ready[idx]) {
+            temp_pipeline_init(&s_pipe[idx], 0.01f, 0.1f);
+            s_pipe_ready[idx] = true;
+            s_pipe_source_us[idx] = 0;
+        }
+        if (s_update_us[idx] != s_pipe_source_us[idx]) {
+            s_pipe_source_us[idx] = s_update_us[idx];
+            float filtered = temp_pipeline_update(&s_pipe[idx], v, pressure_hpa);
+            s_pipe_out[idx] = isfinite(filtered) ? filtered : -127.0f;
+        }
+        v = (s_pipe_out[idx] < -100.0f)
+            ? -127.0f
+            : temp_pipeline_compensate(&s_pipe[idx], pressure_hpa);
+    }
+    xSemaphoreGive(s_cache_mtx);
+    return v;
+}
+
+float hal_1wire_trend(int idx) {
+    if (idx < 0 || idx >= count || !s_cache_mtx) return 0.0f;
+    xSemaphoreTake(s_cache_mtx, portMAX_DELAY);
+    float trend = s_pipe_ready[idx] ? temp_pipeline_get_trend(&s_pipe[idx]) : 0.0f;
+    xSemaphoreGive(s_cache_mtx);
+    return trend;
 }
 
 int hal_1wire_read_all(float *out, int max) {

@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "ui_glass_theme.h"
 #include "ui_screen_home.h"
+#include "ui_screen_advanced.h"
 #include "ui_screen_selection.h"
 #include "haptic.h"
 
@@ -59,6 +60,7 @@ static void enter_ota(void)      { ui_fota_menu(); }
 static void enter_api(void);
 static void enter_lang(void)     { ui_settings_general(); }
 static void enter_about(void);
+static void enter_advanced(void)  { ui_screen_advanced_create(); }
 
 static void enter_start(void) {
     if (process_control_start(NULL) == ESP_OK) {
@@ -104,6 +106,7 @@ ui_menu_item menu_system[] = {
     { "Обновление",   enter_ota,   NULL, 0 },
     { "API-ключ",     enter_api,   NULL, 0 },
     { "Язык",         enter_lang,  NULL, 0 },
+    { "Отбор/регулятор", enter_advanced, NULL, 0 },
     { "О устройстве", enter_about, NULL, 0 },
 };
 

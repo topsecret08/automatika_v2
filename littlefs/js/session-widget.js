@@ -52,8 +52,8 @@ export function updateSession(data = {}) {
   if (typeof data.running === 'boolean') session.running = data.running;
   if (typeof data.visible === 'boolean') session.visible = data.visible;
   if (data.stage) session.stage = data.stage;
-  if (Number.isFinite(Number(data.tSteam))) session.tSteam = Number(data.tSteam);
-  if (Number.isFinite(Number(data.countdown))) session.countdown = Number(data.countdown);
+  if ('tSteam' in data) session.tSteam = Number(data.tSteam);
+  if ('countdown' in data) session.countdown = Number(data.countdown);
   renderWidget();
 }
 
@@ -81,12 +81,19 @@ function renderWidget() {
     return;
   }
 
+  const tempText = Number.isFinite(session.tSteam)
+    ? session.tSteam.toFixed(1) + '°'
+    : '--.-°';
+  const countdownText = Number.isFinite(session.countdown)
+    ? session.countdown.toFixed(1) + ' с'
+    : '—';
+
   node.style.display = 'flex';
   node.innerHTML = `
     <span class="sw-dot"></span>
     <div class="sw-info">
       <div class="sw-title">Работа · ${session.stage}</div>
-      <div class="sw-sub">${session.tSteam.toFixed(1)}° · до смены ${session.countdown.toFixed(1)} с</div>
+      <div class="sw-sub">${tempText} · до смены ${countdownText}</div>
     </div>
     <span class="sw-return">→</span>
   `;
