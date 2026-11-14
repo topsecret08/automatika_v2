@@ -19,16 +19,32 @@ TEST_CASE("heater clamps invalid values", "[heater]") {
 }
 
 TEST_CASE("heater blocks power on estop/safety/low level", "[heater]") {
-    TEST_ASSERT_FALSE(heater_power_allowed(50.0f, true, true, false, false));
-    TEST_ASSERT_FALSE(heater_power_allowed(50.0f, false, false, false, false));
-    TEST_ASSERT_FALSE(heater_power_allowed(50.0f, false, true, true, true));
-    TEST_ASSERT_TRUE(heater_power_allowed(50.0f, false, true, true, false));
+    TEST_ASSERT_FALSE(heater_power_allowed(
+        50.0f, true, true, false, false, false, true));
+    TEST_ASSERT_FALSE(heater_power_allowed(
+        50.0f, false, false, false, false, false, true));
+    TEST_ASSERT_FALSE(heater_power_allowed(
+        50.0f, false, true, true, true, false, true));
+    TEST_ASSERT_TRUE(heater_power_allowed(
+        50.0f, false, true, true, false, false, true));
 }
 
 TEST_CASE("heater zero is always allowed", "[heater]") {
-    TEST_ASSERT_TRUE(heater_power_allowed(0.0f, true, false, true, true));
+    TEST_ASSERT_TRUE(heater_power_allowed(
+        0.0f, true, false, true, true, true, false));
 }
 
-TEST_CASE("missing level sensor does not block heater", "[heater]") {
-    TEST_ASSERT_TRUE(heater_power_allowed(50.0f, false, true, false, false));
+TEST_CASE("missing optional level sensor does not block heater", "[heater]") {
+    TEST_ASSERT_TRUE(heater_power_allowed(
+        50.0f, false, true, false, false, false, true));
+}
+
+TEST_CASE("required missing level sensor blocks heater", "[heater]") {
+    TEST_ASSERT_FALSE(heater_power_allowed(
+        50.0f, false, true, false, false, true, true));
+}
+
+TEST_CASE("manual heating outside run/service is blocked", "[heater]") {
+    TEST_ASSERT_FALSE(heater_power_allowed(
+        50.0f, false, true, true, false, false, false));
 }

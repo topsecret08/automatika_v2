@@ -98,7 +98,7 @@ void ui_main_menu(void) {
 void ui_show_welcome(void) {
     clear_screen();
     lv_obj_t *t = lv_label_create(g_screen);
-    lv_label_set_text(t, "АВТОМАТИКА V0.5 alfa\n\nДобро пожаловать!");
+    lv_label_set_text(t, "АВТОМАТИКА V0.6 beta\n\nДобро пожаловать!");
     lv_obj_set_style_text_font(t, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(t, LV_ALIGN_CENTER, 0, -40);

@@ -119,7 +119,7 @@ static void show_hello_step(void) {
     lv_scr_load(scr);
 
     lv_obj_t *t1 = lv_label_create(scr);
-    lv_label_set_text(t1, "АВТОМАТИКА V0.5 alfa");
+    lv_label_set_text(t1, "АВТОМАТИКА V0.6 beta");
     lv_obj_set_style_text_font(t1, &lv_font_montserrat_28, 0);
     lv_obj_set_style_text_color(t1, GLASS_BLUE, 0);
     lv_obj_align(t1, LV_ALIGN_TOP_MID, 0, 30);

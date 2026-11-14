@@ -54,7 +54,7 @@ esp_err_t brewfather_export_batch(const char *batch_name) {
 
     cJSON_AddStringToObject(root, "name", batch_name ? batch_name : "Automatika");
     cJSON_AddStringToObject(root, "status", "Brewing");
-    cJSON_AddStringToObject(root, "brewer", "Automatika V0.5 alfa");
+    cJSON_AddStringToObject(root, "brewer", "Automatika V0.6 beta");
     cJSON_AddNumberToObject(root, "batchSize", 20.0f);
 
     cJSON *stats = cJSON_CreateObject();

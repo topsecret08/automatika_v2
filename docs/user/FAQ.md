@@ -1,6 +1,6 @@
 # FAQ
 
-Ответы соответствуют прошивке V0.5 alfa. Если поведение расходится с текстом,
+Ответы соответствуют прошивке V0.6 beta. Если поведение расходится с текстом,
 источник истины — код в `main/` и `GET /api/health`.
 
 ---
@@ -152,4 +152,4 @@ Service Worker и установка приложения требуют secure 
 `GET /api/health` → поле `reset` (код причины сброса ESP-IDF) и
 `GET /api/events?limit=100`. Частые причины: просадка питания при включении
 нагрева, перегрев модуля, watchdog из-за зависшей задачи. Дерево действий —
-[TROUBLESHOOTING.md](../service/TROUBLESHOOTING.md), §V0.5 alfa.
+[TROUBLESHOOTING.md](../service/TROUBLESHOOTING.md), §V0.6 beta.

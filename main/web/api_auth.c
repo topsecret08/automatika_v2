@@ -5,6 +5,7 @@
 #include "web/telegram_bot.h"
 
 #include "esp_log.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 
 #include <stdio.h>
@@ -59,6 +60,41 @@ esp_err_t api_reject_unauthorized(httpd_req_t *req) {
     httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
                         "{\"error\":\"unauthorized\",\"hint\":\"send X-API-Key\"}");
     return ESP_FAIL;
+}
+
+static bool token_eq(const char *a, const char *b) {
+    size_t la = strlen(a), lb = strlen(b);
+    uint8_t diff = (uint8_t)(la ^ lb);
+    size_t n = (la < lb) ? la : lb;
+    for (size_t i = 0; i < n; i++) diff |= (uint8_t)(a[i] ^ b[i]);
+    return diff == 0;
+}
+
+static char s_ws_token[33] = "";
+static int64_t s_ws_expires_us = 0;
+
+esp_err_t api_auth_ws_token_issue(char *out, size_t out_len) {
+    if (!out || out_len < sizeof(s_ws_token)) return ESP_ERR_INVALID_ARG;
+
+    uint8_t rnd[16];
+    esp_fill_random(rnd, sizeof(rnd));
+    static const char hex[] = "0123456789abcdef";
+    for (int i = 0; i < 16; i++) {
+        s_ws_token[i * 2] = hex[rnd[i] >> 4];
+        s_ws_token[i * 2 + 1] = hex[rnd[i] & 0xF];
+    }
+    s_ws_token[32] = '\0';
+    s_ws_expires_us = esp_timer_get_time() + 60LL * 1000000LL;
+
+    snprintf(out, out_len, "%s", s_ws_token);
+    return ESP_OK;
+}
+
+bool api_auth_ws_token_check(const char *token) {
+    if (!control_config_api_has_key()) return true;  // bootstrap
+    if (!token || !token[0]) return false;
+    if (esp_timer_get_time() > s_ws_expires_us) return false;
+    return token_eq(token, s_ws_token);
 }
 
 bool api_check_telegram_secret(httpd_req_t *req) {

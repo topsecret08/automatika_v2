@@ -47,6 +47,20 @@ static bool is_uart_type(regulator_type_t t) {
            t == REGULATOR_SEM_AVR;
 }
 
+static bool is_pwm_type(regulator_type_t t) {
+    return t == REGULATOR_SSR_PWM || t == REGULATOR_FINGLAI_SSVR;
+}
+
+static uint32_t pwm_zero_duty(void) {
+    uint32_t duty_max = regulator_duty_max(s_cfg.pwm_res);
+    if (s_cfg.type == REGULATOR_FINGLAI_SSVR) {
+        return ssvr_control_to_duty(0.0f, duty_max,
+                                    s_cfg.analog_min_pct,
+                                    s_cfg.analog_max_pct);
+    }
+    return 0;
+}
+
 static esp_err_t pwm_write_duty(uint32_t logical_duty) {
     if (!s_pwm_ready) return ESP_ERR_INVALID_STATE;
 
@@ -94,9 +108,9 @@ static esp_err_t pwm_init(const regulator_config_t *cfg) {
         return err;
     }
 
-    uint32_t zero = regulator_apply_inversion(
-        regulator_power_to_duty_bits(0.0f, cfg->pwm_res),
-        cfg->pwm_res, cfg->pwm_inverted);
+    uint32_t zero = regulator_apply_inversion(pwm_zero_duty(),
+                                              cfg->pwm_res,
+                                              cfg->pwm_inverted);
 
     ledc_channel_config_t channel = {
         .gpio_num = cfg->pwm_gpio,
@@ -116,7 +130,7 @@ static esp_err_t pwm_init(const regulator_config_t *cfg) {
     }
 
     s_pwm_ready = true;
-    err = pwm_write_duty(0);
+    err = pwm_write_duty(pwm_zero_duty());
     if (err != ESP_OK) {
         s_pwm_ready = false;
         set_error_err("ledc zero duty", err);
@@ -135,7 +149,20 @@ static esp_err_t pwm_set_power(float percent) {
     if (!s_pwm_ready) return ESP_ERR_INVALID_STATE;
 
     percent = clamp_pct(percent);
-    uint32_t duty = regulator_power_to_duty_bits(percent, s_cfg.pwm_res);
+    uint32_t duty_max = regulator_duty_max(s_cfg.pwm_res);
+    uint32_t duty;
+
+    if (s_cfg.type == REGULATOR_FINGLAI_SSVR) {
+        float control = s_cfg.ssvr_power_sqrt
+                            ? ssvr_power_to_control(percent)
+                            : percent;
+        duty = ssvr_control_to_duty(control, duty_max,
+                                    s_cfg.analog_min_pct,
+                                    s_cfg.analog_max_pct);
+    } else {
+        duty = regulator_power_to_duty_bits(percent, s_cfg.pwm_res);
+    }
+
     esp_err_t err = pwm_write_duty(duty);
     if (err != ESP_OK) {
         set_error_err("ledc_set_duty", err);
@@ -154,7 +181,7 @@ void regulator_emergency_off(void) {
     s_power_set = 0.0f;
 
     if (s_pwm_ready) {
-        esp_err_t err = pwm_write_duty(0);
+        esp_err_t err = pwm_write_duty(pwm_zero_duty());
         if (err != ESP_OK)
             ESP_LOGE(TAG, "PWM emergency off failed: %s", esp_err_to_name(err));
     }
@@ -177,11 +204,17 @@ void regulator_deinit(void) {
 static bool config_valid(const regulator_config_t *cfg) {
     if (!cfg || cfg->type >= REGULATOR_COUNT) return false;
 
-    if (cfg->type == REGULATOR_SSR_PWM) {
+    if (is_pwm_type(cfg->type)) {
         if (cfg->pwm_gpio < 0) return false;
         if (!regulator_pwm_gpio_valid(cfg->pwm_gpio)) return false;
         if (!regulator_pwm_freq_valid(cfg->pwm_freq_hz, cfg->pwm_res))
             return false;
+        if (cfg->type == REGULATOR_FINGLAI_SSVR) {
+            if (cfg->analog_range >= ANALOG_RANGE_COUNT) return false;
+            if (!(cfg->analog_min_pct >= 0.0f &&
+                  cfg->analog_max_pct <= 100.0f &&
+                  cfg->analog_min_pct < cfg->analog_max_pct)) return false;
+        }
     }
     if (is_uart_type(cfg->type)) {
         if (cfg->tx_gpio < 0 || cfg->rx_gpio < 0) return false;
@@ -212,7 +245,7 @@ esp_err_t regulator_init(const regulator_config_t *cfg) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (s_cfg.type == REGULATOR_SSR_PWM) {
+    if (is_pwm_type(s_cfg.type)) {
         esp_err_t err = pwm_init(cfg);
         s_ready = (err == ESP_OK);
         if (!s_ready) regulator_emergency_off();
@@ -271,6 +304,10 @@ static regulator_config_t config_from_settings(const regulator_settings_t *s) {
         .pwm_freq_hz = s->pwm_freq_hz,
         .pwm_res = s->pwm_resolution,
         .pwm_inverted = s->pwm_inverted,
+        .analog_range = s->analog_range,
+        .analog_min_pct = s->analog_min_pct,
+        .analog_max_pct = s->analog_max_pct,
+        .ssvr_power_sqrt = s->ssvr_power_sqrt,
     };
     return cfg;
 }
@@ -311,6 +348,18 @@ esp_err_t regulator_apply_settings(const regulator_settings_t *settings) {
     }
     if (settings->uart_baud < 1200 || settings->uart_baud > 115200) {
         set_error("UART baud is invalid");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (settings->analog_range >= ANALOG_RANGE_COUNT) {
+        set_error("analog output range is invalid");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!isfinite(settings->analog_min_pct) ||
+        !isfinite(settings->analog_max_pct) ||
+        settings->analog_min_pct < 0.0f ||
+        settings->analog_max_pct > 100.0f ||
+        !(settings->analog_min_pct < settings->analog_max_pct)) {
+        set_error("analog calibration must satisfy 0 <= min < max <= 100");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -374,6 +423,7 @@ esp_err_t regulator_set_power(float percent) {
     esp_err_t err = ESP_OK;
     switch (s_cfg.type) {
     case REGULATOR_SSR_PWM:
+    case REGULATOR_FINGLAI_SSVR:
         err = pwm_set_power(percent);
         break;
 
@@ -416,20 +466,40 @@ regulator_type_t regulator_get_type(void) { return s_cfg.type; }
 
 int regulator_get_gpio(void) {
     if (s_cfg.type == REGULATOR_NONE) return -1;
-    if (s_cfg.type == REGULATOR_SSR_PWM) return s_cfg.pwm_gpio;
+    if (is_pwm_type(s_cfg.type)) return s_cfg.pwm_gpio;
     return s_cfg.tx_gpio;
 }
 
 int regulator_get_pwm_freq(void) {
-    return (s_cfg.type == REGULATOR_SSR_PWM) ? (int)s_cfg.pwm_freq_hz : 0;
+    return is_pwm_type(s_cfg.type) ? (int)s_cfg.pwm_freq_hz : 0;
 }
 
 int regulator_get_pwm_resolution(void) {
-    return (s_cfg.type == REGULATOR_SSR_PWM) ? (int)s_cfg.pwm_res : 0;
+    return is_pwm_type(s_cfg.type) ? (int)s_cfg.pwm_res : 0;
 }
 
 bool regulator_get_pwm_inverted(void) {
-    return (s_cfg.type == REGULATOR_SSR_PWM) ? s_cfg.pwm_inverted : false;
+    return is_pwm_type(s_cfg.type) ? s_cfg.pwm_inverted : false;
+}
+
+int regulator_get_analog_range(void) {
+    return (s_cfg.type == REGULATOR_FINGLAI_SSVR)
+               ? (int)s_cfg.analog_range : -1;
+}
+
+float regulator_get_analog_min_pct(void) {
+    return (s_cfg.type == REGULATOR_FINGLAI_SSVR)
+               ? s_cfg.analog_min_pct : 0.0f;
+}
+
+float regulator_get_analog_max_pct(void) {
+    return (s_cfg.type == REGULATOR_FINGLAI_SSVR)
+               ? s_cfg.analog_max_pct : 0.0f;
+}
+
+bool regulator_get_ssvr_power_sqrt(void) {
+    return (s_cfg.type == REGULATOR_FINGLAI_SSVR)
+               ? s_cfg.ssvr_power_sqrt : false;
 }
 
 const char *regulator_last_error(void) { return s_error; }

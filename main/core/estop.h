@@ -23,6 +23,7 @@ void      estop_task(void *arg);
 
 // true — авария активна (кнопка нажата или защёлка не снята).
 bool      estop_is_pressed(void);
+bool      estop_is_healthy(void);
 // Состояние линии сейчас: true — кнопка нажата (разомкнут NC-контакт).
 bool      estop_button_down(void);
 int       estop_raw_level(void);

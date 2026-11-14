@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 
-/* Samovar / Blynk bridge + MQTT bridge for Automatika V0.5 alfa.
+/* Samovar / Blynk bridge + MQTT bridge for Automatika V0.6 beta.
  *
  * Blynk pin map (Samovar app):
  *   V0  - steam temperature, read-only

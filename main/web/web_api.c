@@ -134,18 +134,22 @@ static esp_err_t h_state(httpd_req_t *r) {
     process_state_t snap;
     state_snapshot(&snap);
     process_state_t *s = &snap;
-    char json[1152];
+    char json[1280];
     snprintf(json, sizeof(json),
         "{\"type\":%d,\"stage\":%d,\"cube\":%.2f,\"col\":%.2f,"
         "\"power\":%.1f,\"power_auto\":%.1f,\"power_manual\":%d,"
         "\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
         "\"pressure\":%.2f,\"vacuum\":%.0f,\"running\":%d,"
         "\"paused\":%d,\"elapsed\":%u,\"safety\":%d,"
-        "\"estop\":%d,\"slope0\":%.2f,\"rising0\":%d,"
+        "\"estop\":%d,\"estop_healthy\":%d,\"service\":%d,"
+        "\"level_required_fault\":%d,"
+        "\"slope0\":%.2f,\"rising0\":%d,"
         "\"mode\":\"%s\",\"ctrl_mode\":%d,\"out_dev\":%d,"
         "\"regulator\":%d,\"regulator_name\":\"%s\",\"regulator_ready\":%d,"
         "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d,"
         "\"pwm_resolution\":%d,\"pwm_inverted\":%d,"
+        "\"analog_range\":%d,\"analog_min_pct\":%.2f,"
+        "\"analog_max_pct\":%.2f,\"ssvr_power_sqrt\":%d,"
         "\"regulator_error\":\"%s\"}",
         (int)s->type, (int)s->stage, s->cube_temp, s->column_temp,
         ctrl_heater_get_percent(), ctrl_heater_get_auto_percent(),
@@ -154,6 +158,9 @@ static esp_err_t h_state(httpd_req_t *r) {
         s->tails_collected_ml, s->pressure_bar, s->vacuum_mbar,
         s->is_running ? 1 : 0, s->is_paused ? 1 : 0, (unsigned)s->elapsed_sec,
         ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0,
+        estop_is_healthy() ? 1 : 0,
+        control_config_service_enabled() ? 1 : 0,
+        level_is_required_fault() ? 1 : 0,
         hal_1wire_slope(0), hal_1wire_rising(0) ? 1 : 0,
         mode_get() ? mode_get()->id : "none",
         (int)control_config_get_mode(),
@@ -163,6 +170,10 @@ static esp_err_t h_state(httpd_req_t *r) {
         regulator_is_ready() ? 1 : 0,
         regulator_get_gpio(), regulator_get_pwm_freq(),
         regulator_get_pwm_resolution(), regulator_get_pwm_inverted() ? 1 : 0,
+        regulator_get_analog_range(),
+        (double)regulator_get_analog_min_pct(),
+        (double)regulator_get_analog_max_pct(),
+        regulator_get_ssvr_power_sqrt() ? 1 : 0,
         regulator_last_error());
     return send_json(r, json);
 }
@@ -307,19 +318,28 @@ static esp_err_t h_power(httpd_req_t *r) {
         events_log(EVENT_USER_ACTION, "Web: manual power %.0f%%", pct);
     }
 
-    char out[320];
+    char out[448];
     snprintf(out, sizeof(out),
              "{\"power\":%.1f,\"power_auto\":%.1f,"
-             "\"power_manual\":%d,\"regulator_ready\":%d,"
+             "\"power_manual\":%d,\"running\":%d,\"service\":%d,"
+             "\"regulator_ready\":%d,"
              "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d,"
              "\"pwm_resolution\":%d,\"pwm_inverted\":%d,"
+             "\"analog_range\":%d,\"analog_min_pct\":%.2f,"
+             "\"analog_max_pct\":%.2f,\"ssvr_power_sqrt\":%d,"
              "\"regulator_error\":\"%s\"}",
              ctrl_heater_get_percent(), ctrl_heater_get_auto_percent(),
              ctrl_heater_manual_active() ? 1 : 0,
+             state_get()->is_running ? 1 : 0,
+             control_config_service_enabled() ? 1 : 0,
              regulator_is_ready() ? 1 : 0,
              regulator_get_gpio(), regulator_get_pwm_freq(),
              regulator_get_pwm_resolution(),
              regulator_get_pwm_inverted() ? 1 : 0,
+             regulator_get_analog_range(),
+             (double)regulator_get_analog_min_pct(),
+             (double)regulator_get_analog_max_pct(),
+             regulator_get_ssvr_power_sqrt() ? 1 : 0,
              regulator_last_error());
     return send_json(r, out);
 }
@@ -348,15 +368,18 @@ static esp_err_t h_safety(httpd_req_t *r) {
 // --- установки управления (control_config) ----------------------------
 static esp_err_t h_control(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
+        if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
         regulator_settings_t rs;
         control_config_get_regulator_settings(&rs);
-        char json[640];
+        char json[896];
         snprintf(json, sizeof(json),
                  "{\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
                  "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
                  "\"regulator\":%d,\"regulator_name\":\"%s\",\"reg_baud\":%u,"
                  "\"reg_gpio\":%d,\"reg_freq\":%lu,\"reg_resolution\":%u,"
-                 "\"reg_inverted\":%d,"
+                 "\"reg_inverted\":%d,\"analog_range\":%d,"
+                 "\"analog_min_pct\":%.2f,\"analog_max_pct\":%.2f,"
+                 "\"ssvr_power_sqrt\":%d,"
                  "\"regulator_ready\":%d,\"regulator_gpio\":%d,"
                  "\"pwm_freq_hz\":%lu,\"pwm_resolution\":%u,"
                  "\"pwm_inverted\":%d,\"regulator_error\":\"%s\","
@@ -374,6 +397,9 @@ static esp_err_t h_control(httpd_req_t *r) {
                  (unsigned long)rs.pwm_freq_hz,
                  (unsigned)rs.pwm_resolution,
                  rs.pwm_inverted ? 1 : 0,
+                 (int)rs.analog_range,
+                 (double)rs.analog_min_pct, (double)rs.analog_max_pct,
+                 rs.ssvr_power_sqrt ? 1 : 0,
                  regulator_is_ready() ? 1 : 0,
                  regulator_get_gpio(),
                  (unsigned long)rs.pwm_freq_hz,
@@ -386,7 +412,7 @@ static esp_err_t h_control(httpd_req_t *r) {
 
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
-    char body[384];
+    char body[512];
     if (recv_body(r, body, sizeof(body)) <= 0)
         return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
 
@@ -454,6 +480,26 @@ static esp_err_t h_control(httpd_req_t *r) {
         v = cJSON_GetObjectItemCaseSensitive(root, "reg_baud");
         if (cJSON_IsNumber(v)) {
             rs.uart_baud = (uint32_t)v->valueint;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "analog_range");
+        if (cJSON_IsNumber(v)) {
+            rs.analog_range = (analog_range_t)v->valueint;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "analog_min_pct");
+        if (cJSON_IsNumber(v)) {
+            rs.analog_min_pct = (float)v->valuedouble;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "analog_max_pct");
+        if (cJSON_IsNumber(v)) {
+            rs.analog_max_pct = (float)v->valuedouble;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "ssvr_power_sqrt");
+        if (cJSON_IsBool(v)) {
+            rs.ssvr_power_sqrt = cJSON_IsTrue(v);
             reg_change = true;
         }
         if (reg_change)
@@ -990,14 +1036,16 @@ static esp_err_t h_config(httpd_req_t *r) {
         if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
         regulator_settings_t rs;
         control_config_get_regulator_settings(&rs);
-        char json[640];
+        char json[896];
         snprintf(json, sizeof(json),
                  "{\"schema\":%u,\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
                  "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
                  "\"service\":%d,\"api_key_set\":%d,\"lua\":%d,"
                  "\"algo\":%d,\"regulator\":%d,\"reg_baud\":%u,"
                  "\"reg_gpio\":%d,\"reg_freq\":%lu,\"reg_resolution\":%u,"
-                 "\"reg_inverted\":%d,\"regulator_ready\":%d,"
+                 "\"reg_inverted\":%d,\"analog_range\":%d,"
+                 "\"analog_min_pct\":%.2f,\"analog_max_pct\":%.2f,"
+                 "\"ssvr_power_sqrt\":%d,\"regulator_ready\":%d,"
                  "\"regulator_error\":\"%s\"}",
                  (unsigned)nvs_migration_schema_version(),
                  (int)control_config_get_mode(),
@@ -1016,6 +1064,9 @@ static esp_err_t h_config(httpd_req_t *r) {
                  (unsigned long)rs.pwm_freq_hz,
                  (unsigned)rs.pwm_resolution,
                  rs.pwm_inverted ? 1 : 0,
+                 (int)rs.analog_range,
+                 (double)rs.analog_min_pct, (double)rs.analog_max_pct,
+                 rs.ssvr_power_sqrt ? 1 : 0,
                  regulator_is_ready() ? 1 : 0,
                  regulator_last_error());
         return send_json(r, json);
@@ -1170,8 +1221,48 @@ static esp_err_t h_ota_confirm(httpd_req_t *r) {
 // ============================================================
 // WebSocket
 // ============================================================
+static bool ws_auth_ok(httpd_req_t *r) {
+    if (!control_config_api_has_key()) return true;
+
+    char hdr[128];
+    if (httpd_req_get_hdr_value_str(r, "Sec-WebSocket-Protocol",
+                                     hdr, sizeof(hdr)) == ESP_OK) {
+        char *p = strstr(hdr, "automatika");
+        if (p) {
+            p += strlen("automatika");
+            while (*p == ',' || *p == ' ') p++;
+            if (*p && api_auth_ws_token_check(p)) return true;
+        }
+    }
+
+    char auth[96];
+    if (httpd_req_get_hdr_value_str(r, "Authorization", auth, sizeof(auth)) == ESP_OK) {
+        const char *b = strstr(auth, "Bearer ");
+        if (b && api_auth_ws_token_check(b + 7)) return true;
+    }
+    return false;
+}
+
+static esp_err_t h_ws_token(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char token[33];
+    esp_err_t err = api_auth_ws_token_issue(token, sizeof(token));
+    if (err != ESP_OK)
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"token\"}");
+
+    char out[96];
+    snprintf(out, sizeof(out), "{\"token\":\"%s\",\"ttl_sec\":60}", token);
+    return send_json(r, out);
+}
+
 static esp_err_t h_ws(httpd_req_t *r) {
-    if (r->method == HTTP_GET) return ESP_OK;
+    if (r->method == HTTP_GET) {
+        if (!ws_auth_ok(r))
+            return send_err(r, "401 Unauthorized",
+                            "{\"error\":\"ws unauthorized\"}");
+        return ESP_OK;
+    }
 
     httpd_ws_frame_t in = { .type = HTTPD_WS_TYPE_TEXT };
     uint8_t inbuf[32];
@@ -2112,10 +2203,11 @@ void web_api_register(httpd_handle_t srv) {
 
     actuator_test_register(srv);
 
-    // Новые эндпоинты V0.5 alfa: health, журнал, managed OTA, бэкап, ключи,
+    // Новые эндпоинты V0.6 beta: health, журнал, managed OTA, бэкап, ключи,
     // телеметрия (WS), конфигурация.
     httpd_uri_t extra[] = {
         { .uri="/api/health",              .method=HTTP_GET,  .handler=h_health },
+        { .uri="/api/ws-token",            .method=HTTP_GET,  .handler=h_ws_token },
         { .uri="/api/events",              .method=HTTP_GET,  .handler=h_events },
         { .uri="/api/ota",                 .method=HTTP_GET,  .handler=h_ota_get },
         { .uri="/api/ota/url",             .method=HTTP_POST, .handler=h_ota_url },

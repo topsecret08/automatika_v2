@@ -257,7 +257,7 @@ static char *tg_get_updates(const char *token, long long offset) {
 // ------------------------------------------------------------------
 static void send_help(const char *chat) {
     const char *text =
-        "Automatika V0.5 alfa\n\n"
+        "Automatika V0.6 beta\n\n"
         "Выберите задачу. Внутри группы — действия; текстовые команды\n"
         "/status, /run, /stop, /power, /param, /algo, /regulator, /log\n"
         "сохранены для совместимости.";
@@ -570,6 +570,8 @@ static void handle_command(const char *chat, const char *text) {
         else if (strcmp(args, "rmvk") == 0) type = REGULATOR_RMVK;
         else if (strcmp(args, "sem") == 0) type = REGULATOR_SEM_AVR;
         else if (strcmp(args, "ssr") == 0) type = REGULATOR_SSR_PWM;
+        else if (strcmp(args, "finglai") == 0 ||
+                 strcmp(args, "ssvr") == 0) type = REGULATOR_FINGLAI_SSVR;
         esp_err_t err = regulator_select(type);
         char buf[96];
         snprintf(buf, sizeof(buf), "Регулятор: %s",

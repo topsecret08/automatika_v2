@@ -30,6 +30,10 @@ typedef struct {
     uint32_t pwm_freq_hz;
     uint8_t pwm_res;
     bool pwm_inverted;
+    analog_range_t analog_range;
+    float analog_min_pct;
+    float analog_max_pct;
+    bool ssvr_power_sqrt;
 } regulator_config_t;
 
 esp_err_t regulator_init(const regulator_config_t *cfg);
@@ -47,4 +51,8 @@ int       regulator_get_gpio(void);
 int       regulator_get_pwm_freq(void);
 int       regulator_get_pwm_resolution(void);
 bool      regulator_get_pwm_inverted(void);
+int       regulator_get_analog_range(void);
+float     regulator_get_analog_min_pct(void);
+float     regulator_get_analog_max_pct(void);
+bool      regulator_get_ssvr_power_sqrt(void);
 const char *regulator_last_error(void);

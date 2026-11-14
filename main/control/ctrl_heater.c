@@ -41,8 +41,12 @@ static float clamp_power(float pct) {
 }
 
 static bool heater_allowed(float pct) {
+    bool process_or_service = state_get()->is_running ||
+                              control_config_service_enabled();
     return heater_power_allowed(pct, estop_is_pressed(), ctrl_safety_ok(),
-                                level_is_available(), level_is_too_low());
+                                level_is_available(), level_is_too_low(),
+                                level_is_required_fault(),
+                                process_or_service);
 }
 
 // Ограничение мощности при росте температуры.

@@ -32,6 +32,10 @@ static int16_t          s_pwm_gpio = REG_SSR_GPIO;
 static uint32_t         s_pwm_freq = REG_PWM_FREQ_HZ;
 static uint8_t          s_pwm_res = REG_PWM_RESOLUTION;
 static bool             s_pwm_inverted = REG_PWM_INVERTED ? true : false;
+static analog_range_t   s_ana_range = (analog_range_t)REG_ANALOG_RANGE;
+static float            s_ana_min = REG_ANALOG_MIN_PCT;
+static float            s_ana_max = REG_ANALOG_MAX_PCT;
+static bool             s_ssvr_sqrt = REG_SSVR_POWER_SQRT ? true : false;
 static bool             s_adaptive_pid = false;
 
 // ---------------------------------------------------------------------
@@ -142,6 +146,30 @@ static void load(void) {
     u8 = 0;
     if (nvs_get_u8(s_nvs, "reg_inv", &u8) == ESP_OK)
         s_pwm_inverted = (u8 != 0);
+
+    u8 = 0;
+    if (nvs_get_u8(s_nvs, "ana_range", &u8) == ESP_OK && u8 < ANALOG_RANGE_COUNT)
+        s_ana_range = (analog_range_t)u8;
+
+    i32 = 0;
+    if (nvs_get_i32(s_nvs, "ana_min", &i32) == ESP_OK &&
+        i32 >= 0 && i32 <= 10000)
+        s_ana_min = (float)i32 / 100.0f;
+
+    i32 = 10000;
+    if (nvs_get_i32(s_nvs, "ana_max", &i32) == ESP_OK &&
+        i32 >= 0 && i32 <= 10000)
+        s_ana_max = (float)i32 / 100.0f;
+
+    u8 = 0;
+    if (nvs_get_u8(s_nvs, "ana_sqrt", &u8) == ESP_OK)
+        s_ssvr_sqrt = (u8 != 0);
+
+    if (!(s_ana_min < s_ana_max)) {
+        ESP_LOGW(TAG, "analog calibration invalid, using 0..100%%");
+        s_ana_min = 0.0f;
+        s_ana_max = 100.0f;
+    }
 
     s_api_key[sizeof(s_api_key) - 1] = '\0';
 }
@@ -438,6 +466,10 @@ esp_err_t control_config_get_regulator_settings(regulator_settings_t *out) {
     out->pwm_resolution = s_pwm_res;
     out->pwm_inverted = s_pwm_inverted;
     out->uart_baud = s_reg_baud;
+    out->analog_range = s_ana_range;
+    out->analog_min_pct = s_ana_min;
+    out->analog_max_pct = s_ana_max;
+    out->ssvr_power_sqrt = s_ssvr_sqrt;
     unlock();
     return ESP_OK;
 }
@@ -455,6 +487,15 @@ esp_err_t control_config_set_regulator_settings(const regulator_settings_t *in) 
         return ESP_ERR_INVALID_ARG;
     if (in->uart_baud < 1200 || in->uart_baud > 115200)
         return ESP_ERR_INVALID_ARG;
+    if (in->analog_range >= ANALOG_RANGE_COUNT)
+        return ESP_ERR_INVALID_ARG;
+    if (!isfinite(in->analog_min_pct) || !isfinite(in->analog_max_pct))
+        return ESP_ERR_INVALID_ARG;
+    if (in->analog_min_pct < 0.0f || in->analog_min_pct > 100.0f ||
+        in->analog_max_pct < 0.0f || in->analog_max_pct > 100.0f)
+        return ESP_ERR_INVALID_ARG;
+    if (!(in->analog_min_pct < in->analog_max_pct))
+        return ESP_ERR_INVALID_ARG;
 
     lock();
     // Сначала пишем в NVS и фиксируем; память обновляем только при успехе,
@@ -465,6 +506,12 @@ esp_err_t control_config_set_regulator_settings(const regulator_settings_t *in) 
     if (err == ESP_OK) err = nvs_set_u8(s_nvs, "reg_res", in->pwm_resolution);
     if (err == ESP_OK) err = nvs_set_u8(s_nvs, "reg_inv", in->pwm_inverted ? 1 : 0);
     if (err == ESP_OK) err = nvs_set_u32(s_nvs, "reg_baud", in->uart_baud);
+    if (err == ESP_OK) err = nvs_set_u8(s_nvs, "ana_range", (uint8_t)in->analog_range);
+    if (err == ESP_OK) err = nvs_set_i32(s_nvs, "ana_min",
+                                         (int32_t)lroundf(in->analog_min_pct * 100.0f));
+    if (err == ESP_OK) err = nvs_set_i32(s_nvs, "ana_max",
+                                         (int32_t)lroundf(in->analog_max_pct * 100.0f));
+    if (err == ESP_OK) err = nvs_set_u8(s_nvs, "ana_sqrt", in->ssvr_power_sqrt ? 1 : 0);
     if (err == ESP_OK) err = nvs_commit(s_nvs);
 
     if (err == ESP_OK) {
@@ -474,6 +521,10 @@ esp_err_t control_config_set_regulator_settings(const regulator_settings_t *in) 
         s_pwm_res = in->pwm_resolution;
         s_pwm_inverted = in->pwm_inverted;
         s_reg_baud = in->uart_baud;
+        s_ana_range = in->analog_range;
+        s_ana_min = in->analog_min_pct;
+        s_ana_max = in->analog_max_pct;
+        s_ssvr_sqrt = in->ssvr_power_sqrt;
     }
     unlock();
 
@@ -492,6 +543,7 @@ const char *control_config_regulator_name(regulator_type_t type) {
     case REGULATOR_RMVK:    return "rmvk";
     case REGULATOR_SEM_AVR: return "sem_avr";
     case REGULATOR_SSR_PWM: return "ssr_pwm";
+    case REGULATOR_FINGLAI_SSVR: return "finglai_ssvr";
     case REGULATOR_NONE:
     default:                return "none";
     }

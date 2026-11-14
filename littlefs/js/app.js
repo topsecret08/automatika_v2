@@ -44,6 +44,10 @@ const state = {
   pwmFreq: 0,
   pwmResolution: 0,
   pwmInverted: false,
+  analogRange: 0,
+  analogMin: 0,
+  analogMax: 100,
+  ssvrSqrt: true,
   regulatorError: '',
   rate: 0,
   level: 0,
@@ -55,6 +59,9 @@ const state = {
   tails: 0,
   safety: 1,
   estop: 0,
+  estopHealthy: true,
+  service: false,
+  levelRequiredFault: false,
   online: false
 };
 
@@ -161,11 +168,24 @@ function wsUrl() {
   return proto + location.host + '/ws/telemetry';
 }
 
-function connectWS() {
+async function connectWS() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
+  let protocols = [];
   try {
-    ws = new WebSocket(wsUrl());
+    const tokenResponse = await api('/api/ws-token');
+    if (tokenResponse.ok) {
+      const tokenData = await tokenResponse.json();
+      if (tokenData && tokenData.token) {
+        protocols = ['automatika', tokenData.token];
+      }
+    }
+  } catch (_) { /* ниже попробуем без subprotocol */ }
+
+  try {
+    ws = protocols.length
+      ? new WebSocket(wsUrl(), protocols)
+      : new WebSocket(wsUrl());
   } catch (_) {
     scheduleWS();
     return;
@@ -212,7 +232,7 @@ function applyTelemetry(frame) {
 async function pollState() {
   if (document.hidden) return;
   try {
-    const response = await fetch('/api/state');
+    const response = await api('/api/state');
     if (!response.ok) return;
     const data = await response.json();
     if (typeof data.tc !== 'undefined') state.tc = data.cube;
@@ -226,6 +246,13 @@ async function pollState() {
     if (typeof data.pwm_freq_hz !== 'undefined') state.pwmFreq = data.pwm_freq_hz;
     if (typeof data.pwm_resolution !== 'undefined') state.pwmResolution = data.pwm_resolution;
     if (typeof data.pwm_inverted !== 'undefined') state.pwmInverted = !!data.pwm_inverted;
+    if (typeof data.analog_range !== 'undefined') state.analogRange = data.analog_range;
+    if (typeof data.analog_min_pct !== 'undefined') state.analogMin = data.analog_min_pct;
+    if (typeof data.analog_max_pct !== 'undefined') state.analogMax = data.analog_max_pct;
+    if (typeof data.ssvr_power_sqrt !== 'undefined') state.ssvrSqrt = !!data.ssvr_power_sqrt;
+    if (typeof data.service !== 'undefined') state.service = !!data.service;
+    if (typeof data.estop_healthy !== 'undefined') state.estopHealthy = !!data.estop_healthy;
+    if (typeof data.level_required_fault !== 'undefined') state.levelRequiredFault = !!data.level_required_fault;
     if (typeof data.regulator_error !== 'undefined') state.regulatorError = data.regulator_error;
     if (typeof data.stage !== 'undefined') state.stage = data.stage;
     if (typeof data.running !== 'undefined') state.running = data.running;
@@ -597,6 +624,21 @@ function renderLiveValues() {
 
   const autoBtn = $('#power-auto');
   if (autoBtn) autoBtn.disabled = !state.powerManual;
+
+  const powerSlider = $('#power-slider');
+  const canManual = !!state.running || !!state.service;
+  if (powerSlider) {
+    powerSlider.disabled = !canManual;
+    if (!canManual) {
+      powerSlider.value = String(Math.round(state.power || 0));
+    }
+  }
+  if (powerHint && !state.regulatorReady && state.regulator !== 0) {
+    // сообщение о неготовом регуляторе уже выше
+  } else if (powerHint && !canManual) {
+    powerHint.classList.remove('hidden');
+    powerHint.textContent = 'Ручная мощность доступна при запущенном процессе или в сервисном режиме.';
+  }
 
   const rate = $('#rate-value');
   if (rate) rate.textContent = state.rate > 0 ? state.rate.toFixed(1) : '--';
@@ -1141,6 +1183,7 @@ function renderCalibration() {
             <button type="button" data-val="2">РМВ-К</button>
             <button type="button" data-val="3">SEM</button>
             <button type="button" data-val="4">SSR</button>
+            <button type="button" data-val="5">Finglai</button>
           </div>
           <p class="hint mt-8">
             UART-регуляторы подключайте только через оптронную развязку.
@@ -1177,6 +1220,33 @@ function renderCalibration() {
             <div class="card-row-sub">Активный низкий вход: 0 % = высокий уровень</div>
           </div>
           <input id="reg-inv" type="checkbox">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="analog-range">Finglai SSVR: аналоговый диапазон</label>
+          <select id="analog-range" class="input">
+            <option value="0">0–5 В (CONT +, COM −)</option>
+            <option value="1">0–10 В</option>
+            <option value="2">0–3,3 В</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="analog-min">Калибровка 0 В: duty, %</label>
+          <input id="analog-min" class="input" type="number" min="0" max="99" step="0.1" inputmode="decimal" value="0">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="analog-max">Калибровка макс.: duty, %</label>
+          <input id="analog-max" class="input" type="number" min="1" max="100" step="0.1" inputmode="decimal" value="100">
+        </div>
+
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Finglai: процент = электрическая мощность</div>
+            <div class="card-row-sub">Команда = 100·sqrt(P/100) при линейном RMS-напряжении SSVR</div>
+          </div>
+          <input id="ssvr-sqrt" type="checkbox" checked>
         </div>
 
         <div class="field">
@@ -1244,6 +1314,10 @@ function renderCalibration() {
       reg_freq: Number($('#reg-freq')?.value || 1000),
       reg_resolution: Number($('#reg-res')?.value || 10),
       reg_inverted: !!$('#reg-inv')?.checked,
+      analog_range: Number($('#analog-range')?.value || 0),
+      analog_min_pct: Number($('#analog-min')?.value || 0),
+      analog_max_pct: Number($('#analog-max')?.value ?? 100),
+      ssvr_power_sqrt: !!$('#ssvr-sqrt')?.checked,
       adaptive_pid: !!$('#ad-pid')?.checked,
       rate_mlmin: Number($('#rate')?.value || 0),
       hys: Number($('#hys')?.value || 0),
@@ -2265,6 +2339,10 @@ async function loadControlSettings() {
     if ($('#reg-freq')) $('#reg-freq').value = data.reg_freq || data.pwm_freq_hz || 1000;
     if ($('#reg-res')) $('#reg-res').value = data.reg_resolution || data.pwm_resolution || 10;
     if ($('#reg-inv')) $('#reg-inv').checked = !!data.reg_inverted;
+    if ($('#analog-range')) $('#analog-range').value = data.analog_range ?? 0;
+    if ($('#analog-min')) $('#analog-min').value = data.analog_min_pct ?? 0;
+    if ($('#analog-max')) $('#analog-max').value = data.analog_max_pct ?? 100;
+    if ($('#ssvr-sqrt')) $('#ssvr-sqrt').checked = !!data.ssvr_power_sqrt;
     if ($('#ad-pid')) $('#ad-pid').checked = !!data.adaptive_pid;
     const regStatus = $('#reg-status');
     if (regStatus) {

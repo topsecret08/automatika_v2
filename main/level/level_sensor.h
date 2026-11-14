@@ -38,6 +38,8 @@ float     level_get_raw_percent(void);      /* без гистерезиса */
 bool      level_is_available(void);
 bool      level_is_too_low(void);
 bool      level_is_overflow(void);
+// Датчик включён и объявлен обязательным, но не инициализировался.
+bool      level_is_required_fault(void);
 const char *level_state_name(void);
 
 // Напоминание «датчик отсутствует/не отвечает» (для телеметрии/API).

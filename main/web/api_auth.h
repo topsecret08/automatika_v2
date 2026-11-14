@@ -22,6 +22,12 @@ esp_err_t api_check_auth(httpd_req_t *req);
 // но конфигурация и внутренняя телеметрия остаются закрытыми.
 esp_err_t api_check_read_auth(httpd_req_t *req);
 
+// Короткоживущий токен для WebSocket: браузер не может передать
+// X-API-Key в handshake, поэтому PWA получает токен по защищённому REST
+// и передаёт его в Sec-WebSocket-Protocol (не постоянный ключ в URL).
+esp_err_t api_auth_ws_token_issue(char *out, size_t out_len);
+bool      api_auth_ws_token_check(const char *token);
+
 // Отправить 401 и вернуть ESP_FAIL — удобный однострочник для обработчиков.
 esp_err_t api_reject_unauthorized(httpd_req_t *req);
 

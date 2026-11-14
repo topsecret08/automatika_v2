@@ -105,7 +105,7 @@ void vApplicationIdleHook(void) {
     ui_cpu_idle_hook();
 }
 
-// Порядок инициализации (V0.5 alfa):
+// Порядок инициализации (V0.6 beta):
 //   nvs_flash_init → nvs_migration_run → control_config_init → ota_manager_init
 //   → event_log/health → estop_init → level_sensor_init → lua_engine_init
 //   → telegram_notify_init → ... → web_start() (регистрация HTTP/WS)
@@ -147,11 +147,13 @@ void app_main(void) {
     wd_init();
 
     // 2. Аппаратная аварийная кнопка — раньше любых исполнителей.
-    estop_init();
+    if (estop_init() != ESP_OK) {
+        ESP_LOGE(TAG, "E-STOP init failed: heating will stay blocked");
+    }
 
     // 3. Датчик уровня: защита от сухого хода и переполнения.
     if (level_sensor_init() != ESP_OK) {
-        ESP_LOGW(TAG, "level sensor unavailable");
+        ESP_LOGE(TAG, "required level sensor unavailable: heating blocked");
     }
 
     // 4. Скриптовый движок (ядро 0). Если упал — система работает без Lua.

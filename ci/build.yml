@@ -11,6 +11,22 @@ permissions:
   contents: read
 
 jobs:
+  host-tests:
+    name: host logic tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S test/host -B test/host/build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build test/host/build --parallel
+
+      - name: Run
+        run: ctest --test-dir test/host/build --output-on-failure
+
   firmware:
     name: firmware (esp32s3)
     runs-on: ubuntu-latest
@@ -31,7 +47,7 @@ jobs:
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: automatika-v0.5-alfa-${{ github.sha }}
+          name: automatika-v0.6-beta-${{ github.sha }}
           path: |
             build/automatika_v2.bin
             build/automatika_v2.elf
@@ -43,15 +59,15 @@ jobs:
             build/size.txt
           if-no-files-found: error
 
-  tests:
-    name: unit tests (esp32s3)
+  esp-tests:
+    name: ESP-IDF test app build
     runs-on: ubuntu-latest
     container: espressif/idf:v5.3.2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build test app
+      - name: Build Unity test app
         shell: bash
         run: |
           set -euo pipefail

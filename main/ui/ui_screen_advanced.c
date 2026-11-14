@@ -70,7 +70,8 @@ static void adaptive_cb(lv_event_t *event) {
     ui_screen_advanced_create();
 }
 
-enum { PWM_FIELD_GPIO = 0, PWM_FIELD_FREQ, PWM_FIELD_RES };
+enum { PWM_FIELD_GPIO = 0, PWM_FIELD_FREQ, PWM_FIELD_RES,
+       PWM_FIELD_ANA_MIN, PWM_FIELD_ANA_MAX };
 
 typedef struct {
     int field;
@@ -81,6 +82,8 @@ static pwm_step_ctx_t s_pwm_steps[] = {
     { PWM_FIELD_GPIO, -1 }, { PWM_FIELD_GPIO, +1 },
     { PWM_FIELD_FREQ, -1 }, { PWM_FIELD_FREQ, +1 },
     { PWM_FIELD_RES,  -1 }, { PWM_FIELD_RES,  +1 },
+    { PWM_FIELD_ANA_MIN, -1 }, { PWM_FIELD_ANA_MIN, +1 },
+    { PWM_FIELD_ANA_MAX, -1 }, { PWM_FIELD_ANA_MAX, +1 },
 };
 
 static void pwm_apply_or_toast(regulator_settings_t *rs) {
@@ -116,6 +119,18 @@ static void pwm_step_cb(lv_event_t *event) {
         if (f < 1) f = 1;
         if (f > (int32_t)REG_PWM_MAX_FREQ_HZ) f = REG_PWM_MAX_FREQ_HZ;
         rs.pwm_freq_hz = (uint32_t)f;
+    } else if (ctx->field == PWM_FIELD_ANA_MIN) {
+        float v = rs.analog_min_pct + (float)ctx->dir;
+        if (v < 0.0f) v = 0.0f;
+        if (v >= rs.analog_max_pct) v = rs.analog_max_pct - 1.0f;
+        if (v < 0.0f) v = 0.0f;
+        rs.analog_min_pct = v;
+    } else if (ctx->field == PWM_FIELD_ANA_MAX) {
+        float v = rs.analog_max_pct + (float)ctx->dir;
+        if (v > 100.0f) v = 100.0f;
+        if (v <= rs.analog_min_pct) v = rs.analog_min_pct + 1.0f;
+        if (v > 100.0f) v = 100.0f;
+        rs.analog_max_pct = v;
     } else {
         int r = (int)rs.pwm_resolution + ctx->dir;
         if (r < (int)REG_PWM_MIN_RES) r = REG_PWM_MIN_RES;
@@ -135,6 +150,25 @@ static void pwm_polarity_cb(lv_event_t *event) {
         return;
     }
     rs.pwm_inverted = !rs.pwm_inverted;
+    pwm_apply_or_toast(&rs);
+    ui_screen_advanced_create();
+}
+
+static void analog_range_cb(lv_event_t *event) {
+    analog_range_t range =
+        (analog_range_t)(intptr_t)lv_event_get_user_data(event);
+    regulator_settings_t rs;
+    if (control_config_get_regulator_settings(&rs) != ESP_OK) return;
+    rs.analog_range = range;
+    pwm_apply_or_toast(&rs);
+    ui_screen_advanced_create();
+}
+
+static void ssvr_sqrt_cb(lv_event_t *event) {
+    (void)event;
+    regulator_settings_t rs;
+    if (control_config_get_regulator_settings(&rs) != ESP_OK) return;
+    rs.ssvr_power_sqrt = !rs.ssvr_power_sqrt;
     pwm_apply_or_toast(&rs);
     ui_screen_advanced_create();
 }
@@ -225,6 +259,8 @@ void ui_screen_advanced_create(void) {
                 regulator_cb, REGULATOR_SEM_AVR);
     make_choice(card, "SSR / MOSFET (ШИМ)", reg == REGULATOR_SSR_PWM,
                 regulator_cb, REGULATOR_SSR_PWM);
+    make_choice(card, "Finglai SSVR (PWM→0–5 В)", reg == REGULATOR_FINGLAI_SSVR,
+                regulator_cb, REGULATOR_FINGLAI_SSVR);
 
     regulator_settings_t rs;
     control_config_get_regulator_settings(&rs);
@@ -232,10 +268,20 @@ void ui_screen_advanced_create(void) {
     lv_obj_t *status = lv_label_create(card);
     lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(status, lv_pct(100));
-    char sbuf[160];
+    char sbuf[192];
     if (reg == REGULATOR_NONE) {
         snprintf(sbuf, sizeof(sbuf),
                  "Внутренний DAC · внешний регулятор не выбран");
+    } else if (reg == REGULATOR_FINGLAI_SSVR) {
+        const char *range = rs.analog_range == ANALOG_RANGE_0_10V ? "0–10 В" :
+                            rs.analog_range == ANALOG_RANGE_0_3V3 ? "0–3,3 В" :
+                                                                    "0–5 В";
+        snprintf(sbuf, sizeof(sbuf),
+                 "%s · %s\nGPIO %d · %lu Гц · %s · калибровка %.0f–%.0f %%",
+                 control_config_regulator_name(reg),
+                 regulator_is_ready() ? "готов" : "НЕ ГОТОВ",
+                 regulator_get_gpio(), (unsigned long)rs.pwm_freq_hz,
+                 range, (double)rs.analog_min_pct, (double)rs.analog_max_pct);
     } else {
         snprintf(sbuf, sizeof(sbuf), "%s · %s\nGPIO %d · %lu Гц · %u бит · %s",
                  control_config_regulator_name(reg),
@@ -250,8 +296,8 @@ void ui_screen_advanced_create(void) {
         regulator_is_ready() || reg == REGULATOR_NONE
             ? UI_GLASS_TEXT_2 : UI_GLASS_RED, 0);
 
-    if (reg == REGULATOR_SSR_PWM) {
-        char buf[48];
+    if (reg == REGULATOR_SSR_PWM || reg == REGULATOR_FINGLAI_SSVR) {
+        char buf[64];
         snprintf(buf, sizeof(buf), "PWM GPIO: %d", (int)rs.pwm_gpio);
         make_pwm_row(card, buf, &s_pwm_steps[0], &s_pwm_steps[1]);
 
@@ -275,6 +321,32 @@ void ui_screen_advanced_create(void) {
         lv_obj_add_event_cb(pol, pwm_polarity_cb, LV_EVENT_CLICKED, NULL);
     }
 
+    if (reg == REGULATOR_FINGLAI_SSVR) {
+        make_choice(card, "Аналог 0–5 В", rs.analog_range == ANALOG_RANGE_0_5V,
+                    analog_range_cb, ANALOG_RANGE_0_5V);
+        make_choice(card, "Аналог 0–10 В", rs.analog_range == ANALOG_RANGE_0_10V,
+                    analog_range_cb, ANALOG_RANGE_0_10V);
+        make_choice(card, "Аналог 0–3,3 В", rs.analog_range == ANALOG_RANGE_0_3V3,
+                    analog_range_cb, ANALOG_RANGE_0_3V3);
+
+        char buf[64];
+        snprintf(buf, sizeof(buf), "0 В: %.0f %% duty", (double)rs.analog_min_pct);
+        make_pwm_row(card, buf, &s_pwm_steps[6], &s_pwm_steps[7]);
+        snprintf(buf, sizeof(buf), "Максимум: %.0f %% duty", (double)rs.analog_max_pct);
+        make_pwm_row(card, buf, &s_pwm_steps[8], &s_pwm_steps[9]);
+
+        lv_obj_t *sqrt_btn = lv_btn_create(card);
+        lv_obj_set_width(sqrt_btn, lv_pct(100));
+        lv_obj_set_height(sqrt_btn, 34);
+        lv_obj_t *sl = lv_label_create(sqrt_btn);
+        lv_label_set_text(sl, rs.ssvr_power_sqrt
+                                  ? "Мощность: sqrt(U), нажмите для линейного"
+                                  : "Команда: линейная, нажмите для sqrt(U)");
+        lv_obj_set_style_text_font(sl, &lv_font_cyr_16, 0);
+        lv_obj_center(sl);
+        lv_obj_add_event_cb(sqrt_btn, ssvr_sqrt_cb, LV_EVENT_CLICKED, NULL);
+    }
+
     if (regulator_last_error()[0]) {
         lv_obj_t *err = lv_label_create(card);
         lv_label_set_long_mode(err, LV_LABEL_LONG_WRAP);
@@ -288,9 +360,10 @@ void ui_screen_advanced_create(void) {
     lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(hint, lv_pct(100));
     lv_label_set_text(hint,
-        "UART и силовой SSR подключайте только через оптронную развязку. "
-        "GPIO по умолчанию -1: задайте реально свободный вывод платы. "
-        "5 кГц подходит не всем входам; для AC SSR нужен zero-cross/иной режим.");
+        "UART и силовые цепи подключайте только через развязку. "
+        "Finglai SSVR: PWM → преобразователь 0–5 В → CONT(+)/COM(−); "
+        "не подавайте 5 В на GPIO. Трёхфазный SSVR — не замена однофазному SSR. "
+        "Проверьте модель, нагрузку, вход преобразователя и развязку.");
     lv_obj_set_style_text_font(hint, &lv_font_cyr_16, 0);
     lv_obj_set_style_text_color(hint, UI_GLASS_ORANGE, 0);
 }

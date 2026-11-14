@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <math.h>
 
 // Чистая логика выбора и проверки PWM-вывода. Не зависит от LEDC/NVS,
 // поэтому покрывается unit-тестами.
@@ -91,4 +92,41 @@ static inline uint32_t regulator_apply_inversion(uint32_t duty, uint8_t bits,
     uint32_t max = regulator_duty_max(bits);
     if (duty > max) duty = max;
     return max - duty;
+}
+
+// --- Finglai SSVR: PWM -> аналог -> CONT/COM -------------------------
+// Начальная аппроксимация: процент интерфейса = электрическая мощность
+// резистивного нагревателя, SSVR линейно задаёт RMS-напряжение.
+// P = U^2/R, поэтому command = 100 * sqrt(P/100).
+static inline float ssvr_power_to_control(float power_pct) {
+    if (!isfinite(power_pct) || power_pct <= 0.0f) return 0.0f;
+    if (power_pct >= 100.0f) return 100.0f;
+    return 100.0f * sqrtf(power_pct / 100.0f);
+}
+
+// control_pct 0..100 -> duty между калибровочными точками ana_min/ana_max.
+static inline uint32_t ssvr_control_to_duty(float control_pct,
+                                            uint32_t duty_max,
+                                            float analog_min_pct,
+                                            float analog_max_pct) {
+    if (duty_max == 0) return 0;
+    if (!isfinite(control_pct) || control_pct <= 0.0f)
+        control_pct = 0.0f;
+    if (control_pct > 100.0f) control_pct = 100.0f;
+
+    if (!isfinite(analog_min_pct) || analog_min_pct < 0.0f)
+        analog_min_pct = 0.0f;
+    if (!isfinite(analog_max_pct) || analog_max_pct > 100.0f)
+        analog_max_pct = 100.0f;
+    if (!(analog_min_pct < analog_max_pct)) {
+        analog_min_pct = 0.0f;
+        analog_max_pct = 100.0f;
+    }
+
+    float span = analog_max_pct - analog_min_pct;
+    float pct = analog_min_pct + (control_pct / 100.0f) * span;
+    float duty = pct * (float)duty_max / 100.0f;
+    if (duty <= 0.0f) return 0;
+    if (duty >= (float)duty_max) return duty_max;
+    return (uint32_t)lroundf(duty);
 }

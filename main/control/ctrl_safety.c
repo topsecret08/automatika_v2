@@ -38,6 +38,7 @@ static bool s_level_low_last = false;
 static bool s_level_over_last = false;
 static bool s_run_done_notified = false;
 static bool s_dry_run_latched = false;
+static bool s_level_fault_latched = false;
 static char s_reset_error[64] = "";
 
 static esp_err_t reset_refused(const char *why) {
@@ -55,6 +56,7 @@ void ctrl_safety_init(void) {
     s_level_over_last = false;
     s_run_done_notified = false;
     s_dry_run_latched = false;
+    s_level_fault_latched = false;
     s_reset_error[0] = '\0';
 }
 
@@ -86,6 +88,8 @@ esp_err_t ctrl_safety_reset(void) {
         return reset_refused("E-STOP active (release the button first)");
     if (level_is_available() && level_is_too_low())
         return reset_refused("liquid level is still low");
+    if (level_is_required_fault())
+        return reset_refused("required level sensor is not available");
 
     s_ok = true;
     s_no_flow_ms = 0;
@@ -180,7 +184,19 @@ void ctrl_safety_task(void *arg) {
 
         // ---- Датчик уровня ----
         level_sensor_poll();
-        if (level_is_too_low()) {
+        if (level_is_required_fault()) {
+            bool was_heating = ctrl_heater_get_percent() > 0.0f;
+            ctrl_heater_force_off();
+            if ((running || was_heating) && !s_level_fault_latched) {
+                s_level_fault_latched = true;
+                ctrl_safety_trigger("LEVEL_SENSOR_FAIL");
+            }
+            if (s_level_low_last != true) {
+                s_level_low_last = true;
+                events_log(EVENT_EMERGENCY,
+                           "Required level sensor unavailable: heating blocked");
+            }
+        } else if (level_is_too_low()) {
             bool was_heating = ctrl_heater_get_percent() > 0.0f;
             ctrl_heater_force_off();       /* сухой ход: снимаем нагрев */
             // Защёлкиваем аварию, если процесс уже идёт или была запрошена
@@ -196,6 +212,7 @@ void ctrl_safety_task(void *arg) {
             }
         } else {
             s_level_low_last = false;
+            s_level_fault_latched = false;
         }
         if (level_is_overflow()) {
             if (s_level_over_last != true) {

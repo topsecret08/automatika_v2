@@ -1,7 +1,7 @@
 # REST API и WebSocket
 
 Все эндпоинты ниже реально зарегистрированы в `main/web/web_api.c`,
-`main/web/actuator_test.c` и `main/web/ws_telemetry.c` (прошивка V0.5 alfa).
+`main/web/actuator_test.c` и `main/web/ws_telemetry.c` (прошивка V0.6 beta).
 Никаких «предполагаемых» `/api/sensors/*` и `/api/openapi.json` в прошивке
 нет.
 
@@ -50,7 +50,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 {"level":"ok","reason":"","free_heap":182344,"min_free_heap":154112,
  "free_psram":4123456,"uptime_s":9876,"reset":1,"wifi_rssi":-61,
  "sd":1,"db":1,"sensors":2,"safety":1,"estop":0,"running":1,
- "stage":2,"version":"V0.5 alfa","tasks":14}
+ "stage":2,"version":"V0.6 beta","tasks":14}
 ```
 
 `level`: `ok` | `degraded` | `fail`. `reason` заполняется при `fail`.
@@ -228,13 +228,15 @@ curl -s -H "X-API-Key: $KEY" "http://automatika.local/api/events?limit=20"
 ```
 
 `POST /api/power` возвращает
-`{"power","power_auto","power_manual","regulator_ready","regulator_gpio","pwm_freq_hz","pwm_resolution","pwm_inverted","regulator_error"}`.
+`{"power","power_auto","power_manual","running","service","regulator_ready","regulator_gpio","pwm_freq_hz","pwm_resolution","pwm_inverted","analog_range","analog_min_pct","analog_max_pct","ssvr_power_sqrt","regulator_error"}`.
 Числовое значение включает ручной override; `{"mode":"auto"}` возвращает
 управление режиму/PID. При неготовом регуляторе — `409`.
 
 `GET /api/state` дополнительно содержит `power_auto`, `power_manual`,
 `regulator`, `regulator_name`, `regulator_ready`, `regulator_gpio`,
-`pwm_freq_hz`, `pwm_resolution`, `pwm_inverted`, `regulator_error`.
+`pwm_freq_hz`, `pwm_resolution`, `pwm_inverted`, `analog_range`,
+`analog_min_pct`, `analog_max_pct`, `ssvr_power_sqrt`,
+`estop_healthy`, `level_required_fault`, `service`, `regulator_error`.
 
 ## 12. Telegram-бот
 
@@ -437,6 +439,7 @@ HTTP 403
 | 2 | РМВ-К | UART, `Pxxx` |
 | 3 | SEM | UART, `Pxxx` |
 | 4 | SSR/ШИМ | LEDC, GPIO/частота/биты/полярность настраиваются |
+| 5 | Finglai SSVR | PWM → преобразователь → 0–5 В → CONT/COM |
 
 Настройки PWM (`POST /api/control`):
 
@@ -447,16 +450,29 @@ HTTP 403
   "reg_freq": 1000,
   "reg_resolution": 10,
   "reg_inverted": false,
-  "reg_baud": 9600
+  "reg_baud": 9600,
+  "analog_range": 0,
+  "analog_min_pct": 0,
+  "analog_max_pct": 100,
+  "ssvr_power_sqrt": true
 }
 ```
 
+`analog_range`: 0 = 0–5 В, 1 = 0–10 В, 2 = 0–3,3 В. Для Finglai SSVR
+`analog_min_pct`/`analog_max_pct` — калибровка duty для 0 В и полной шкалы.
+`ssvr_power_sqrt=true` означает, что процент интерфейса — электрическая
+мощность резистивного нагревателя, команда = `100·sqrt(P/100)`.
+
 `GET /api/control` возвращает `regulator`, `regulator_name`,
 `regulator_ready`, `regulator_gpio`, `pwm_freq_hz`, `pwm_resolution`,
-`pwm_inverted`, `reg_baud`, `regulator_error`. При недопустимом GPIO или
-частоте — `400`; при ошибке инициализации — `409`, `regulator_ready=false`,
-выход 0. NVS-ключи: `reg_type`, `reg_gpio`, `reg_freq`, `reg_res`,
-`reg_inv`, `reg_baud`.
+`pwm_inverted`, `reg_baud`, `analog_range`, `analog_min_pct`,
+`analog_max_pct`, `ssvr_power_sqrt`, `regulator_error`. При недопустимом
+GPIO/частоте/калибровке — `400`; при ошибке инициализации — `409`,
+`regulator_ready=false`, выход 0.
+
+NVS-ключи: `reg_type`, `reg_gpio`, `reg_freq`, `reg_res`, `reg_inv`,
+`reg_baud`, `ana_range`, `ana_min`, `ana_max`, `ana_sqrt`. Старые
+устройства без новых ключей получают 0–5 В, 0/100 %, `sqrt=1`.
 
 Пины UART — `REG_UART_TX_GPIO`, `REG_UART_RX_GPIO`; PWM GPIO по умолчанию
 `-1` (у ESP32-S3 нет GPIO 22–25; 26–37 обычно заняты flash/PSRAM).

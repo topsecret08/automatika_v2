@@ -113,6 +113,14 @@ bool level_is_available(void) {
 #endif
 }
 
+bool level_is_required_fault(void) {
+#if (LEVEL_SENSOR_ENABLED == 0) || (LEVEL_SENSOR_REQUIRED == 0)
+    return false;
+#else
+    return !s_ready;
+#endif
+}
+
 bool level_is_fault(void) { return s_fault; }
 
 /* Поплавковый датчик различает только «есть вода / нет воды», поэтому

@@ -18,6 +18,7 @@ static volatile bool s_pressed = false;   // защёлка (прерывани�
 static volatile int64_t s_trigger_us = 0;
 static bool     s_isr_installed = false;
 static bool     s_ready = false;
+static bool     s_init_failed = false;
 static bool     s_force = false;
 static char     s_reason[48] = "";
 
@@ -46,7 +47,12 @@ esp_err_t estop_init(void) {
     };
     esp_err_t err = gpio_config(&io);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "gpio_config: %s", esp_err_to_name(err));
+        s_init_failed = true;
+        s_ready = false;
+        ESP_LOGE(TAG, "gpio_config: %s; E-STOP is NOT available",
+                 esp_err_to_name(err));
+        events_log(EVENT_EMERGENCY, "E-STOP init failed: %s",
+                   esp_err_to_name(err));
         return err;
     }
 
@@ -87,7 +93,7 @@ int estop_raw_level(void) {
 }
 
 bool estop_is_pressed(void) {
-    if (!s_ready) return false;
+    if (!s_ready) return true;   /* нет драйвера — считаем аварией */
     /* уровень линии проверяем на месте: потерянное прерывание или
        дребезг не должны позволить управлять нагревом */
     if (pin_down()) {
@@ -95,6 +101,10 @@ bool estop_is_pressed(void) {
         s_pressed = true;
     }
     return s_pressed || s_force;
+}
+
+bool estop_is_healthy(void) {
+    return s_ready && !s_init_failed;
 }
 
 bool estop_acknowledge(void) {
@@ -114,6 +124,7 @@ void estop_force(const char *reason) {
 }
 
 const char *estop_source_name(void) {
+    if (!s_ready) return "E-STOP init failed";
     if (s_force) return s_reason[0] ? s_reason : "forced";
     if (s_pressed) return "E-STOP button";
     return "none";

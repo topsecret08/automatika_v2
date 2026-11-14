@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 
-// Публичный фасад дозатора (совместимый с ТЗ V0.5 alfa).
+// Публичный фасад дозатора (совместимый с ТЗ V0.6 beta).
 //
 // Реальная работа с STEP/ENABLE и очередью команд живёт в control/ctrl_dose.c,
 // калибровка steps_per_ml — в core/control_config.c (NVS "automatika").

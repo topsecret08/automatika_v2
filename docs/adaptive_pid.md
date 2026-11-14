@@ -114,5 +114,5 @@ curl -X POST -H "X-API-Key: $KEY" http://automatika.local/api/verify/freeze
   `sensor_pipeline`.
 - «Чистый» прогон требует метрик в допуске; короткие прогоны могут не
   дать метрик.
-- На реальном оборудовании алгоритм не проверялся.
+- Алгоритм требует пусконаладки на конкретном процессе.
 - `CONFIG_ADAPTIVE_PID_ENABLE` в menuconfig отключает модуль целиком.

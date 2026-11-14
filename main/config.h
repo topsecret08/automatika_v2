@@ -1,7 +1,7 @@
 #pragma once
 
-#define FW_VERSION          "V0.5 alfa"
-#define FW_NAME             "Automatika V0.5 alfa"
+#define FW_VERSION          "V0.6 beta"
+#define FW_NAME             "Automatika V0.6 beta"
 
 // ============================================================
 // GPIO
@@ -160,6 +160,7 @@
 // Поэтому по умолчанию используется поплавковый/поплавковый 2-контактный
 // датчик на свободном GPIO 28: INPUT_PULLUP, низкий уровень = вода.
 #define LEVEL_SENSOR_ENABLED    1
+#define LEVEL_SENSOR_REQUIRED   1     // 1: без датчика нагрев запрещён
 #define LEVEL_SENSOR_GPIO       28
 #define LEVEL_SENSOR_ACTIVE_LOW 1
 // Гистерезис для поплавка, чтобы не дёргать события на границе.
@@ -219,7 +220,7 @@
 #define PATH_SCRIPTS_FLASH  "/lfs/scripts"
 
 // ------------------------------------------------------------
-// V0.5 alfa: Wi-Fi provisioning, время, датчики, безопасность
+// V0.6 beta: Wi-Fi provisioning, время, датчики, безопасность
 // ------------------------------------------------------------
 
 // Wi-Fi provisioning (SoftAP + captive portal)
@@ -313,6 +314,12 @@
 #define REG_PWM_FREQ_HZ              1000
 #define REG_PWM_RESOLUTION           10
 #define REG_PWM_INVERTED             0
+// Finglai SSVR: PWM -> преобразователь -> аналог 0..5 В -> CONT/COM.
+// По умолчанию диапазон 0..5 В, калибровка 0/100 % duty.
+#define REG_ANALOG_RANGE             0      // 0=0..5 В, 1=0..10 В, 2=0..3,3 В
+#define REG_ANALOG_MIN_PCT           0.0f
+#define REG_ANALOG_MAX_PCT           100.0f
+#define REG_SSVR_POWER_SQRT          1
 
 // Начальные параметры расчёта остатка спирта (abv/cfg в NVS).
 #define ABV_VOLUME_START_ML           20000.0f

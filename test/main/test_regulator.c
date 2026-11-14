@@ -33,6 +33,26 @@ TEST_CASE("regulator inversion maps 0 percent to inactive level", "[regulator]")
     TEST_ASSERT_EQUAL_UINT32(512, regulator_apply_inversion(512, 10, false));
 }
 
+TEST_CASE("Finglai SSVR power-to-control sqrt", "[ssvr]") {
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ssvr_power_to_control(0.0f));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 50.0f, ssvr_power_to_control(25.0f));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 70.71f, ssvr_power_to_control(50.0f));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 100.0f, ssvr_power_to_control(100.0f));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, ssvr_power_to_control(NAN));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 100.0f, ssvr_power_to_control(150.0f));
+}
+
+TEST_CASE("Finglai SSVR control-to-duty calibration", "[ssvr]") {
+    TEST_ASSERT_EQUAL_UINT32(0, ssvr_control_to_duty(0.0f, 1023, 0.0f, 100.0f));
+    TEST_ASSERT_EQUAL_UINT32(1023, ssvr_control_to_duty(100.0f, 1023, 0.0f, 100.0f));
+    TEST_ASSERT_EQUAL_UINT32(512, ssvr_control_to_duty(50.0f, 1023, 0.0f, 100.0f));
+    TEST_ASSERT_EQUAL_UINT32(102, ssvr_control_to_duty(0.0f, 1023, 10.0f, 60.0f));
+    TEST_ASSERT_EQUAL_UINT32(614, ssvr_control_to_duty(100.0f, 1023, 10.0f, 60.0f));
+    TEST_ASSERT_EQUAL_UINT32(358, ssvr_control_to_duty(50.0f, 1023, 10.0f, 60.0f));
+    TEST_ASSERT_EQUAL_UINT32(0, ssvr_control_to_duty(0.0f, 0, 0.0f, 100.0f));
+    TEST_ASSERT_EQUAL_UINT32(0, ssvr_control_to_duty(NAN, 1023, 0.0f, 100.0f));
+}
+
 TEST_CASE("ESP32-S3 PWM GPIO validation", "[regulator]") {
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(-1));
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(22));

@@ -33,9 +33,17 @@ typedef enum {
     REGULATOR_KVIC,              // внешний UART-регулятор
     REGULATOR_RMVK,              // внешний UART-регулятор
     REGULATOR_SEM_AVR,           // внешний UART-регулятор
-    REGULATOR_SSR_PWM,           // внешний SSR по ШИМ
+    REGULATOR_SSR_PWM,           // внешний SSR/MOSFET по ШИМ
+    REGULATOR_FINGLAI_SSVR,      // PWM -> аналог 0..5 В -> CONT/COM SSVR
     REGULATOR_COUNT
 } regulator_type_t;
+
+typedef enum {
+    ANALOG_RANGE_0_5V = 0,
+    ANALOG_RANGE_0_10V,
+    ANALOG_RANGE_0_3V3,
+    ANALOG_RANGE_COUNT
+} analog_range_t;
 
 typedef struct {
     regulator_type_t type;
@@ -44,6 +52,10 @@ typedef struct {
     uint8_t  pwm_resolution;  // 1..14, по умолчанию 10
     bool     pwm_inverted;    // активный низкий вход
     uint32_t uart_baud;       // для UART-регуляторов
+    analog_range_t analog_range;
+    float    analog_min_pct;  // duty при 0 В, % (калибровка)
+    float    analog_max_pct;  // duty при полной шкале, % (калибровка)
+    bool     ssvr_power_sqrt; // процент = электрическая мощность (sqrt)
 } regulator_settings_t;
 
 #define API_KEY_LEN        33        // 32 hex + '\0'

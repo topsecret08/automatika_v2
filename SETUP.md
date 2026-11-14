@@ -1,4 +1,4 @@
-# Сборка и первичная настройка Automatika V0.5 alfa
+# Сборка и первичная настройка Automatika V0.6 beta
 
 ## 1. Требования
 
@@ -44,7 +44,7 @@ source ./export.sh
   `main/control/autopid_glue.cpp`)
 - `joltwallet/littlefs ~1.14.8` (раздел `assets`)
 
-V0.5 alfa **не добавляет** managed-компонентов: BMP280, YF-S201, mDNS и
+V0.6 beta **не добавляет** managed-компонентов: BMP280, YF-S201, mDNS и
 физический UI реализованы в `main/` на чистом C. `wifi_provisioning` и
 `esp_https_ota` входят в ESP-IDF и подключены через `REQUIRES`.
 SQLite поставляется локально: `components/esp_sqlite3` (3.54.1, MIT).
@@ -72,7 +72,7 @@ $env:PYTHONUTF8=1
 ```
 
 Первая сборка скачивает компоненты и занимает несколько минут.
-Размер образа ≈ **2,79 МБ** (`0x2A9B10`); OTA-раздел — 3 МБ (V0.5 alfa).
+Размер образа ≈ **2,80 МБ** (`0x2ABE80`); OTA-раздел — 3 МБ (V0.6 beta).
 Слоты по 2 МБ из ТЗ не подходят: образ больше 2 МБ, поэтому в `partitions.csv`
 оставлены 3 МБ и запас ~12 % на рост.
 
@@ -120,7 +120,7 @@ python generate_sdcard.py
 
 ### 6.1. API-ключ (обязательно!)
 
-Начиная с V0.5 alfa REST API закрыт. Пока `api_key` не задан, все
+Начиная с V0.6 beta REST API закрыт. Пока `api_key` не задан, все
 `POST /api/*` отвечают 401 — это сделано намеренно.
 
 Порядок провижининга:
@@ -199,7 +199,7 @@ curl -X POST -H "X-API-Key: $KEY" \
 образ подтверждается; иначе автоматический откат на предыдущую прошивку.
 Статус: `GET /api/ota`.
 
-С V0.5 alfa OTA работает **только по HTTPS**: сертификат сервера проверяется
+С V0.6 beta OTA работает **только по HTTPS**: сертификат сервера проверяется
 через `esp_crt_bundle` (`CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n`). Отдельный
 эндпоинт с явной проверкой схемы:
 
@@ -308,7 +308,7 @@ curl -X POST -H "X-API-Key: $KEY" http://<IP>/api/backup/telegram
 
 - `factory`, `ota_0`, `ota_1` — по 3 МБ; `assets` (LittleFS) — 1 МБ;
   `storage` (SPIFFS) — 5,875 МБ (см. `partitions.csv`)
-- С V0.5 alfa LittleFS смонтирован в `/lfs`, SPIFFS — в `/spiffs`; это
+- С V0.6 beta LittleFS смонтирован в `/lfs`, SPIFFS — в `/spiffs`; это
   разные VFS-точки, профили и web UI лежат в LittleFS
 - SPIRAM: Octal, 80 МГц; крупные буферы (LVGL, Lua, AI) — в PSRAM
 - Задачи распределены по двум ядрам (`main/core/core_pinning.h`);
