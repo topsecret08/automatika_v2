@@ -13,6 +13,7 @@
 typedef struct {
     lv_obj_t *slider;
     lv_obj_t *mode;
+    lv_obj_t *out;
     lv_obj_t *hint;
     lv_obj_t *auto_btn;
     lv_timer_t *timer;
@@ -38,10 +39,22 @@ static void update_cb(lv_timer_t *timer) {
 
     bool bad = control_config_get_regulator() != REGULATOR_NONE &&
                !regulator_is_ready();
+    if (s_ui.out) {
+        regulator_type_t t = control_config_get_regulator();
+        char obuf[96];
+        if (t == REGULATOR_NONE) {
+            snprintf(obuf, sizeof(obuf), "Выход: внутренний DAC");
+        } else {
+            snprintf(obuf, sizeof(obuf), "Выход: %s · GPIO %d",
+                     control_config_regulator_name(t), regulator_get_gpio());
+        }
+        lv_label_set_text(s_ui.out, obuf);
+    }
     if (bad) {
-        char buf[96];
+        char buf[128];
         int gpio = regulator_get_gpio();
-        snprintf(buf, sizeof(buf), "Регулятор не готов (GPIO %d), выход 0", gpio);
+        snprintf(buf, sizeof(buf), "Регулятор не готов (GPIO %d): %s. Выход 0",
+                 gpio, regulator_last_error());
         lv_label_set_text(s_ui.hint, buf);
         lv_obj_clear_flag(s_ui.hint, LV_OBJ_FLAG_HIDDEN);
     } else {
@@ -77,7 +90,7 @@ static void power_delete_cb(lv_event_t *e) {
         lv_timer_del(s_ui.timer);
         s_ui.timer = NULL;
     }
-    s_ui.slider = s_ui.mode = s_ui.hint = s_ui.auto_btn = NULL;
+    s_ui.slider = s_ui.mode = s_ui.out = s_ui.hint = s_ui.auto_btn = NULL;
 }
 
 void ui_power_control_attach(lv_obj_t *parent) {
@@ -121,6 +134,13 @@ void ui_power_control_attach(lv_obj_t *parent) {
     lv_obj_set_style_text_font(al, &lv_font_cyr_16, 0);
     lv_obj_center(al);
     lv_obj_add_event_cb(s_ui.auto_btn, auto_cb, LV_EVENT_CLICKED, NULL);
+
+    s_ui.out = lv_label_create(parent);
+    lv_label_set_long_mode(s_ui.out, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(s_ui.out, lv_pct(100));
+    lv_label_set_text(s_ui.out, "Выход: внутренний DAC");
+    lv_obj_set_style_text_font(s_ui.out, &lv_font_cyr_16, 0);
+    lv_obj_set_style_text_color(s_ui.out, UI_GLASS_TEXT_2, 0);
 
     s_ui.hint = lv_label_create(parent);
     lv_label_set_long_mode(s_ui.hint, LV_LABEL_LONG_WRAP);
