@@ -8,6 +8,23 @@
 | `test_level_logic.c` | отсутствие датчика не блокирует нагрев, пороги из `config.h` согласованы |
 | `test_event_log.c` | JSON-экранирование журнала событий, ограничение `limit` |
 | `test_pump_doser.c` | значения по умолчанию `PumpCalib`, отказ при нулевом/отрицательном объёме и превышении `DOSER_MAX_DOSE_ML`, валидация `pump_calib_save(NULL)` |
+| `test_regulator.c` | duty 0/25/50/100 %, NaN/диапазон, инверсия, допустимые GPIO ESP32-S3, Finglai sqrt/калибровка |
+| `test_heater_logic.c` | ручной приоритет, E-STOP/safety/уровень, обязательный датчик, запрет нагрева вне процесса |
+| `test_estop_logic.c` | активный высокий уровень NC-кнопки |
+
+## Host-тесты
+
+`test/host` — обычная CMake/CTest-сборка без ESP-IDF, запускается в CI:
+
+```bash
+cmake -S test/host -B test/host/build
+cmake --build test/host/build
+ctest --test-dir test/host/build --output-on-failure
+```
+
+Покрывает duty mapping, Finglai `sqrt(P)`, калибровку, GPIO и блокировки
+нагрева. Unity-тесты `test/` собираются в ESP-IDF и запускаются на
+устройстве.
 
 ## Запуск
 

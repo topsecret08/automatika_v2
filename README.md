@@ -1312,8 +1312,12 @@ idf.py -p COM5 flash monitor
 
 ### CI
 
-Шаблон workflow — `ci/build.yml`: он собирает прошивку и тестовый проект на
-`espressif/idf:v5.3.2`, публикует `automatika_v2.bin` и артефакты тестов.
+Workflow — `ci/build.yml` (и копия `.github/workflows/build.yml`):
+
+- `host-tests` — собирает и запускает `test/host` через CMake/CTest;
+- `firmware` — собирает прошивку на `espressif/idf:v5.3.2`;
+- `esp-tests` — собирает Unity-тестовое приложение.
+
 GitHub не принимает файлы в `.github/workflows/` от токена без права
 `workflow`:
 
@@ -1321,22 +1325,20 @@ GitHub не принимает файлы в `.github/workflows/` от токе�
 ! refusing to allow a Personal Access Token to create or update workflow
 ```
 
-Что сделать один раз:
+Активация (один раз):
 
 1. Выдать токену (fine-grained PAT) право **Workflows: Read and write** для
    репозитория или использовать классический PAT со scope `workflow`.
-2. Скопировать шаблон и запушить:
+2. Авторизоваться и запушить:
 
    ```bash
-   mkdir -p .github/workflows
-   cp ci/build.yml .github/workflows/build.yml
+   gh auth refresh -h github.com -s workflow
    git add .github/workflows/build.yml
-   git commit -m "CI: сборка прошивки и тестов"
+   git commit -m "CI: сборка прошивки и host-тестов"
    git push origin main
    ```
 
-3. Проверить вкладку **Actions → build**. Тот же файл приложен к релизу
-   `v0.5-alfa`.
+3. Проверить вкладку **Actions → build**. Тот же файл приложен к релизу.
 
 На Windows перед сборкой желательно задать кодировку Python, иначе `idf.py`
 может упасть на чтении кириллического `sdkconfig`:
