@@ -470,7 +470,7 @@ UART подключается только через оптронную раз�
 | GET | `/api/verify/state` | 🔓 | этап, политика, прогоны, модули |
 | POST | `/api/verify/shadow` | 🔑 | `{"policy":0..3}` |
 | POST | `/api/verify/stage` | 🔑 | `{"stage":0..6}` |
-| POST | `/api/verify/action` | 🔑 | `run`, `step`, `cancel`, `clean` |
+| POST | `/api/verify/action` | 🔑 | `run`, `step`, `cancel` (clean только автоматически) |
 | POST | `/api/verify/module` | 🔑 | `{"module":"...","verified":true}` |
 | POST | `/api/verify/replay` | 🔑 | `{"run_id":N}` |
 | POST | `/api/verify/freeze` | 🔑 | сохранить текущие коэффициенты adaptive PID |

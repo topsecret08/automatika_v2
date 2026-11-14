@@ -57,14 +57,14 @@ simple_relay → pid_manual → pid_autotune → heads_detector
 ```bash
 curl -H "X-API-Key: $KEY" http://automatika.local/api/verify/state
 
-# отметить чистый прогон текущего этапа
-curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
-  -d '{"action":"clean"}' http://automatika.local/api/verify/action
-
-# перейти на следующий этап
+# переход на следующий этап
 curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
   -d '{"stage":1}' http://automatika.local/api/verify/stage
 ```
+
+«Чистый» прогон нельзя отметить вручную: счётчик увеличивается только
+реальным завершением adaptive PID с успешными метриками
+(`verify_report_clean_run()`), поэтому `action=clean` удалён.
 
 ## 4. Флаги модулей
 
@@ -170,6 +170,6 @@ safety-задачи.
 - Теневой расчёт для нагрева использует упрощённый P-D предсказатель,
   а не полный PID; это демонстрация инфраструктуры, а не эталон.
 - Метрики PID требуют подготовленного ступенчатого лога.
-- Автоматическое «чистое» завершение процесса пока не отмечается:
-  используйте `action=clean` после проверки.
+- Автоматическое «чистое» завершение отмечается только при успешных
+  метриках adaptive PID; ручного `action=clean` больше нет.
 - На реальном оборудовании подсистема не проверялась.

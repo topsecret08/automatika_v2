@@ -1,5 +1,7 @@
 #include "ota_manager.h"
 #include "config.h"
+#include "ota_guard.h"
+#include "secure_ota.h"
 
 #include "core/events.h"
 #include "core/estop.h"
@@ -286,11 +288,10 @@ static void ota_update_task(void *arg) {
 
 esp_err_t ota_manager_start_update(const char *firmware_url) {
     if (!firmware_url || strlen(firmware_url) >= 192) return ESP_ERR_INVALID_ARG;
-    if (s_update_running) return ESP_ERR_INVALID_STATE;
-    if (!ctrl_safety_ok() || estop_is_pressed()) return ESP_ERR_INVALID_STATE;
-    if (state_get()->is_running || session_is_running()) {
-        events_log(EVENT_WARNING, "OTA rejected: process is running");
-        return ESP_ERR_INVALID_STATE;
+    esp_err_t guard = ota_guard_check();
+    if (guard != ESP_OK) {
+        events_log(EVENT_WARNING, "OTA rejected: %s", ota_guard_reason());
+        return guard;
     }
 
     ota_job_t *job = calloc(1, sizeof(*job));
@@ -323,7 +324,9 @@ const char *ota_manager_state_name(void) {
     }
 }
 
-bool ota_manager_update_running(void) { return s_update_running; }
+bool ota_manager_update_running(void) {
+    return s_update_running || secure_ota_in_progress();
+}
 const char *ota_manager_last_error(void) { return s_error; }
 
 const char *ota_manager_status_json(void) {

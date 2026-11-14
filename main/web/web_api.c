@@ -35,6 +35,7 @@
 #include "control/param_registry.h"
 #include "control/regulator_driver.h"
 #include "control/safety_gate.h"
+#include "ota/ota_guard.h"
 #include "control/adaptive_pid.h"
 #include "verify/verify_config.h"
 #include "verify/verify_db.h"
@@ -326,7 +327,17 @@ static esp_err_t h_power(httpd_req_t *r) {
 static esp_err_t h_safety(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
-    if (!ctrl_safety_ok()) ctrl_safety_reset();
+    if (!ctrl_safety_ok()) {
+        esp_err_t err = ctrl_safety_reset();
+        if (err != ESP_OK) {
+            char out[192];
+            snprintf(out, sizeof(out),
+                     "{\"error\":\"reset refused\",\"detail\":\"%s\","
+                     "\"safety\":0,\"estop\":%d}",
+                     ctrl_safety_reset_error(), estop_is_pressed() ? 1 : 0);
+            return send_err(r, "409 Conflict", out);
+        }
+    }
 
     char json[128];
     snprintf(json, sizeof(json), "{\"safety\":%d,\"estop\":%d}",
@@ -745,13 +756,13 @@ static void samovar_status_json(char *json, size_t max) {
 }
 
 static esp_err_t h_samovar(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
     if (r->method == HTTP_GET) {
         char json[512];
         samovar_status_json(json, sizeof(json));
         return send_json(r, json);
     }
-
-    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
     char body[768];
     if (recv_body(r, body, sizeof(body)) <= 0)
@@ -806,9 +817,10 @@ static esp_err_t h_samovar(httpd_req_t *r) {
 // ============================================================
 static esp_err_t h_ota_post(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-    if (state_get()->is_running || session_is_running()) {
-        return send_err(r, "409 Conflict",
-                        "{\"error\":\"process is running\"}");
+    if (ota_guard_check() != ESP_OK) {
+        char out[128];
+        snprintf(out, sizeof(out), "{\"error\":\"%s\"}", ota_guard_reason());
+        return send_err(r, "409 Conflict", out);
     }
 
     const esp_partition_t *p = esp_ota_get_next_update_partition(NULL);
@@ -1086,8 +1098,11 @@ static esp_err_t h_ota_url(httpd_req_t *r) {
     cJSON_Delete(root);
 
     if (!url_copy[0]) return send_err(r, "400 Bad Request", "{\"error\":\"url required\"}");
-    if (!ctrl_safety_ok() || estop_is_pressed())
-        return send_err(r, "409 Conflict", "{\"error\":\"safety/estop active\"}");
+    if (ota_guard_check() != ESP_OK) {
+        char out[128];
+        snprintf(out, sizeof(out), "{\"error\":\"%s\"}", ota_guard_reason());
+        return send_err(r, "409 Conflict", out);
+    }
 
     esp_err_t err = ota_manager_start_update(url_copy);
     if (err == ESP_ERR_INVALID_STATE)
@@ -1116,8 +1131,11 @@ static esp_err_t h_ota_secure(httpd_req_t *r) {
     cJSON_Delete(root);
 
     if (!url_copy[0]) return send_err(r, "400 Bad Request", "{\"error\":\"url required\"}");
-    if (!ctrl_safety_ok() || estop_is_pressed())
-        return send_err(r, "409 Conflict", "{\"error\":\"safety/estop active\"}");
+    if (ota_guard_check() != ESP_OK) {
+        char out[128];
+        snprintf(out, sizeof(out), "{\"error\":\"%s\"}", ota_guard_reason());
+        return send_err(r, "409 Conflict", out);
+    }
 
     esp_err_t err = secure_ota_start(url_copy);
     if (err == ESP_ERR_INVALID_STATE)
@@ -1946,10 +1964,11 @@ static esp_err_t h_verify_action(httpd_req_t *r) {
         shadow_request_step();
     } else if (strcmp(action, "cancel") == 0) {
         shadow_cancel();
-    } else if (strcmp(action, "clean") == 0) {
-        verify_report_clean_run();
     } else {
-        return send_err(r, "400 Bad Request", "{\"error\":\"action\"}");
+        // "clean" намеренно убран: счётчик чистых прогонов увеличивается
+        // только реальным завершением adaptive PID (verify_report_clean_run).
+        return send_err(r, "400 Bad Request",
+                        "{\"error\":\"action\",\"hint\":\"run|step|cancel\"}");
     }
     return send_json(r, "{\"status\":\"ok\"}");
 }

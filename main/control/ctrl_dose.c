@@ -350,7 +350,7 @@ void ctrl_dose_process(float rate_ml_min, float dt, int valve_idx) {
         if (s_proc_accum_ml >= 1.0f) {
             float chunk = s_proc_accum_ml;
             s_proc_accum_ml = 0.0f;
-            if (!s_busy) ctrl_dose_volume(chunk, rate_ml_min * 60.0f);
+            if (!s_busy) ctrl_dose_volume(chunk, rate_ml_min);
         }
         s_total_ml += ml;
         return;

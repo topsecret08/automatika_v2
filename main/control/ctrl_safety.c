@@ -38,6 +38,15 @@ static bool s_level_low_last = false;
 static bool s_level_over_last = false;
 static bool s_run_done_notified = false;
 static bool s_dry_run_latched = false;
+static char s_reset_error[64] = "";
+
+static esp_err_t reset_refused(const char *why) {
+    snprintf(s_reset_error, sizeof(s_reset_error), "%s", why);
+    events_log(EVENT_WARNING, "Safety reset refused: %s", why);
+    return ESP_ERR_INVALID_STATE;
+}
+
+const char *ctrl_safety_reset_error(void) { return s_reset_error; }
 
 void ctrl_safety_init(void) {
     s_ok = true;
@@ -46,6 +55,7 @@ void ctrl_safety_init(void) {
     s_level_over_last = false;
     s_run_done_notified = false;
     s_dry_run_latched = false;
+    s_reset_error[0] = '\0';
 }
 
 bool ctrl_safety_ok(void) { return s_ok; }
@@ -68,29 +78,23 @@ void ctrl_safety_trigger(const char *reason) {
     telegram_notify_alert("АВАРИЯ", reason);
 }
 
-void ctrl_safety_reset(void) {
+esp_err_t ctrl_safety_reset(void) {
     process_state_t *st = state_get();
-    if (st->is_running || ctrl_heater_get_percent() > 0.0f) {
-        events_log(EVENT_WARNING,
-                   "Safety reset refused: stop the process and cut heating first");
-        return;
-    }
-    if (estop_is_pressed()) {
-        events_log(EVENT_WARNING,
-                   "Safety reset refused: E-STOP active (release the button first)");
-        return;
-    }
-    if (level_is_available() && level_is_too_low()) {
-        events_log(EVENT_WARNING,
-                   "Safety reset refused: liquid level is still low");
-        return;
-    }
+    if (st->is_running || ctrl_heater_get_percent() > 0.0f)
+        return reset_refused("stop the process and cut heating first");
+    if (estop_is_pressed())
+        return reset_refused("E-STOP active (release the button first)");
+    if (level_is_available() && level_is_too_low())
+        return reset_refused("liquid level is still low");
+
     s_ok = true;
     s_no_flow_ms = 0;
     s_dry_run_latched = false;
+    s_reset_error[0] = '\0';
     st->emergency = false;
     st->emergency_reason[0] = '\0';
     events_log(EVENT_INFO, "Safety reset");
+    return ESP_OK;
 }
 
 // Кнопка E-STOP обрабатывается здесь, а не в ISR: ISR только фиксирует

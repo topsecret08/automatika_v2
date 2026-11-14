@@ -58,8 +58,10 @@ SoftAP `Automatika-Setup` доступен любому в радиусе, по�
 
 - Транспорт: только `https://`, проверка сертификата через `esp_crt_bundle`
   (`CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n`). `http://` запрещён.
-- OTA блокируется, пока идёт процесс (`state_get()->is_running` или
-  `session_is_running()`), а также при E-STOP/аварии.
+- OTA блокируется единым `ota_guard_check()` для всех путей
+  (`/api/ota`, `/api/ota/url`, `/api/ota/secure`, manager и secure):
+  идёт другой OTA, процесс (`state_get()->is_running` или
+  `session_is_running()`), E-STOP или авария.
 - Anti-brick: `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`, подтверждение
   только после health-check.
 - **Подпись образа пока выключена** (`OTA_SIGNED_ENABLED 0`): в репозитории

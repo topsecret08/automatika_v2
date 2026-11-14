@@ -446,7 +446,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.5 alfa занимает ~2,79 МБ (`0x2A98D0`),
+указаны слоты по 2 МБ, но образ V0.5 alfa занимает ~2,79 МБ (`0x2A9AA0`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -995,7 +995,7 @@ REST:
 GET  /api/verify/state
 POST /api/verify/shadow   {"policy":2}
 POST /api/verify/stage    {"stage":1}
-POST /api/verify/action   {"action":"run|step|cancel|clean"}
+POST /api/verify/action   {"action":"run|step|cancel"}
 POST /api/verify/module   {"module":"heads_detector","verified":true}
 POST /api/verify/replay   {"run_id":12}
 POST /api/verify/fuzz
@@ -1290,7 +1290,7 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.5 alfa: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.5 alfa): **0x2A98D0 (~2,79 МБ)**, свободно ~11 % раздела.
+Текущий бинарник (V0.5 alfa): **0x2A9AA0 (~2,79 МБ)**, свободно ~11 % раздела.
 
 ### Полезные команды
 

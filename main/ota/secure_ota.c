@@ -1,5 +1,6 @@
 #include "secure_ota.h"
 #include "config.h"
+#include "ota_guard.h"
 
 #include "core/events.h"
 #include "core/watchdog.h"
@@ -75,6 +76,11 @@ esp_err_t secure_ota_start(const char *url) {
     if (s_running) {
         snprintf(s_error, sizeof(s_error), "update already running");
         return ESP_ERR_INVALID_STATE;
+    }
+    esp_err_t guard = ota_guard_check();
+    if (guard != ESP_OK) {
+        snprintf(s_error, sizeof(s_error), "%s", ota_guard_reason());
+        return guard;
     }
     if (!url_allowed(url)) {
         snprintf(s_error, sizeof(s_error), "https required (or http disabled)");

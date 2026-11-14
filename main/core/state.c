@@ -5,12 +5,14 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include <math.h>
 #include <string.h>
 
 static const char *TAG = "STATE";
 static process_state_t s;
 static nvs_handle_t nvs;
 static int64_t last_save_us = 0;
+static float s_elapsed_frac = 0.0f;
 static SemaphoreHandle_t s_mtx = NULL;
 
 static void state_lock(void) {
@@ -25,6 +27,7 @@ void state_init(void) {
     if (!s_mtx) s_mtx = xSemaphoreCreateMutex();
     nvs_open("app_state", NVS_READWRITE, &nvs);
     memset(&s, 0, sizeof(s));
+    s_elapsed_frac = 0.0f;
     s.type = PROCESS_IDLE;
     s.stage = ST_IDLE;
     s.target_cube_t = 98.0f;
@@ -58,6 +61,7 @@ bool state_load(void) {
 
     state_lock();
     s = tmp;
+    s_elapsed_frac = 0.0f;
     state_unlock();
 
     ESP_LOGI(TAG, "Loaded: type=%d stage=%d", tmp.type, tmp.stage);
@@ -85,8 +89,15 @@ bool state_has_saved(void) {
 }
 
 void state_update_snapshot(float dt) {
+    if (!isfinite(dt) || dt <= 0.0f) return;
+
     state_lock();
-    s.elapsed_sec += (uint32_t)dt;
+    s_elapsed_frac += dt;
+    uint32_t whole = (uint32_t)s_elapsed_frac;
+    if (whole > 0) {
+        s.elapsed_sec += whole;
+        s_elapsed_frac -= (float)whole;
+    }
     bool running = s.is_running;
     state_unlock();
 

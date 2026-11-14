@@ -93,7 +93,7 @@ idf_component_register(
         "web/ws_handler.c" "web/http_handlers.c"
         "web/https_server.c"
         "ota/fota.c" "ota/ota_manager.c" "ota/ota_sd.c" "ota/ota_url.c"
-        "ota/ota_qr.c" "ota/ota_verify.c" "ota/secure_ota.c"
+        "ota/ota_qr.c" "ota/ota_verify.c" "ota/secure_ota.c" "ota/ota_guard.c"
         "patches/critical_fixes.c"
         "third_party/qrcodegen.c"
     INCLUDE_DIRS "." "third_party"
