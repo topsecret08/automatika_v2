@@ -8,13 +8,27 @@
 #include "core/session_manager.h"
 #include "core/state.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 static const char *s_reason = "allowed";
 static volatile bool s_web_running = false;
+static volatile bool s_reserved = false;
+static SemaphoreHandle_t s_mtx = NULL;
+
+static void guard_lock(void) {
+    if (!s_mtx) s_mtx = xSemaphoreCreateMutex();
+    if (s_mtx) xSemaphoreTake(s_mtx, portMAX_DELAY);
+}
+
+static void guard_unlock(void) {
+    if (s_mtx) xSemaphoreGive(s_mtx);
+}
 
 esp_err_t ota_guard_check(void) {
     // Проверяем оба OTA-механизма: managed (ota_manager) и secure (secure_ota),
     // а также прямую загрузку через /api/ota.
-    if (s_web_running || ota_manager_update_running() ||
+    if (s_reserved || s_web_running || ota_manager_update_running() ||
         secure_ota_in_progress()) {
         s_reason = "update in progress";
         return ESP_ERR_INVALID_STATE;
@@ -34,3 +48,17 @@ esp_err_t ota_guard_check(void) {
 const char *ota_guard_reason(void) { return s_reason; }
 
 void ota_guard_set_web_running(bool on) { s_web_running = on; }
+
+bool ota_guard_try_reserve(void) {
+    guard_lock();
+    bool ok = !s_reserved && ota_guard_check() == ESP_OK;
+    if (ok) s_reserved = true;
+    guard_unlock();
+    return ok;
+}
+
+void ota_guard_release(void) {
+    guard_lock();
+    s_reserved = false;
+    guard_unlock();
+}

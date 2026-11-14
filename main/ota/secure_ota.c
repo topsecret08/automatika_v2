@@ -77,24 +77,26 @@ esp_err_t secure_ota_start(const char *url) {
         snprintf(s_error, sizeof(s_error), "update already running");
         return ESP_ERR_INVALID_STATE;
     }
-    esp_err_t guard = ota_guard_check();
-    if (guard != ESP_OK) {
+    if (!ota_guard_try_reserve()) {
         snprintf(s_error, sizeof(s_error), "%s", ota_guard_reason());
-        return guard;
+        return ESP_ERR_INVALID_STATE;
     }
     if (!url_allowed(url)) {
+        ota_guard_release();
         snprintf(s_error, sizeof(s_error), "https required (or http disabled)");
         return ESP_ERR_INVALID_ARG;
     }
 
     size_t len = strlen(url);
     if (len == 0 || len >= 192) {
+        ota_guard_release();
         snprintf(s_error, sizeof(s_error), "url too long");
         return ESP_ERR_INVALID_ARG;
     }
 
     char *copy = malloc(len + 1);
     if (!copy) {
+        ota_guard_release();
         snprintf(s_error, sizeof(s_error), "out of memory");
         return ESP_ERR_NO_MEM;
     }
@@ -102,6 +104,7 @@ esp_err_t secure_ota_start(const char *url) {
 
     s_error[0] = '\0';
     s_running = true;
+    ota_guard_release();
 
     if (xTaskCreatePinnedToCore(secure_ota_task, "sec_ota", 8192, copy, 4,
                                 NULL, 0) != pdPASS) {

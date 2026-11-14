@@ -288,17 +288,20 @@ static void ota_update_task(void *arg) {
 
 esp_err_t ota_manager_start_update(const char *firmware_url) {
     if (!firmware_url || strlen(firmware_url) >= 192) return ESP_ERR_INVALID_ARG;
-    esp_err_t guard = ota_guard_check();
-    if (guard != ESP_OK) {
+    if (!ota_guard_try_reserve()) {
         events_log(EVENT_WARNING, "OTA rejected: %s", ota_guard_reason());
-        return guard;
+        return ESP_ERR_INVALID_STATE;
     }
 
     ota_job_t *job = calloc(1, sizeof(*job));
-    if (!job) return ESP_ERR_NO_MEM;
+    if (!job) {
+        ota_guard_release();
+        return ESP_ERR_NO_MEM;
+    }
     strncpy(job->url, firmware_url, sizeof(job->url) - 1);
 
     s_update_running = true;
+    ota_guard_release();
     set_error("");
     events_log(EVENT_INFO, "OTA: download started");
 

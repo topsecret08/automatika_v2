@@ -11,3 +11,7 @@ const char *ota_guard_reason(void);
 // Прямая загрузка через /api/ota занимает отдельный слот, пока идёт
 // HTTP-приём образа. Вызывать после успешного ota_guard_check().
 void        ota_guard_set_web_running(bool on);
+// Атомарная проверка + резервирование OTA. После успеха вызывающий обязан
+// установить свой флаг и вызвать ota_guard_release().
+bool        ota_guard_try_reserve(void);
+void        ota_guard_release(void);

@@ -871,12 +871,13 @@ static esp_err_t h_samovar(httpd_req_t *r) {
 // ============================================================
 static esp_err_t h_ota_post(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-    if (ota_guard_check() != ESP_OK) {
+    if (!ota_guard_try_reserve()) {
         char out[128];
         snprintf(out, sizeof(out), "{\"error\":\"%s\"}", ota_guard_reason());
         return send_err(r, "409 Conflict", out);
     }
     ota_guard_set_web_running(true);
+    ota_guard_release();
 
     const esp_partition_t *p = esp_ota_get_next_update_partition(NULL);
     if (!p) {
