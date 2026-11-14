@@ -9,10 +9,13 @@
 #include "core/state.h"
 
 static const char *s_reason = "allowed";
+static volatile bool s_web_running = false;
 
 esp_err_t ota_guard_check(void) {
-    // Проверяем оба OTA-механизма: managed (ota_manager) и secure (secure_ota).
-    if (ota_manager_update_running() || secure_ota_in_progress()) {
+    // Проверяем оба OTA-механизма: managed (ota_manager) и secure (secure_ota),
+    // а также прямую загрузку через /api/ota.
+    if (s_web_running || ota_manager_update_running() ||
+        secure_ota_in_progress()) {
         s_reason = "update in progress";
         return ESP_ERR_INVALID_STATE;
     }
@@ -29,3 +32,5 @@ esp_err_t ota_guard_check(void) {
 }
 
 const char *ota_guard_reason(void) { return s_reason; }
+
+void ota_guard_set_web_running(bool on) { s_web_running = on; }

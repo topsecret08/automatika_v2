@@ -822,15 +822,22 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
         snprintf(out, sizeof(out), "{\"error\":\"%s\"}", ota_guard_reason());
         return send_err(r, "409 Conflict", out);
     }
+    ota_guard_set_web_running(true);
 
     const esp_partition_t *p = esp_ota_get_next_update_partition(NULL);
-    if (!p) return send_err(r, "500 Internal Server Error", "{\"error\":\"no ota partition\"}");
-    if (r->content_len <= 0)
+    if (!p) {
+        ota_guard_set_web_running(false);
+        return send_err(r, "500 Internal Server Error", "{\"error\":\"no ota partition\"}");
+    }
+    if (r->content_len <= 0) {
+        ota_guard_set_web_running(false);
         return send_err(r, "400 Bad Request", "{\"error\":\"empty image\"}");
+    }
 
     esp_ota_handle_t h = 0;
     esp_err_t err = esp_ota_begin(p, OTA_SIZE_UNKNOWN, &h);
     if (err != ESP_OK) {
+        ota_guard_set_web_running(false);
         events_log(EVENT_ERROR, "Web OTA begin failed: %s", esp_err_to_name(err));
         return send_err(r, "500 Internal Server Error", "{\"error\":\"ota begin\"}");
     }
@@ -843,12 +850,14 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
         if (n <= 0) {
             if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
             esp_ota_abort(h);
+            ota_guard_set_web_running(false);
             events_log(EVENT_ERROR, "Web OTA receive failed");
             return send_err(r, "400 Bad Request", "{\"error\":\"receive\"}");
         }
         err = esp_ota_write(h, buf, n);
         if (err != ESP_OK) {
             esp_ota_abort(h);
+            ota_guard_set_web_running(false);
             events_log(EVENT_ERROR, "Web OTA write failed: %s", esp_err_to_name(err));
             return send_err(r, "500 Internal Server Error", "{\"error\":\"write\"}");
         }
@@ -857,12 +866,14 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
 
     err = esp_ota_end(h);
     if (err != ESP_OK) {
+        ota_guard_set_web_running(false);
         events_log(EVENT_ERROR, "Web OTA end failed: %s", esp_err_to_name(err));
         return send_err(r, "500 Internal Server Error", "{\"error\":\"validate\"}");
     }
 
     err = esp_ota_set_boot_partition(p);
     if (err != ESP_OK) {
+        ota_guard_set_web_running(false);
         events_log(EVENT_ERROR, "Web OTA boot partition failed: %s", esp_err_to_name(err));
         return send_err(r, "500 Internal Server Error", "{\"error\":\"boot partition\"}");
     }
