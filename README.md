@@ -355,7 +355,7 @@ NVS flash
    Сравнение — постоянное по времени. Защищены **все** POST-обработчики:
    `/api/start`, `/api/stop`, `/api/pause`, `/api/power`, `/api/safety`,
    `/api/estop`, `/api/settings`, `/api/wifi`, `/api/mqtt`, `/api/telegram`,
-   `/api/brewfather`, `/api/calendar`, `/api/samovar`, `/api/ota`,
+   `/api/brewfather`, `/api/calendar`, `/api/samovar` (GET и POST), `/api/ota`,
    `/api/control`, `/api/dose`, `/api/script/run`, `/api/diag/*`.
    Исключения (не могут нести ключ): `/alice` — `X-Skill-Token`,
    Telegram-webhook — секрет `X-Telegram-Bot-Api-Secret-Token`.
@@ -725,6 +725,10 @@ curl -X POST -H "X-API-Key: $KEY" http://automatika.local/api/backup/telegram
   Эндпоинт `POST /api/ota/secure` принимает `{"url":"https://..."}` и
   запускает загрузку в отдельной задаче, отвечая `202 Accepted`;
   прогресс/ошибка — в журнале и `GET /api/ota`.
+- Все OTA-пути (`/api/ota`, `/api/ota/url`, `/api/ota/secure`,
+  `ota_manager`, `secure_ota`) проходят единый `ota_guard_check()`:
+  второй OTA, работающий процесс, E-STOP или авария → `409`, загрузка
+  не начинается.
 - Подписанная OTA (Secure Boot v2) **выключена** (`OTA_SIGNED_ENABLED 0`):
   в репозитории нет ключей. Для включения:
   1. сгенерируйте ключ `espsecure.py generate_signing_key`;
@@ -1476,7 +1480,7 @@ UI построен на LVGL 8.3: 480×320, сенсорный ввод, рус
 | `POST` | `/api/stop` | Остановить процесс (ключ) |
 | `POST` | `/api/pause` | Пауза (ключ) |
 | `POST` | `/api/power` | Мощность нагрева `0..100` (ключ) |
-| `POST` | `/api/safety` | Сброс аварии (ключ) |
+| `POST` | `/api/safety` | Сброс аварии (ключ); при отказе — 409 и причина |
 | `POST` | `/api/estop` | Состояние/подтверждение E-STOP `{"ack":true}` (ключ) |
 | `GET/POST` | `/api/control` | Режим управления, устройство отбора, HYS, калибровки (POST — ключ) |
 | `POST` | `/api/dose` | Дозировать объём `{"volume_ml":10,"rate_mlmin":40}` (ключ) |

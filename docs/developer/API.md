@@ -72,7 +72,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | POST | `/api/pause` | 🔑 | пауза |
 | POST | `/api/stop` | 🔑 | остановка, нагрев снимается |
 | POST | `/api/power` | 🔑 | `{"power":0..100}` — ручной режим; `{"mode":"auto"}` — авто |
-| POST | `/api/safety` | 🔑 | сброс программной защёлки safety |
+| POST | `/api/safety` | 🔑 | сброс защёлки; `409` с `detail`, если процесс/нагрев/уровень/E-STOP не позволяют |
 | POST | `/api/estop` | 🔑 | программная фиксация E-STOP |
 | POST | `/api/dose` | 🔑 | `{"volume_ml":10,"rate_mlmin":60}` |
 | POST | `/api/control` | 🔑 | параметры регулирования и внешний регулятор (см. ниже) |
