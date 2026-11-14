@@ -487,6 +487,9 @@ esp_err_t control_config_set_regulator_settings(const regulator_settings_t *in) 
         return ESP_ERR_INVALID_ARG;
     if (in->uart_baud < 1200 || in->uart_baud > 115200)
         return ESP_ERR_INVALID_ARG;
+    if (!regulator_inversion_allowed(in->type == REGULATOR_FINGLAI_SSVR,
+                                     in->pwm_inverted))
+        return ESP_ERR_INVALID_ARG;
     if (in->analog_range >= ANALOG_RANGE_COUNT)
         return ESP_ERR_INVALID_ARG;
     if (!isfinite(in->analog_min_pct) || !isfinite(in->analog_max_pct))

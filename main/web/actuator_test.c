@@ -210,7 +210,7 @@ static esp_err_t h_diag_safety(httpd_req_t *req) {
     char json[768];
     snprintf(json, sizeof(json),
         "{\"estop\":{\"raw\":%d,\"active\":%d,\"pressed\":%d,"
-        "\"source\":\"%s\",\"since_ms\":%u},"
+        "\"source\":\"%s\",\"active_ms\":%u},"
         "\"sensors\":{\"count\":%d,\"t0\":%.2f,\"t1\":%.2f,"
         "\"t0_ok\":%d,\"t1_ok\":%d},"
         "\"flow\":{\"present\":%d,\"ok\":%d,\"lpm\":%.2f},"

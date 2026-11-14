@@ -11,6 +11,7 @@
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_forecast.h"
 #include "control/fraction_periodic.h"
+#include "control/volume_feedback.h"
 #include "config.h"
 #include <math.h>
 
@@ -18,6 +19,9 @@ static proc_stage_t s_stage = ST_IDLE;
 static float s_stab_time = 0;
 static float s_head_stable_time = 0;
 static float s_last_col = 0;
+static volume_feedback_t s_heads_fb;
+static volume_feedback_t s_body_fb;
+static volume_feedback_t s_tails_fb;
 
 #define HEADS_END_T       78.5f
 #define BODY_END_T        92.0f
@@ -29,6 +33,9 @@ static proc_stage_t r_init(void) {
     s_stab_time = 0;
     s_head_stable_time = 0;
     s_last_col = 0;
+    volume_feedback_begin(&s_heads_fb);
+    volume_feedback_begin(&s_body_fb);
+    volume_feedback_begin(&s_tails_fb);
     events_log(EVENT_INFO, "Rectify: init");
     return s_stage;
 }
@@ -67,6 +74,7 @@ static proc_stage_t r_update(float dt) {
         if ((flags_get_by_key("autodetect_heads") &&
              auto_heads_done(col, dt)) || s_stab_time > 3600.0f) {
             s_stage = ST_HEADS;
+            volume_feedback_begin(&s_heads_fb);
             events_log(EVENT_STAGE_CHANGE, "→ HEADS");
         }
         break;
@@ -74,10 +82,15 @@ static proc_stage_t r_update(float dt) {
     case ST_HEADS:
         ctrl_heater_set_percent(45.0f);
         valve_set_pct(VALVE_HEADS, 5.0f);
-        state_get()->heads_collected_ml +=
-            control_config_get_flow_ml_min() * 0.05f * dt / 60.0f;
+        {
+            float est = control_config_get_flow_ml_min() * 0.05f * dt / 60.0f;
+            float measured = volume_feedback_ml(&s_heads_fb);
+            if (measured >= 0.0f) state_get()->heads_collected_ml = measured;
+            else state_get()->heads_collected_ml += est;
+        }
         if (state_get()->heads_collected_ml > state_get()->target_heads_ml) {
             s_stage = ST_BODY;
+            volume_feedback_begin(&s_body_fb);
             events_log(EVENT_STAGE_CHANGE, "→ BODY");
         }
         break;
@@ -102,9 +115,14 @@ static proc_stage_t r_update(float dt) {
 
         ctrl_heater_set_percent(50.0f);
         ctrl_dose_process(rate, dt, VALVE_BODY);
-        state_get()->body_collected_ml += rate * dt / 60.0f;
+        {
+            float measured = volume_feedback_ml(&s_body_fb);
+            if (measured >= 0.0f) state_get()->body_collected_ml = measured;
+            else state_get()->body_collected_ml += rate * dt / 60.0f;
+        }
         if (cube >= BODY_END_T) {
             s_stage = ST_TAILS;
+            volume_feedback_begin(&s_tails_fb);
             events_log(EVENT_STAGE_CHANGE, "→ TAILS");
         }
         break;
@@ -113,8 +131,12 @@ static proc_stage_t r_update(float dt) {
     case ST_TAILS:
         ctrl_heater_set_percent(70.0f);
         valve_set_pct(VALVE_TAILS, 25.0f);
-        state_get()->tails_collected_ml +=
-            control_config_get_flow_ml_min() * 0.25f * dt / 60.0f;
+        {
+            float est = control_config_get_flow_ml_min() * 0.25f * dt / 60.0f;
+            float measured = volume_feedback_ml(&s_tails_fb);
+            if (measured >= 0.0f) state_get()->tails_collected_ml = measured;
+            else state_get()->tails_collected_ml += est;
+        }
         if (cube >= state_get()->tail_stop_temp) {
             s_stage = ST_COOLDOWN;
             events_log(EVENT_STAGE_CHANGE, "→ COOLDOWN");

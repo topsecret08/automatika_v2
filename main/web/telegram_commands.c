@@ -499,7 +499,7 @@ static void handle_command(const char *chat, const char *text) {
             float value = (float)atof(args);
             if (value < 0) value = 0;
             if (value > 100) value = 100;
-            esp_err_t err = ctrl_heater_manual_set(value);
+            esp_err_t err = safety_gate_apply("telegram_power", value);
             if (err == ESP_ERR_INVALID_STATE) {
                 tg_send(chat, "Регулятор не готов или активна защита.", NULL);
                 return;

@@ -19,6 +19,7 @@
 #include "core/events.h"
 #include "core/flags.h"
 #include "core/watchdog.h"
+#include "esp_timer.h"
 #include "hal/hal_1wire.h"
 #include "hal/baro.h"
 #include "hal/flow_sensor.h"
@@ -450,6 +451,7 @@ static esp_err_t h_control(httpd_req_t *r) {
     // конфиг восстанавливается.
     regulator_settings_t rs;
     bool reg_change = false;
+    bool reg_error = false;
     if (err == ESP_OK &&
         control_config_get_regulator_settings(&rs) == ESP_OK) {
         v = cJSON_GetObjectItemCaseSensitive(root, "regulator");
@@ -502,11 +504,17 @@ static esp_err_t h_control(httpd_req_t *r) {
             rs.ssvr_power_sqrt = cJSON_IsTrue(v);
             reg_change = true;
         }
-        if (reg_change)
+        if (reg_change) {
             err = regulator_apply_settings(&rs);
+            if (err != ESP_OK) reg_error = true;
+        }
     }
 
     cJSON_Delete(root);
+
+    if (!reg_error && err != ESP_OK)
+        return send_err(r, "400 Bad Request",
+                        "{\"error\":\"invalid setting\"}");
 
     if (err == ESP_ERR_INVALID_ARG || err == ESP_ERR_INVALID_STATE) {
         char out[192];
@@ -891,10 +899,21 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
     char buf[1024];
     int n;
     int remaining = r->content_len;
+    int64_t deadline = esp_timer_get_time() +
+                       (int64_t)OTA_WEB_TIMEOUT_MS * 1000LL;
     while (remaining > 0) {
+        if (esp_timer_get_time() > deadline) {
+            esp_ota_abort(h);
+            ota_guard_set_web_running(false);
+            events_log(EVENT_ERROR, "Web OTA timeout");
+            return send_err(r, "408 Request Timeout", "{\"error\":\"ota timeout\"}");
+        }
         n = httpd_req_recv(r, buf, sizeof(buf));
         if (n <= 0) {
-            if (n == HTTPD_SOCK_ERR_TIMEOUT) continue;
+            if (n == HTTPD_SOCK_ERR_TIMEOUT) {
+                WD_FEED("web");
+                continue;
+            }
             esp_ota_abort(h);
             ota_guard_set_web_running(false);
             events_log(EVENT_ERROR, "Web OTA receive failed");
@@ -908,6 +927,7 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
             return send_err(r, "500 Internal Server Error", "{\"error\":\"write\"}");
         }
         remaining -= n;
+        WD_FEED("web");
     }
 
     err = esp_ota_end(h);
@@ -1221,28 +1241,6 @@ static esp_err_t h_ota_confirm(httpd_req_t *r) {
 // ============================================================
 // WebSocket
 // ============================================================
-static bool ws_auth_ok(httpd_req_t *r) {
-    if (!control_config_api_has_key()) return true;
-
-    char hdr[128];
-    if (httpd_req_get_hdr_value_str(r, "Sec-WebSocket-Protocol",
-                                     hdr, sizeof(hdr)) == ESP_OK) {
-        char *p = strstr(hdr, "automatika");
-        if (p) {
-            p += strlen("automatika");
-            while (*p == ',' || *p == ' ') p++;
-            if (*p && api_auth_ws_token_check(p)) return true;
-        }
-    }
-
-    char auth[96];
-    if (httpd_req_get_hdr_value_str(r, "Authorization", auth, sizeof(auth)) == ESP_OK) {
-        const char *b = strstr(auth, "Bearer ");
-        if (b && api_auth_ws_token_check(b + 7)) return true;
-    }
-    return false;
-}
-
 static esp_err_t h_ws_token(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -1258,7 +1256,7 @@ static esp_err_t h_ws_token(httpd_req_t *r) {
 
 static esp_err_t h_ws(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
-        if (!ws_auth_ok(r))
+        if (!api_auth_ws_handshake_ok(r))
             return send_err(r, "401 Unauthorized",
                             "{\"error\":\"ws unauthorized\"}");
         return ESP_OK;
@@ -2087,11 +2085,15 @@ static esp_err_t h_verify_module(httpd_req_t *r) {
     const cJSON *mv = cJSON_GetObjectItemCaseSensitive(root, "module");
     const cJSON *vv = cJSON_GetObjectItemCaseSensitive(root, "verified");
     const char *module = cJSON_IsString(mv) ? mv->valuestring : NULL;
-    bool verified = cJSON_IsBool(vv) ? cJSON_IsTrue(vv) : true;
+    bool has_verified = cJSON_IsBool(vv);
+    bool verified = has_verified && cJSON_IsTrue(vv);
     cJSON_Delete(root);
 
-    if (!module)
+    if (!module || !module[0])
         return send_err(r, "400 Bad Request", "{\"error\":\"module\"}");
+    if (!has_verified)
+        return send_err(r, "400 Bad Request",
+                        "{\"error\":\"verified must be boolean\"}");
 
     esp_err_t err = verified ? verify_mark_module_verified(module)
                              : verify_clear_module_verified(module);

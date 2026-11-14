@@ -173,8 +173,14 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 
 | Путь | Доступ | Описание |
 |---|---|---|
-| `/ws/telemetry` | 🔓 | телеметрия раз в секунду |
-| `/ws` | 🔓 | legacy-канал, тот же набор полей |
+| `/ws/telemetry` | 🔑 токен | телеметрия раз в секунду |
+| `/ws` | 🔑 токен | legacy-канал, тот же набор полей |
+| `GET /api/ws-token` | 🔑 | короткоживущий токен (60 с) для WebSocket |
+
+WebSocket-handshake требует `Sec-WebSocket-Protocol: automatika,<token>`
+(или `Authorization: Bearer <token>`). Постоянный API-ключ в URL не
+передаётся. Без валидного токена handshake отклоняется до регистрации
+клиента; `/ws/telemetry` защищён так же, как `/ws`.
 
 Кадр `/ws/telemetry`:
 
@@ -462,6 +468,8 @@ HTTP 403
 `analog_min_pct`/`analog_max_pct` — калибровка duty для 0 В и полной шкалы.
 `ssvr_power_sqrt=true` означает, что процент интерфейса — электрическая
 мощность резистивного нагревателя, команда = `100·sqrt(P/100)`.
+`reg_inverted` для Finglai SSVR должен быть `false`: инверсия запрещена,
+иначе аварийный ноль даёт максимальную скважность (`400`).
 
 `GET /api/control` возвращает `regulator`, `regulator_name`,
 `regulator_ready`, `regulator_gpio`, `pwm_freq_hz`, `pwm_resolution`,
@@ -487,7 +495,7 @@ UART подключается только через оптронную раз�
 | POST | `/api/verify/shadow` | 🔑 | `{"policy":0..3}` |
 | POST | `/api/verify/stage` | 🔑 | `{"stage":0..6}` |
 | POST | `/api/verify/action` | 🔑 | `run`, `step`, `cancel` (clean только автоматически) |
-| POST | `/api/verify/module` | 🔑 | `{"module":"...","verified":true}` |
+| POST | `/api/verify/module` | 🔑 | `{"module":"...","verified":true\|false}` — поле обязательно |
 | POST | `/api/verify/replay` | 🔑 | `{"run_id":N}` |
 | POST | `/api/verify/freeze` | 🔑 | сохранить текущие коэффициенты adaptive PID |
 | POST | `/api/verify/fuzz` | 🔑 | TP/FP/FN детектора аномалий |

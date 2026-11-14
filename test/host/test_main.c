@@ -33,6 +33,9 @@ static void test_ssvr(void) {
     CHECK(ssvr_control_to_duty(50.0f, 1023, 0.0f, 100.0f) == 512);
     CHECK(ssvr_control_to_duty(100.0f, 1023, 0.0f, 100.0f) == 1023);
     CHECK(ssvr_control_to_duty(0.0f, 1023, 10.0f, 60.0f) == 102);
+    CHECK(!regulator_inversion_allowed(true, true));
+    CHECK(regulator_inversion_allowed(true, false));
+    CHECK(regulator_inversion_allowed(false, true));
 }
 
 static void test_gpio(void) {

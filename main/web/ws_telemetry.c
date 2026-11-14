@@ -1,5 +1,6 @@
 #include "ws_telemetry.h"
 #include "config.h"
+#include "api_auth.h"
 
 #include "core/events.h"
 #include "core/estop.h"
@@ -173,7 +174,9 @@ static esp_err_t ws_telemetry_handler(httpd_req_t *req) {
     int fd = httpd_req_to_sockfd(req);
 
     if (req->method == HTTP_GET) {
-        /* handshake завершён — регистрируем клиента у его сервера */
+        /* handshake: до регистрации проверяем токен/ключ */
+        if (!api_auth_ws_handshake_ok(req))
+            return api_reject_unauthorized(req);
         add_client(req->handle, fd);
         return ESP_OK;
     }

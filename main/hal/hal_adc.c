@@ -47,24 +47,49 @@ static float raw_to_v(int16_t raw) {
     return ((float)raw / 32768.0f) * 6.144f;
 }
 
+// Медианный фильтр 5 отсчётов для аналоговых каналов (давление, вакуум,
+// пролив, пары). Один новый отсчёт на вызов, без блокирующего burst-чтения.
+static int16_t s_hist[4][5];
+static uint8_t s_hist_idx[4];
+static uint8_t s_hist_count[4];
+
+static int16_t adc_read_filtered(int ch) {
+    if (ch < 0 || ch > 3) return 0;
+    int16_t raw = hal_adc_raw(ch);
+    s_hist[ch][s_hist_idx[ch]] = raw;
+    s_hist_idx[ch] = (uint8_t)((s_hist_idx[ch] + 1) % 5);
+    if (s_hist_count[ch] < 5) s_hist_count[ch]++;
+
+    int16_t tmp[5];
+    int n = s_hist_count[ch];
+    for (int i = 0; i < n; i++) tmp[i] = s_hist[ch][i];
+    for (int i = 1; i < n; i++) {
+        int16_t v = tmp[i];
+        int j = i - 1;
+        while (j >= 0 && tmp[j] > v) { tmp[j + 1] = tmp[j]; j--; }
+        tmp[j + 1] = v;
+    }
+    return tmp[n / 2];
+}
+
 float hal_adc_pressure_bar(void) {
-    float v = raw_to_v(hal_adc_raw(0));
+    float v = raw_to_v(adc_read_filtered(0));
     float mA = v / 150.0f * 1000.0f;   // 150 Ω шунт
     float bar = (mA - 4.0f) / 16.0f * 4.0f;
     return (bar < 0) ? 0 : bar;
 }
 
 float hal_adc_vacuum_mbar(void) {
-    float v = raw_to_v(hal_adc_raw(1));
+    float v = raw_to_v(adc_read_filtered(1));
     if (v < 0.5f) return 0;
     return (v - 0.5f) / 4.0f * 1000.0f;
 }
 
 float hal_adc_spill_voltage(void) {
-    return raw_to_v(hal_adc_raw(2));
+    return raw_to_v(adc_read_filtered(2));
 }
 
 float hal_adc_vapor_ppm(void) {
-    float v = raw_to_v(hal_adc_raw(3));
+    float v = raw_to_v(adc_read_filtered(3));
     return v * 1000.0f;
 }

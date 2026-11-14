@@ -94,6 +94,7 @@ void scale_set_density(float d) {
 }
 
 bool  scale_is_stable(void)          { return s.stable; }
+bool  scale_is_ready(void)           { return s.state == SCALE_READY; }
 float scale_get_flow_ml_min(void)    { return s.flow_ml_per_min; }
 float scale_get_total_ml(void)       { return s.total_ml; }
 

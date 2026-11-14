@@ -34,7 +34,7 @@ idf_component_register(
         "control/ctrl_heater.c" "control/ctrl_dose.c" "control/pump_doser.c"
         "control/ctrl_valves.c" "control/ctrl_valve_control.c"
         "control/ctrl_forecast.c" "control/valve_calibration.c"
-        "control/ctrl_scale.c" "control/ctrl_autolearn.c"
+        "control/ctrl_scale.c" "control/ctrl_autolearn.c" "control/volume_feedback.c"
         "control/ctrl_alcohol_balance.c" "control/ctrl_time_predict.c"
         "control/ctrl_sensor_calib.c"
         "control/fraction_logic.c" "control/fraction_periodic.c" "control/alcohol_balance.c"

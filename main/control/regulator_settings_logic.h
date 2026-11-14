@@ -94,6 +94,12 @@ static inline uint32_t regulator_apply_inversion(uint32_t duty, uint8_t bits,
     return max - duty;
 }
 
+// Инверсия PWM допустима только для обычного SSR/MOSFET. Для Finglai
+// SSVR аварийный ноль не должен превращаться в максимальную скважность.
+static inline bool regulator_inversion_allowed(bool is_ssvr, bool inverted) {
+    return !(is_ssvr && inverted);
+}
+
 // --- Finglai SSVR: PWM -> аналог -> CONT/COM -------------------------
 // Начальная аппроксимация: процент интерфейса = электрическая мощность
 // резистивного нагревателя, SSVR линейно задаёт RMS-напряжение.

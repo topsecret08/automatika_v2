@@ -1313,7 +1313,9 @@ function renderCalibration() {
       reg_gpio: Number($('#reg-gpio')?.value ?? -1),
       reg_freq: Number($('#reg-freq')?.value || 1000),
       reg_resolution: Number($('#reg-res')?.value || 10),
-      reg_inverted: !!$('#reg-inv')?.checked,
+      reg_inverted: Number($('#reg-seg .active')?.dataset.val) === 5
+        ? false
+        : !!$('#reg-inv')?.checked,
       analog_range: Number($('#analog-range')?.value || 0),
       analog_min_pct: Number($('#analog-min')?.value || 0),
       analog_max_pct: Number($('#analog-max')?.value ?? 100),
@@ -2339,6 +2341,12 @@ async function loadControlSettings() {
     if ($('#reg-freq')) $('#reg-freq').value = data.reg_freq || data.pwm_freq_hz || 1000;
     if ($('#reg-res')) $('#reg-res').value = data.reg_resolution || data.pwm_resolution || 10;
     if ($('#reg-inv')) $('#reg-inv').checked = !!data.reg_inverted;
+    if (Number(data.regulator) === 5 && $('#reg-inv')) {
+      $('#reg-inv').checked = false;
+      $('#reg-inv').disabled = true;
+    } else if ($('#reg-inv')) {
+      $('#reg-inv').disabled = false;
+    }
     if ($('#analog-range')) $('#analog-range').value = data.analog_range ?? 0;
     if ($('#analog-min')) $('#analog-min').value = data.analog_min_pct ?? 0;
     if ($('#analog-max')) $('#analog-max').value = data.analog_max_pct ?? 100;

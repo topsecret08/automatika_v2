@@ -49,6 +49,9 @@ TEST_CASE("Finglai SSVR control-to-duty calibration", "[ssvr]") {
     TEST_ASSERT_EQUAL_UINT32(102, ssvr_control_to_duty(0.0f, 1023, 10.0f, 60.0f));
     TEST_ASSERT_EQUAL_UINT32(614, ssvr_control_to_duty(100.0f, 1023, 10.0f, 60.0f));
     TEST_ASSERT_EQUAL_UINT32(358, ssvr_control_to_duty(50.0f, 1023, 10.0f, 60.0f));
+    TEST_ASSERT_FALSE(regulator_inversion_allowed(true, true));
+    TEST_ASSERT_TRUE(regulator_inversion_allowed(true, false));
+    TEST_ASSERT_TRUE(regulator_inversion_allowed(false, true));
     TEST_ASSERT_EQUAL_UINT32(0, ssvr_control_to_duty(0.0f, 0, 0.0f, 100.0f));
     TEST_ASSERT_EQUAL_UINT32(0, ssvr_control_to_duty(NAN, 1023, 0.0f, 100.0f));
 }

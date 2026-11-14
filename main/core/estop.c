@@ -131,7 +131,9 @@ const char *estop_source_name(void) {
 }
 
 uint32_t estop_since_ms(void) {
-    return (uint32_t)(s_trigger_us / 1000);
+    if (s_trigger_us == 0) return 0;
+    int64_t now = esp_timer_get_time();
+    return now > s_trigger_us ? (uint32_t)((now - s_trigger_us) / 1000) : 0;
 }
 
 void estop_task(void *arg) {

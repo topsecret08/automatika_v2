@@ -12,6 +12,9 @@ target_include_directories(automatika_host_tests PRIVATE
     "${MAIN_DIR}/core"
 )
 target_compile_options(automatika_host_tests PRIVATE -Wall -Wextra -Werror)
+if(UNIX)
+    target_link_libraries(automatika_host_tests PRIVATE m)
+endif()
 
 enable_testing()
 add_test(NAME logic COMMAND automatika_host_tests)

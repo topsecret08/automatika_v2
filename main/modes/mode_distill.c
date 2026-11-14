@@ -16,6 +16,7 @@
 #include "control/ctrl_forecast.h"
 #include "control/fraction_logic.h"
 #include "control/fraction_periodic.h"
+#include "control/volume_feedback.h"
 #include "control/reflux.h"
 #include "web/telegram_notify.h"
 #include "config.h"
@@ -26,6 +27,9 @@ static float s_stage_t = 0;
 static int s_predec_logged = -1;
 static fraction_t s_frac = FRAC_HEADS;
 static bool s_reflux_on = false;
+static volume_feedback_t s_heads_fb;
+static volume_feedback_t s_body_fb;
+static volume_feedback_t s_tails_fb;
 
 #define PREHEAT_POWER   100.0f
 #define BODY_POWER      60.0f
@@ -38,6 +42,9 @@ static proc_stage_t d_init(void) {
     s_predec_logged = -1;
     s_frac = FRAC_HEADS;
     s_reflux_on = false;
+    volume_feedback_begin(&s_heads_fb);
+    volume_feedback_begin(&s_body_fb);
+    volume_feedback_begin(&s_tails_fb);
 
     fraction_reset();
     reflux_set_ratio(REFLUX_RATIO_DEFAULT);
@@ -137,6 +144,7 @@ static proc_stage_t d_update(float dt) {
         ctrl_heater_set_percent(50.0f);
         if (s_stage_t > 600.0f) {
             s_stage = ST_HEADS;
+            volume_feedback_begin(&s_heads_fb);
             events_log(EVENT_STAGE_CHANGE, "-> HEADS");
         }
         break;
@@ -146,12 +154,16 @@ static proc_stage_t d_update(float dt) {
         valve_set_pct(VALVE_HEADS, 20.0f);
         {
             float flow = control_config_get_flow_ml_min();
-            st->heads_collected_ml += flow * 0.20f * dt / 60.0f;
+            float est = flow * 0.20f * dt / 60.0f;
+            float measured = volume_feedback_ml(&s_heads_fb);
+            if (measured >= 0.0f) st->heads_collected_ml = measured;
+            else st->heads_collected_ml += est;
         }
 
         if (f >= FRAC_BODY ||
             st->heads_collected_ml > st->target_heads_ml) {
             s_stage = ST_BODY;
+            volume_feedback_begin(&s_body_fb);
             events_log(EVENT_STAGE_CHANGE, "-> BODY");
         }
         break;
@@ -166,10 +178,15 @@ static proc_stage_t d_update(float dt) {
 
         ctrl_heater_set_percent(BODY_POWER);
         ctrl_dose_process(rate, dt, VALVE_BODY);
-        st->body_collected_ml += rate * dt / 60.0f;
+        {
+            float measured = volume_feedback_ml(&s_body_fb);
+            if (measured >= 0.0f) st->body_collected_ml = measured;
+            else st->body_collected_ml += rate * dt / 60.0f;
+        }
 
         if (f >= FRAC_TAILS || cube >= TAIL_START_T) {
             s_stage = ST_TAILS;
+            volume_feedback_begin(&s_tails_fb);
             events_log(EVENT_STAGE_CHANGE, "-> TAILS");
         }
         break;
@@ -180,7 +197,10 @@ static proc_stage_t d_update(float dt) {
         valve_set_pct(VALVE_TAILS, 30.0f);
         {
             float flow = control_config_get_flow_ml_min();
-            st->tails_collected_ml += flow * 0.30f * dt / 60.0f;
+            float est = flow * 0.30f * dt / 60.0f;
+            float measured = volume_feedback_ml(&s_tails_fb);
+            if (measured >= 0.0f) st->tails_collected_ml = measured;
+            else st->tails_collected_ml += est;
         }
 
         if (f >= FRAC_DONE || cube > st->target_cube_t) {

@@ -39,6 +39,7 @@ static bool s_level_over_last = false;
 static bool s_run_done_notified = false;
 static bool s_dry_run_latched = false;
 static bool s_level_fault_latched = false;
+static bool s_was_running = false;
 static char s_reset_error[64] = "";
 
 static esp_err_t reset_refused(const char *why) {
@@ -57,6 +58,7 @@ void ctrl_safety_init(void) {
     s_run_done_notified = false;
     s_dry_run_latched = false;
     s_level_fault_latched = false;
+    s_was_running = false;
     s_reset_error[0] = '\0';
 }
 
@@ -225,11 +227,13 @@ void ctrl_safety_task(void *arg) {
         }
 
         // ---- Завершение процесса ----
-        if (running && !state_get()->is_running && !s_run_done_notified) {
+        bool now_running = state_get()->is_running;
+        if (s_was_running && !now_running && !s_run_done_notified) {
             s_run_done_notified = true;
             telegram_notify_alert("ГОТОВО", "Процесс завершён");
         }
-        if (running) s_run_done_notified = false;
+        if (!s_was_running && now_running) s_run_done_notified = false;
+        s_was_running = now_running;
 
         // Остаток спирта: раз в 500 мс по T куба и абсолютному давлению.
         static int64_t s_last_abv_us = 0;

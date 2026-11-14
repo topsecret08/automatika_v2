@@ -97,6 +97,29 @@ bool api_auth_ws_token_check(const char *token) {
     return token_eq(token, s_ws_token);
 }
 
+bool api_auth_ws_handshake_ok(httpd_req_t *req) {
+    if (!req) return false;
+    if (!control_config_api_has_key()) return true;
+
+    char hdr[128];
+    if (httpd_req_get_hdr_value_str(req, "Sec-WebSocket-Protocol",
+                                     hdr, sizeof(hdr)) == ESP_OK) {
+        char *p = strstr(hdr, "automatika");
+        if (p) {
+            p += strlen("automatika");
+            while (*p == ',' || *p == ' ') p++;
+            if (*p && api_auth_ws_token_check(p)) return true;
+        }
+    }
+
+    char auth[96];
+    if (httpd_req_get_hdr_value_str(req, "Authorization", auth, sizeof(auth)) == ESP_OK) {
+        const char *b = strstr(auth, "Bearer ");
+        if (b && api_auth_ws_token_check(b + 7)) return true;
+    }
+    return false;
+}
+
 bool api_check_telegram_secret(httpd_req_t *req) {
     char expected[65] = {0};
     size_t len = sizeof(expected);

@@ -28,6 +28,11 @@ esp_err_t api_check_read_auth(httpd_req_t *req);
 esp_err_t api_auth_ws_token_issue(char *out, size_t out_len);
 bool      api_auth_ws_token_check(const char *token);
 
+// Проверка WebSocket-handshake: без ключа (bootstrap) — разрешено;
+// иначе нужен короткоживущий токен в Sec-WebSocket-Protocol
+// ("automatika,<token>") или Authorization: Bearer <token>.
+bool      api_auth_ws_handshake_ok(httpd_req_t *req);
+
 // Отправить 401 и вернуть ESP_FAIL — удобный однострочник для обработчиков.
 esp_err_t api_reject_unauthorized(httpd_req_t *req);
 

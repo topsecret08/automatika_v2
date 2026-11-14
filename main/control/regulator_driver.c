@@ -52,12 +52,9 @@ static bool is_pwm_type(regulator_type_t t) {
 }
 
 static uint32_t pwm_zero_duty(void) {
-    uint32_t duty_max = regulator_duty_max(s_cfg.pwm_res);
-    if (s_cfg.type == REGULATOR_FINGLAI_SSVR) {
-        return ssvr_control_to_duty(0.0f, duty_max,
-                                    s_cfg.analog_min_pct,
-                                    s_cfg.analog_max_pct);
-    }
+    // Аварийный/нулевой уровень всегда 0 % duty. Калибровочный min
+    // применяется только для ненулевой команды, чтобы 0 не превращался
+    // в ненулевое напряжение.
     return 0;
 }
 
@@ -152,7 +149,9 @@ static esp_err_t pwm_set_power(float percent) {
     uint32_t duty_max = regulator_duty_max(s_cfg.pwm_res);
     uint32_t duty;
 
-    if (s_cfg.type == REGULATOR_FINGLAI_SSVR) {
+    if (percent <= 0.0f) {
+        duty = 0;
+    } else if (s_cfg.type == REGULATOR_FINGLAI_SSVR) {
         float control = s_cfg.ssvr_power_sqrt
                             ? ssvr_power_to_control(percent)
                             : percent;
@@ -214,6 +213,8 @@ static bool config_valid(const regulator_config_t *cfg) {
             if (!(cfg->analog_min_pct >= 0.0f &&
                   cfg->analog_max_pct <= 100.0f &&
                   cfg->analog_min_pct < cfg->analog_max_pct)) return false;
+            if (!regulator_inversion_allowed(true, cfg->pwm_inverted))
+                return false;
         }
     }
     if (is_uart_type(cfg->type)) {
@@ -348,6 +349,12 @@ esp_err_t regulator_apply_settings(const regulator_settings_t *settings) {
     }
     if (settings->uart_baud < 1200 || settings->uart_baud > 115200) {
         set_error("UART baud is invalid");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!regulator_inversion_allowed(
+            settings->type == REGULATOR_FINGLAI_SSVR,
+            settings->pwm_inverted)) {
+        set_error("PWM inversion is not allowed for Finglai SSVR");
         return ESP_ERR_INVALID_ARG;
     }
     if (settings->analog_range >= ANALOG_RANGE_COUNT) {

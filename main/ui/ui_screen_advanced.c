@@ -308,7 +308,9 @@ void ui_screen_advanced_create(void) {
         snprintf(buf, sizeof(buf), "Разрядность: %u бит",
                  (unsigned)rs.pwm_resolution);
         make_pwm_row(card, buf, &s_pwm_steps[4], &s_pwm_steps[5]);
+    }
 
+    if (reg == REGULATOR_SSR_PWM) {
         lv_obj_t *pol = lv_btn_create(card);
         lv_obj_set_width(pol, lv_pct(100));
         lv_obj_set_height(pol, 34);

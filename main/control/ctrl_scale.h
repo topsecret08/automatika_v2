@@ -48,4 +48,5 @@ bool   scale_calibration_step(void);
 float  scale_get_flow_ml_min(void);
 float  scale_get_total_ml(void);
 bool   scale_is_stable(void);
+bool   scale_is_ready(void);
 void   scale_set_density(float d);
