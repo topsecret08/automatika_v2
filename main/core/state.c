@@ -79,6 +79,9 @@ void state_save(void) {
 }
 
 void state_clear(void) {
+    state_lock();
+    s_elapsed_frac = 0.0f;
+    state_unlock();
     nvs_erase_key(nvs, "proc");
     nvs_commit(nvs);
 }

@@ -162,7 +162,8 @@ safety-задачи.
 1. E-STOP / `ctrl_safety_ok()` → выход 0.
 2. Класс `QUALITY`/`EXPERIMENTAL` без `verified` → отказ.
 3. `EXPERIMENTAL` при `shadow=off` → отказ.
-4. Применение через `ctrl_heater_set_raw()`.
+4. Применение через `ctrl_heater_set_percent()` (auto-уставка) или
+   `ctrl_heater_manual_set()` для ручных источников.
 
 ## 9. Ограничения
 
