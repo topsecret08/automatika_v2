@@ -207,24 +207,39 @@ esp_err_t ctrl_dose_init(void) {
     s_queue = xQueueCreate(CTRL_DOSE_QUEUE_LEN, sizeof(dose_msg_t));
     if (!s_queue) return ESP_ERR_NO_MEM;
 
-    gpio_config_t io = {
-        .pin_bit_mask = (1ULL << PUMP_STEP_GPIO) | (1ULL << PUMP_EN_GPIO),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    esp_err_t err = gpio_config(&io);
-    if (err != ESP_OK) return err;
-    s_gpio_ready = true;
-    pump_enable(false);
+    bool step_ok = PUMP_STEP_GPIO >= 0 &&
+                   GPIO_IS_VALID_OUTPUT_GPIO((gpio_num_t)PUMP_STEP_GPIO);
+    bool en_ok = PUMP_EN_GPIO >= 0 &&
+                 GPIO_IS_VALID_OUTPUT_GPIO((gpio_num_t)PUMP_EN_GPIO);
+
+    if (!step_ok || !en_ok) {
+        s_gpio_ready = false;
+        ESP_LOGW(TAG, "pump disabled: STEP=%d ENABLE=%d (set real free GPIOs)",
+                 PUMP_STEP_GPIO, PUMP_EN_GPIO);
+        events_log(EVENT_WARNING,
+                   "Doser pump disabled: STEP/ENABLE GPIO not configured");
+    } else {
+        uint64_t mask = (1ULL << PUMP_STEP_GPIO) | (1ULL << PUMP_EN_GPIO);
+        gpio_config_t io = {
+            .pin_bit_mask = mask,
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        esp_err_t err = gpio_config(&io);
+        if (err != ESP_OK) return err;
+        s_gpio_ready = true;
+        pump_enable(false);
+    }
 
     if (SOLENOID_PWM_GPIO >= 0) {
         if (ctrl_dose_enable_solenoid_pwm(SOLENOID_PWM_GPIO) != ESP_OK)
             ESP_LOGW(TAG, "solenoid PWM init failed");
     }
 
-    ESP_LOGI(TAG, "ready: steps/ml=%u device=%s",
+    ESP_LOGI(TAG, "ready: pump=%s steps/ml=%u device=%s",
+             s_gpio_ready ? "on" : "off",
              (unsigned)control_config_get_steps_per_ml(),
              control_config_get_output_device() == OUTPUT_DEVICE_PUMP ? "pump" : "valve");
     return ESP_OK;

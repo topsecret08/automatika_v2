@@ -1,5 +1,6 @@
 #include "control_config.h"
 #include "config.h"
+#include "control/regulator_settings_logic.h"
 
 #include "esp_log.h"
 #include "esp_random.h"
@@ -27,6 +28,10 @@ static uint32_t         s_steps_per_ml = 1000;
 static bool             s_service = false;
 static regulator_type_t s_regulator = REGULATOR_NONE;
 static uint32_t         s_reg_baud = 9600;
+static int16_t          s_pwm_gpio = REG_SSR_GPIO;
+static uint32_t         s_pwm_freq = REG_PWM_FREQ_HZ;
+static uint8_t          s_pwm_res = REG_PWM_RESOLUTION;
+static bool             s_pwm_inverted = REG_PWM_INVERTED ? true : false;
 static bool             s_adaptive_pid = false;
 
 // ---------------------------------------------------------------------
@@ -102,6 +107,41 @@ static void load(void) {
     if (nvs_get_u32(s_nvs, "reg_baud", &u32) == ESP_OK &&
         u32 >= 1200 && u32 <= 115200)
         s_reg_baud = u32;
+
+    int32_t gpio = -1;
+    if (nvs_get_i32(s_nvs, "reg_gpio", &gpio) == ESP_OK) {
+        if (gpio < -1 || gpio > REG_PWM_MAX_GPIO) {
+            ESP_LOGW(TAG, "reg_gpio=%ld invalid, using -1", (long)gpio);
+            s_pwm_gpio = -1;
+        } else {
+            s_pwm_gpio = (int16_t)gpio;
+        }
+    }
+
+    u32 = 0;
+    if (nvs_get_u32(s_nvs, "reg_freq", &u32) == ESP_OK) {
+        if (u32 >= 1 && u32 <= REG_PWM_MAX_FREQ_HZ) {
+            s_pwm_freq = u32;
+        } else {
+            ESP_LOGW(TAG, "reg_freq=%lu invalid, using %lu",
+                     (unsigned long)u32, (unsigned long)REG_PWM_DEFAULT_FREQ_HZ);
+            s_pwm_freq = REG_PWM_DEFAULT_FREQ_HZ;
+        }
+    }
+
+    u8 = 0;
+    if (nvs_get_u8(s_nvs, "reg_res", &u8) == ESP_OK) {
+        if (regulator_pwm_res_valid(u8)) {
+            s_pwm_res = u8;
+        } else {
+            ESP_LOGW(TAG, "reg_res=%u invalid, using 10", (unsigned)u8);
+            s_pwm_res = REG_PWM_DEFAULT_RES;
+        }
+    }
+
+    u8 = 0;
+    if (nvs_get_u8(s_nvs, "reg_inv", &u8) == ESP_OK)
+        s_pwm_inverted = (u8 != 0);
 
     s_api_key[sizeof(s_api_key) - 1] = '\0';
 }
@@ -385,6 +425,64 @@ esp_err_t control_config_set_regulator_baud(uint32_t baud) {
     esp_err_t err = nvs_set_u32(s_nvs, "reg_baud", baud);
     if (err == ESP_OK) err = nvs_commit(s_nvs);
     unlock();
+    return err;
+}
+
+esp_err_t control_config_get_regulator_settings(regulator_settings_t *out) {
+    if (!out || !s_ready) return ESP_ERR_INVALID_ARG;
+
+    lock();
+    out->type = s_regulator;
+    out->pwm_gpio = s_pwm_gpio;
+    out->pwm_freq_hz = s_pwm_freq;
+    out->pwm_resolution = s_pwm_res;
+    out->pwm_inverted = s_pwm_inverted;
+    out->uart_baud = s_reg_baud;
+    unlock();
+    return ESP_OK;
+}
+
+esp_err_t control_config_set_regulator_settings(const regulator_settings_t *in) {
+    if (!in || !s_ready) return ESP_ERR_INVALID_ARG;
+    if (in->type >= REGULATOR_COUNT) return ESP_ERR_INVALID_ARG;
+    if (in->pwm_gpio < -1) return ESP_ERR_INVALID_ARG;
+    if (in->pwm_gpio > REG_PWM_MAX_GPIO) return ESP_ERR_INVALID_ARG;
+    if (in->pwm_gpio >= 0 && !regulator_pwm_gpio_valid(in->pwm_gpio))
+        return ESP_ERR_INVALID_ARG;
+    if (!regulator_pwm_res_valid(in->pwm_resolution))
+        return ESP_ERR_INVALID_ARG;
+    if (!regulator_pwm_freq_valid(in->pwm_freq_hz, in->pwm_resolution))
+        return ESP_ERR_INVALID_ARG;
+    if (in->uart_baud < 1200 || in->uart_baud > 115200)
+        return ESP_ERR_INVALID_ARG;
+
+    lock();
+    // Сначала пишем в NVS и фиксируем; память обновляем только при успехе,
+    // чтобы состояние драйвера и настроек не расходилось.
+    esp_err_t err = nvs_set_u8(s_nvs, "reg_type", (uint8_t)in->type);
+    if (err == ESP_OK) err = nvs_set_i32(s_nvs, "reg_gpio", in->pwm_gpio);
+    if (err == ESP_OK) err = nvs_set_u32(s_nvs, "reg_freq", in->pwm_freq_hz);
+    if (err == ESP_OK) err = nvs_set_u8(s_nvs, "reg_res", in->pwm_resolution);
+    if (err == ESP_OK) err = nvs_set_u8(s_nvs, "reg_inv", in->pwm_inverted ? 1 : 0);
+    if (err == ESP_OK) err = nvs_set_u32(s_nvs, "reg_baud", in->uart_baud);
+    if (err == ESP_OK) err = nvs_commit(s_nvs);
+
+    if (err == ESP_OK) {
+        s_regulator = in->type;
+        s_pwm_gpio = in->pwm_gpio;
+        s_pwm_freq = in->pwm_freq_hz;
+        s_pwm_res = in->pwm_resolution;
+        s_pwm_inverted = in->pwm_inverted;
+        s_reg_baud = in->uart_baud;
+    }
+    unlock();
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "regulator settings: type=%s gpio=%d freq=%lu res=%u inv=%d",
+                 control_config_regulator_name(in->type), in->pwm_gpio,
+                 (unsigned long)in->pwm_freq_hz, (unsigned)in->pwm_resolution,
+                 in->pwm_inverted ? 1 : 0);
+    }
     return err;
 }
 

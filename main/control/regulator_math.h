@@ -5,13 +5,13 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "regulator_settings_logic.h"
+
 #define REG_PWM_DUTY_MAX_TEST 1023u
 
 // Чистая логика драйвера: удобно тестировать без LEDC/UART.
 static inline uint32_t regulator_power_to_duty(float percent) {
-    if (!(percent > 0.0f)) return 0;          // NaN и отрицательные -> 0
-    if (percent >= 100.0f) return 1023u;
-    return (uint32_t)(percent * 1023.0f / 100.0f + 0.5f);
+    return regulator_power_to_duty_bits(percent, 10);
 }
 
 static inline int regulator_format_command(bool kvic, float percent,

@@ -37,6 +37,15 @@ typedef enum {
     REGULATOR_COUNT
 } regulator_type_t;
 
+typedef struct {
+    regulator_type_t type;
+    int16_t  pwm_gpio;        // -1 = не задан
+    uint32_t pwm_freq_hz;     // 1..20000
+    uint8_t  pwm_resolution;  // 1..14, по умолчанию 10
+    bool     pwm_inverted;    // активный низкий вход
+    uint32_t uart_baud;       // для UART-регуляторов
+} regulator_settings_t;
+
 #define API_KEY_LEN        33        // 32 hex + '\0'
 #define API_KEY_NVS_NS     "automatika"
 #define API_KEY_NVS_KEY    "api_key"
@@ -66,6 +75,8 @@ regulator_type_t control_config_get_regulator(void);
 esp_err_t        control_config_set_regulator(regulator_type_t type);
 uint32_t         control_config_get_regulator_baud(void);
 esp_err_t        control_config_set_regulator_baud(uint32_t baud);
+esp_err_t        control_config_get_regulator_settings(regulator_settings_t *out);
+esp_err_t        control_config_set_regulator_settings(const regulator_settings_t *in);
 const char      *control_config_regulator_name(regulator_type_t type);
 
 // --- API key ---------------------------------------------------------

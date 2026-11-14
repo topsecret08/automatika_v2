@@ -133,7 +133,7 @@ static esp_err_t h_state(httpd_req_t *r) {
     process_state_t snap;
     state_snapshot(&snap);
     process_state_t *s = &snap;
-    char json[896];
+    char json[1152];
     snprintf(json, sizeof(json),
         "{\"type\":%d,\"stage\":%d,\"cube\":%.2f,\"col\":%.2f,"
         "\"power\":%.1f,\"power_auto\":%.1f,\"power_manual\":%d,"
@@ -142,8 +142,10 @@ static esp_err_t h_state(httpd_req_t *r) {
         "\"paused\":%d,\"elapsed\":%u,\"safety\":%d,"
         "\"estop\":%d,\"slope0\":%.2f,\"rising0\":%d,"
         "\"mode\":\"%s\",\"ctrl_mode\":%d,\"out_dev\":%d,"
-        "\"regulator\":%d,\"regulator_ready\":%d,"
-        "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d}",
+        "\"regulator\":%d,\"regulator_name\":\"%s\",\"regulator_ready\":%d,"
+        "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d,"
+        "\"pwm_resolution\":%d,\"pwm_inverted\":%d,"
+        "\"regulator_error\":\"%s\"}",
         (int)s->type, (int)s->stage, s->cube_temp, s->column_temp,
         ctrl_heater_get_percent(), ctrl_heater_get_auto_percent(),
         ctrl_heater_manual_active() ? 1 : 0,
@@ -156,8 +158,11 @@ static esp_err_t h_state(httpd_req_t *r) {
         (int)control_config_get_mode(),
         (int)control_config_get_output_device(),
         (int)control_config_get_regulator(),
+        control_config_regulator_name(control_config_get_regulator()),
         regulator_is_ready() ? 1 : 0,
-        regulator_get_gpio(), regulator_get_pwm_freq());
+        regulator_get_gpio(), regulator_get_pwm_freq(),
+        regulator_get_pwm_resolution(), regulator_get_pwm_inverted() ? 1 : 0,
+        regulator_last_error());
     return send_json(r, json);
 }
 
@@ -301,15 +306,20 @@ static esp_err_t h_power(httpd_req_t *r) {
         events_log(EVENT_USER_ACTION, "Web: manual power %.0f%%", pct);
     }
 
-    char out[192];
+    char out[320];
     snprintf(out, sizeof(out),
              "{\"power\":%.1f,\"power_auto\":%.1f,"
              "\"power_manual\":%d,\"regulator_ready\":%d,"
-             "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d}",
+             "\"regulator_gpio\":%d,\"pwm_freq_hz\":%d,"
+             "\"pwm_resolution\":%d,\"pwm_inverted\":%d,"
+             "\"regulator_error\":\"%s\"}",
              ctrl_heater_get_percent(), ctrl_heater_get_auto_percent(),
              ctrl_heater_manual_active() ? 1 : 0,
              regulator_is_ready() ? 1 : 0,
-             regulator_get_gpio(), regulator_get_pwm_freq());
+             regulator_get_gpio(), regulator_get_pwm_freq(),
+             regulator_get_pwm_resolution(),
+             regulator_get_pwm_inverted() ? 1 : 0,
+             regulator_last_error());
     return send_json(r, out);
 }
 
@@ -327,31 +337,45 @@ static esp_err_t h_safety(httpd_req_t *r) {
 // --- установки управления (control_config) ----------------------------
 static esp_err_t h_control(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
-        char json[512];
+        regulator_settings_t rs;
+        control_config_get_regulator_settings(&rs);
+        char json[640];
         snprintf(json, sizeof(json),
                  "{\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
                  "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
                  "\"regulator\":%d,\"regulator_name\":\"%s\",\"reg_baud\":%u,"
+                 "\"reg_gpio\":%d,\"reg_freq\":%lu,\"reg_resolution\":%u,"
+                 "\"reg_inverted\":%d,"
                  "\"regulator_ready\":%d,\"regulator_gpio\":%d,"
-                 "\"pwm_freq_hz\":%d,\"adaptive_pid\":%d}",
+                 "\"pwm_freq_hz\":%lu,\"pwm_resolution\":%u,"
+                 "\"pwm_inverted\":%d,\"regulator_error\":\"%s\","
+                 "\"adaptive_pid\":%d}",
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
                  control_config_get_hys(),
                  control_config_get_rate_ml_min(),
                  control_config_get_flow_ml_min(),
                  (unsigned)control_config_get_steps_per_ml(),
-                 (int)control_config_get_regulator(),
-                 control_config_regulator_name(control_config_get_regulator()),
-                 (unsigned)control_config_get_regulator_baud(),
+                 (int)rs.type,
+                 control_config_regulator_name(rs.type),
+                 (unsigned)rs.uart_baud,
+                 rs.pwm_gpio,
+                 (unsigned long)rs.pwm_freq_hz,
+                 (unsigned)rs.pwm_resolution,
+                 rs.pwm_inverted ? 1 : 0,
                  regulator_is_ready() ? 1 : 0,
-                 regulator_get_gpio(), regulator_get_pwm_freq(),
+                 regulator_get_gpio(),
+                 (unsigned long)rs.pwm_freq_hz,
+                 (unsigned)rs.pwm_resolution,
+                 rs.pwm_inverted ? 1 : 0,
+                 regulator_last_error(),
                  control_config_get_adaptive_pid() ? 1 : 0);
         return send_json(r, json);
     }
 
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
-    char body[256];
+    char body[384];
     if (recv_body(r, body, sizeof(body)) <= 0)
         return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
 
@@ -377,14 +401,6 @@ static esp_err_t h_control(httpd_req_t *r) {
     v = cJSON_GetObjectItemCaseSensitive(root, "steps_per_ml");
     if (err == ESP_OK && cJSON_IsNumber(v))
         err = control_config_set_steps_per_ml((uint32_t)v->valueint);
-    v = cJSON_GetObjectItemCaseSensitive(root, "regulator");
-    if (err == ESP_OK && cJSON_IsNumber(v))
-        err = regulator_select((regulator_type_t)v->valueint);
-    v = cJSON_GetObjectItemCaseSensitive(root, "reg_baud");
-    if (err == ESP_OK && cJSON_IsNumber(v)) {
-        err = control_config_set_regulator_baud((uint32_t)v->valueint);
-        if (err == ESP_OK) regulator_init_from_config();
-    }
     v = cJSON_GetObjectItemCaseSensitive(root, "algo");
     if (err == ESP_OK && cJSON_IsNumber(v))
         err = fsel_set_algo((select_algo_t)v->valueint);
@@ -392,9 +408,64 @@ static esp_err_t h_control(httpd_req_t *r) {
     if (err == ESP_OK && cJSON_IsBool(v))
         err = control_config_set_adaptive_pid(cJSON_IsTrue(v));
 
+    // Настройки регулятора применяются одной транзакцией: сначала новый
+    // выход инициализируется, затем сохраняется в NVS. При ошибке старый
+    // конфиг восстанавливается.
+    regulator_settings_t rs;
+    bool reg_change = false;
+    if (err == ESP_OK &&
+        control_config_get_regulator_settings(&rs) == ESP_OK) {
+        v = cJSON_GetObjectItemCaseSensitive(root, "regulator");
+        if (cJSON_IsNumber(v)) {
+            rs.type = (regulator_type_t)v->valueint;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "reg_gpio");
+        if (cJSON_IsNumber(v)) {
+            rs.pwm_gpio = (int16_t)v->valueint;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "reg_freq");
+        if (cJSON_IsNumber(v)) {
+            rs.pwm_freq_hz = (uint32_t)v->valueint;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "reg_resolution");
+        if (cJSON_IsNumber(v)) {
+            rs.pwm_resolution = (uint8_t)v->valueint;
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "reg_inverted");
+        if (cJSON_IsBool(v)) {
+            rs.pwm_inverted = cJSON_IsTrue(v);
+            reg_change = true;
+        }
+        v = cJSON_GetObjectItemCaseSensitive(root, "reg_baud");
+        if (cJSON_IsNumber(v)) {
+            rs.uart_baud = (uint32_t)v->valueint;
+            reg_change = true;
+        }
+        if (reg_change)
+            err = regulator_apply_settings(&rs);
+    }
+
     cJSON_Delete(root);
 
-    if (err != ESP_OK) return send_err(r, "400 Bad Request", "{\"error\":\"invalid\"}");
+    if (err == ESP_ERR_INVALID_ARG || err == ESP_ERR_INVALID_STATE) {
+        char out[192];
+        snprintf(out, sizeof(out),
+                 "{\"error\":\"invalid regulator settings\","
+                 "\"detail\":\"%s\"}", regulator_last_error());
+        return send_err(r, "400 Bad Request", out);
+    }
+    if (err != ESP_OK) {
+        char out[224];
+        snprintf(out, sizeof(out),
+                 "{\"error\":\"regulator init failed\",\"detail\":\"%s\","
+                 "\"regulator_ready\":%d}", regulator_last_error(),
+                 regulator_is_ready() ? 1 : 0);
+        return send_err(r, "409 Conflict", out);
+    }
     return send_json(r, "{\"status\":\"ok\"}");
 }
 
@@ -894,12 +965,17 @@ static esp_err_t h_config_import(httpd_req_t *r) {
 static esp_err_t h_config(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
         if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-        char json[512];
+        regulator_settings_t rs;
+        control_config_get_regulator_settings(&rs);
+        char json[640];
         snprintf(json, sizeof(json),
                  "{\"schema\":%u,\"ctrl_mode\":%d,\"out_dev\":%d,\"hys\":%.2f,"
                  "\"rate_mlmin\":%.2f,\"flow_mlmin\":%.2f,\"steps_per_ml\":%u,"
                  "\"service\":%d,\"api_key_set\":%d,\"lua\":%d,"
-                 "\"algo\":%d,\"regulator\":%d,\"reg_baud\":%u}",
+                 "\"algo\":%d,\"regulator\":%d,\"reg_baud\":%u,"
+                 "\"reg_gpio\":%d,\"reg_freq\":%lu,\"reg_resolution\":%u,"
+                 "\"reg_inverted\":%d,\"regulator_ready\":%d,"
+                 "\"regulator_error\":\"%s\"}",
                  (unsigned)nvs_migration_schema_version(),
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
@@ -911,8 +987,14 @@ static esp_err_t h_config(httpd_req_t *r) {
                  control_config_api_has_key() ? 1 : 0,
                  lua_engine_enabled() ? 1 : 0,
                  (int)fsel_get_algo(),
-                 (int)control_config_get_regulator(),
-                 (unsigned)control_config_get_regulator_baud());
+                 (int)rs.type,
+                 (unsigned)rs.uart_baud,
+                 rs.pwm_gpio,
+                 (unsigned long)rs.pwm_freq_hz,
+                 (unsigned)rs.pwm_resolution,
+                 rs.pwm_inverted ? 1 : 0,
+                 regulator_is_ready() ? 1 : 0,
+                 regulator_last_error());
         return send_json(r, json);
     }
 

@@ -42,6 +42,9 @@ const state = {
   regulatorReady: false,
   regulatorGpio: -1,
   pwmFreq: 0,
+  pwmResolution: 0,
+  pwmInverted: false,
+  regulatorError: '',
   rate: 0,
   level: 0,
   stage: 0,
@@ -221,6 +224,9 @@ async function pollState() {
     if (typeof data.regulator_ready !== 'undefined') state.regulatorReady = !!data.regulator_ready;
     if (typeof data.regulator_gpio !== 'undefined') state.regulatorGpio = data.regulator_gpio;
     if (typeof data.pwm_freq_hz !== 'undefined') state.pwmFreq = data.pwm_freq_hz;
+    if (typeof data.pwm_resolution !== 'undefined') state.pwmResolution = data.pwm_resolution;
+    if (typeof data.pwm_inverted !== 'undefined') state.pwmInverted = !!data.pwm_inverted;
+    if (typeof data.regulator_error !== 'undefined') state.regulatorError = data.regulator_error;
     if (typeof data.stage !== 'undefined') state.stage = data.stage;
     if (typeof data.running !== 'undefined') state.running = data.running;
     if (typeof data.paused !== 'undefined') state.paused = data.paused;
@@ -584,8 +590,8 @@ function renderLiveValues() {
     powerHint.classList.toggle('hidden', !bad);
     if (bad) {
       powerHint.textContent = state.regulatorGpio >= 0
-        ? `Регулятор не готов (GPIO ${state.regulatorGpio}). Выход 0.`
-        : 'Регулятор не готов: GPIO/драйвер не настроен. Выход 0.';
+        ? `Регулятор не готов (GPIO ${state.regulatorGpio}): ${state.regulatorError || 'проверьте параметры PWM'}. Выход 0.`
+        : 'Регулятор не готов: PWM GPIO не задан. Выход 0.';
     }
   }
 
@@ -1149,6 +1155,31 @@ function renderCalibration() {
         </div>
 
         <div class="field">
+          <label class="field-label" for="reg-gpio">PWM GPIO (ESP32-S3: 0–21, 26–48)</label>
+          <input id="reg-gpio" class="input" type="number" min="-1" max="48" step="1" inputmode="numeric" value="-1">
+          <p class="hint mt-8">-1 = не задан. GPIO 22–25 у ESP32-S3 отсутствуют; 26–37 обычно заняты flash/PSRAM.</p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="reg-freq">Частота PWM, Гц</label>
+          <input id="reg-freq" class="input" type="number" min="1" max="20000" step="1" inputmode="numeric" value="1000">
+          <p class="hint mt-8">5 кГц подходит не всем входам. Для AC SSR нужен zero-cross или иной режим.</p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="reg-res">Разрядность PWM, бит</label>
+          <input id="reg-res" class="input" type="number" min="1" max="14" step="1" inputmode="numeric" value="10">
+        </div>
+
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">Инверсия PWM</div>
+            <div class="card-row-sub">Активный низкий вход: 0 % = высокий уровень</div>
+          </div>
+          <input id="reg-inv" type="checkbox">
+        </div>
+
+        <div class="field">
           <label class="field-label" for="rate">Скорость отбора, мл/мин</label>
           <input id="rate" class="input" type="number" min="0" max="200" step="0.1" inputmode="decimal" placeholder="0.0">
         </div>
@@ -1209,6 +1240,10 @@ function renderCalibration() {
       out_dev: Number($('#out-seg .active')?.dataset.val || 0),
       regulator: Number($('#reg-seg .active')?.dataset.val || 0),
       reg_baud: Number($('#reg-baud')?.value || 9600),
+      reg_gpio: Number($('#reg-gpio')?.value ?? -1),
+      reg_freq: Number($('#reg-freq')?.value || 1000),
+      reg_resolution: Number($('#reg-res')?.value || 10),
+      reg_inverted: !!$('#reg-inv')?.checked,
       adaptive_pid: !!$('#ad-pid')?.checked,
       rate_mlmin: Number($('#rate')?.value || 0),
       hys: Number($('#hys')?.value || 0),
@@ -2226,6 +2261,10 @@ async function loadControlSettings() {
     setActive('#out-seg', data.out_dev);
     setActive('#reg-seg', data.regulator);
     if ($('#reg-baud')) $('#reg-baud').value = data.reg_baud || 9600;
+    if ($('#reg-gpio')) $('#reg-gpio').value = Number.isFinite(Number(data.reg_gpio)) ? data.reg_gpio : -1;
+    if ($('#reg-freq')) $('#reg-freq').value = data.reg_freq || data.pwm_freq_hz || 1000;
+    if ($('#reg-res')) $('#reg-res').value = data.reg_resolution || data.pwm_resolution || 10;
+    if ($('#reg-inv')) $('#reg-inv').checked = !!data.reg_inverted;
     if ($('#ad-pid')) $('#ad-pid').checked = !!data.adaptive_pid;
     const regStatus = $('#reg-status');
     if (regStatus) {
@@ -2235,7 +2274,10 @@ async function loadControlSettings() {
         regStatus.textContent =
           `Тип: ${data.regulator_name || '?'} · ${data.regulator_ready ? 'готов' : 'НЕ ГОТОВ'}` +
           ` · GPIO ${data.regulator_gpio ?? '—'}` +
-          (data.pwm_freq_hz ? ` · ${data.pwm_freq_hz} Гц` : '');
+          (data.pwm_freq_hz ? ` · ${data.pwm_freq_hz} Гц` : '') +
+          (data.pwm_resolution ? ` · ${data.pwm_resolution} бит` : '') +
+          ` · ${data.pwm_inverted ? 'активный низкий' : 'активный высокий'}` +
+          (data.regulator_error ? ` · ${data.regulator_error}` : '');
       }
     }
 

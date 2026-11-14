@@ -228,12 +228,13 @@ curl -s -H "X-API-Key: $KEY" "http://automatika.local/api/events?limit=20"
 ```
 
 `POST /api/power` возвращает
-`{"power","power_auto","power_manual","regulator_ready","regulator_gpio","pwm_freq_hz"}`.
+`{"power","power_auto","power_manual","regulator_ready","regulator_gpio","pwm_freq_hz","pwm_resolution","pwm_inverted","regulator_error"}`.
 Числовое значение включает ручной override; `{"mode":"auto"}` возвращает
 управление режиму/PID. При неготовом регуляторе — `409`.
 
 `GET /api/state` дополнительно содержит `power_auto`, `power_manual`,
-`regulator`, `regulator_ready`, `regulator_gpio`, `pwm_freq_hz`.
+`regulator`, `regulator_name`, `regulator_ready`, `regulator_gpio`,
+`pwm_freq_hz`, `pwm_resolution`, `pwm_inverted`, `regulator_error`.
 
 ## 12. Telegram-бот
 
@@ -435,11 +436,32 @@ HTTP 403
 | 1 | KVIC | UART, `Pxxx` |
 | 2 | РМВ-К | UART, `Pxxx` |
 | 3 | SEM | UART, `Pxxx` |
-| 4 | SSR/ШИМ | LEDC 5 кГц |
+| 4 | SSR/ШИМ | LEDC, GPIO/частота/биты/полярность настраиваются |
 
-Скорость — `reg_baud`. Пины — `REG_UART_TX_GPIO`, `REG_UART_RX_GPIO`,
-`REG_SSR_GPIO` в `config.h`. UART подключается только через оптронную
-развязку; при `-1` драйвер не активируется.
+Настройки PWM (`POST /api/control`):
+
+```json
+{
+  "regulator": 4,
+  "reg_gpio": 7,
+  "reg_freq": 1000,
+  "reg_resolution": 10,
+  "reg_inverted": false,
+  "reg_baud": 9600
+}
+```
+
+`GET /api/control` возвращает `regulator`, `regulator_name`,
+`regulator_ready`, `regulator_gpio`, `pwm_freq_hz`, `pwm_resolution`,
+`pwm_inverted`, `reg_baud`, `regulator_error`. При недопустимом GPIO или
+частоте — `400`; при ошибке инициализации — `409`, `regulator_ready=false`,
+выход 0. NVS-ключи: `reg_type`, `reg_gpio`, `reg_freq`, `reg_res`,
+`reg_inv`, `reg_baud`.
+
+Пины UART — `REG_UART_TX_GPIO`, `REG_UART_RX_GPIO`; PWM GPIO по умолчанию
+`-1` (у ESP32-S3 нет GPIO 22–25; 26–37 обычно заняты flash/PSRAM).
+UART подключается только через оптронную развязку; при `-1` драйвер
+не активируется.
 
 ## 16. Верификация и теневой режим
 

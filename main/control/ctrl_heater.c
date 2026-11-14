@@ -11,6 +11,7 @@
 #include "core/events.h"
 #include "core/watchdog.h"
 #include "core/estop.h"
+#include "level/level_sensor.h"
 #include "config.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -39,6 +40,11 @@ static float clamp_power(float pct) {
     return pct;
 }
 
+static bool heater_allowed(float pct) {
+    return heater_power_allowed(pct, estop_is_pressed(), ctrl_safety_ok(),
+                                level_is_available(), level_is_too_low());
+}
+
 // Ограничение мощности при росте температуры.
 static float trend_guard(float pct) {
     s_trend_cut = false;
@@ -60,7 +66,7 @@ static float trend_guard(float pct) {
 static esp_err_t heater_apply(float pct) {
     pct = clamp_power(pct);
 
-    if (estop_is_pressed() || (pct > 0.0f && !ctrl_safety_ok()))
+    if (!heater_allowed(pct))
         pct = 0.0f;
 
     pct = trend_guard(pct);
@@ -130,7 +136,7 @@ esp_err_t ctrl_heater_manual_set(float pct) {
     if (!isfinite(pct)) return ESP_ERR_INVALID_ARG;
     pct = clamp_power(pct);
 
-    if (pct > 0.0f && (estop_is_pressed() || !ctrl_safety_ok()))
+    if (!heater_allowed(pct))
         return ESP_ERR_INVALID_STATE;
 
     lock();

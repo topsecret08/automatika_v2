@@ -37,8 +37,16 @@ static uint32_t s_no_flow_ms = 0;
 static bool s_level_low_last = false;
 static bool s_level_over_last = false;
 static bool s_run_done_notified = false;
+static bool s_dry_run_latched = false;
 
-void ctrl_safety_init(void) { s_ok = true; s_no_flow_ms = 0; }
+void ctrl_safety_init(void) {
+    s_ok = true;
+    s_no_flow_ms = 0;
+    s_level_low_last = false;
+    s_level_over_last = false;
+    s_run_done_notified = false;
+    s_dry_run_latched = false;
+}
 
 bool ctrl_safety_ok(void) { return s_ok; }
 
@@ -72,8 +80,14 @@ void ctrl_safety_reset(void) {
                    "Safety reset refused: E-STOP active (release the button first)");
         return;
     }
+    if (level_is_available() && level_is_too_low()) {
+        events_log(EVENT_WARNING,
+                   "Safety reset refused: liquid level is still low");
+        return;
+    }
     s_ok = true;
     s_no_flow_ms = 0;
+    s_dry_run_latched = false;
     st->emergency = false;
     st->emergency_reason[0] = '\0';
     events_log(EVENT_INFO, "Safety reset");
@@ -163,7 +177,14 @@ void ctrl_safety_task(void *arg) {
         // ---- Датчик уровня ----
         level_sensor_poll();
         if (level_is_too_low()) {
+            bool was_heating = ctrl_heater_get_percent() > 0.0f;
             ctrl_heater_force_off();       /* сухой ход: снимаем нагрев */
+            // Защёлкиваем аварию, если процесс уже идёт или была запрошена
+            // мощность. При пустом кубе в покое нагрев просто блокируется.
+            if ((running || was_heating) && !s_dry_run_latched) {
+                s_dry_run_latched = true;
+                ctrl_safety_trigger("DRY_RUN_LOW_LEVEL");
+            }
             if (s_level_low_last != true) {
                 s_level_low_last = true;
                 events_log(EVENT_WARNING, "LEVEL low: heating blocked");

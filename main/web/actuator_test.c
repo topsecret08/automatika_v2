@@ -207,27 +207,32 @@ static esp_err_t h_diag_safety(httpd_req_t *req) {
     bool sensor0_ok = isfinite(t0) && t0 > -50.0f;
     bool sensor1_ok = isfinite(t1) && t1 > -50.0f;
 
-    char json[640];
+    char json[768];
     snprintf(json, sizeof(json),
         "{\"estop\":{\"raw\":%d,\"active\":%d,\"pressed\":%d,"
         "\"source\":\"%s\",\"since_ms\":%u},"
         "\"sensors\":{\"count\":%d,\"t0\":%.2f,\"t1\":%.2f,"
         "\"t0_ok\":%d,\"t1_ok\":%d},"
         "\"flow\":{\"present\":%d,\"ok\":%d,\"lpm\":%.2f},"
-        "\"level\":{\"low\":%d,\"overflow\":%d},"
+        "\"level\":{\"available\":%d,\"low\":%d,\"overflow\":%d},"
         "\"regulator\":{\"type\":%d,\"ready\":%d,\"gpio\":%d,"
-        "\"pwm_hz\":%d,\"power\":%.1f,\"manual\":%d},"
+        "\"pwm_hz\":%d,\"pwm_resolution\":%d,\"pwm_inverted\":%d,"
+        "\"power\":%.1f,\"manual\":%d,\"error\":\"%s\"},"
         "\"safety_ok\":%d}",
         estop_raw_level(), ESTOP_ACTIVE_LEVEL,
         estop_is_pressed() ? 1 : 0, estop_source_name(),
         (unsigned)estop_since_ms(),
         hal_1wire_count(), t0, t1, sensor0_ok ? 1 : 0, sensor1_ok ? 1 : 0,
         flow_is_present() ? 1 : 0, flow_is_ok() ? 1 : 0, flow_get_lpm(),
+        level_is_available() ? 1 : 0,
         level_is_too_low() ? 1 : 0, level_is_overflow() ? 1 : 0,
         (int)control_config_get_regulator(),
         regulator_is_ready() ? 1 : 0, regulator_get_gpio(),
-        regulator_get_pwm_freq(), ctrl_heater_get_percent(),
+        regulator_get_pwm_freq(), regulator_get_pwm_resolution(),
+        regulator_get_pwm_inverted() ? 1 : 0,
+        ctrl_heater_get_percent(),
         ctrl_heater_manual_active() ? 1 : 0,
+        regulator_last_error(),
         ctrl_safety_ok() ? 1 : 0);
 
     httpd_resp_set_type(req, "application/json");
