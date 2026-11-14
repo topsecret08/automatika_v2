@@ -233,12 +233,17 @@ void ui_screen_advanced_create(void) {
     lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(status, lv_pct(100));
     char sbuf[160];
-    snprintf(sbuf, sizeof(sbuf), "%s · %s\nGPIO %d · %lu Гц · %u бит · %s",
-             control_config_regulator_name(reg),
-             regulator_is_ready() ? "готов" : "НЕ ГОТОВ",
-             regulator_get_gpio(), (unsigned long)rs.pwm_freq_hz,
-             (unsigned)rs.pwm_resolution,
-             rs.pwm_inverted ? "активный низкий" : "активный высокий");
+    if (reg == REGULATOR_NONE) {
+        snprintf(sbuf, sizeof(sbuf),
+                 "Внутренний DAC · внешний регулятор не выбран");
+    } else {
+        snprintf(sbuf, sizeof(sbuf), "%s · %s\nGPIO %d · %lu Гц · %u бит · %s",
+                 control_config_regulator_name(reg),
+                 regulator_is_ready() ? "готов" : "НЕ ГОТОВ",
+                 regulator_get_gpio(), (unsigned long)rs.pwm_freq_hz,
+                 (unsigned)rs.pwm_resolution,
+                 rs.pwm_inverted ? "активный низкий" : "активный высокий");
+    }
     lv_label_set_text(status, sbuf);
     lv_obj_set_style_text_font(status, &lv_font_cyr_16, 0);
     lv_obj_set_style_text_color(status,
