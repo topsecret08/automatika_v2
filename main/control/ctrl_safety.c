@@ -1,6 +1,7 @@
 #include "ctrl_safety.h"
 #include "ctrl_heater.h"
 #include "ctrl_dose.h"
+#include "ctrl_stepper.h"
 #include "alcohol_balance.h"
 #include "core/control_config.h"
 #include "core/estop.h"
@@ -76,6 +77,7 @@ void ctrl_safety_trigger(const char *reason) {
 #endif
     hal_relay_all_off();
     ctrl_dose_stop();
+    ctrl_stepper_stop_all();
 
     process_state_t *st = state_get();
     st->emergency = true;

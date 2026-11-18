@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 337.
+Всего функций: 345.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -165,6 +165,40 @@ bool ctrl_safety_estop_latched(void);
 ```
 
 E-STOP защёлкнут по железу (нажата кнопка) — нагрев и отбор запрещены.
+
+## `main/control/ctrl_stepper.h`
+
+```c
+esp_err_t ctrl_stepper_apply_settings(const stepper_settings_t *in);
+```
+
+Проверяет диапазоны, сохраняет в NVS и при необходимости
+переинициализирует транспорт. Движение при этом не запускается.
+
+```c
+esp_err_t ctrl_stepper_dose_ml(float volume_ml, float rate_ml_min, float *done_ml);
+```
+
+Дозирование через I2C-драйвер. Блокирующая операция для задачи дозатора:
+опрашивает статус, кормит watchdog и прерывается по safety/E-STOP.
+
+```c
+esp_err_t ctrl_stepper_stirrer(bool on, bool reverse, float rpm);
+```
+
+Мешалка: on/off, направление, rpm. Если модуль выключен — реле-фолбэк.
+
+```c
+void ctrl_stepper_stop_all(void);
+```
+
+Аварийный останов обеих осей. Вызывается из safety и короче по таймауту.
+
+```c
+void ctrl_stepper_status_json(char *out, size_t cap);
+```
+
+JSON для /api/stepper. Буфер не меньше 768 байт.
 
 ## `main/control/fraction_periodic.h`
 
@@ -856,6 +890,20 @@ const char* state_stage_name(proc_stage_t s);
 
 Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
 
+## `main/core/stepper_proto.h`
+
+```c
+size_t stepper_build_move(stepper_request_t *req, uint8_t seq, stepper_axis_t axis, int32_t steps, uint16_t speed_sps, uint16_t accel_sps2);
+```
+
+Помощники заполнения запросов.
+
+```c
+uint32_t stepper_ml_to_steps(float volume_ml, float steps_per_ml);
+```
+
+Прикладные расчёты (чистые функции для тестов).
+
 ## `main/core/storage.h`
 
 ```c
@@ -1010,6 +1058,15 @@ void hal_safety_relay_force_open(void);
 
 Снять защёлку force_open. Вызывается только из явного сброса аварии
 оператором; до первого heartbeat реле остаётся разомкнутым.
+
+## `main/hal/i2c_stepper.h`
+
+```c
+esp_err_t i2c_stepper_transact(const stepper_request_t *req, stepper_status_t *status, uint32_t timeout_ms);
+```
+
+Один запрос-ответ. Возвращает ESP_ERR_TIMEOUT/ESP_FAIL при обрыве или
+повреждённом кадре.
 
 ## `main/hal/pressure_sensor.h`
 

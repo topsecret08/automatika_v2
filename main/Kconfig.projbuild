@@ -54,4 +54,12 @@ menu "Automatika V0.7 beta"
         bool "Zone sensor consensus"
         default n
 
+    config I2C_STEPPER_ENABLE
+        bool "I2C stepper driver (doser and stirrer)"
+        default n
+        help
+            Включает обмен с внешним драйвером шагового двигателя по
+            протоколу core/stepper_proto.h. При выключении дозатор и
+            мешалка работают через GPIO/реле.
+
 endmenu

@@ -2,6 +2,7 @@
 #include "config.h"
 
 #include "control/ctrl_safety.h"
+#include "control/ctrl_stepper.h"
 #include "control/ctrl_valve_control.h"
 #include "core/control_config.h"
 #include "core/estop.h"
@@ -157,7 +158,11 @@ static void exec_volume(float volume_ml, float rate_mlmin) {
     int64_t t0 = esp_timer_get_time();
     float secs = volume_ml / rate_mlmin * 60.0f;
 
-    if (dev == OUTPUT_DEVICE_PUMP) {
+    if (ctrl_stepper_settings()->enabled) {
+        // I2C-драйвер выбран явно: если он offline, не подменяем его
+        // GPIO/клапаном, иначе дозирование станет непредсказуемым.
+        err = ctrl_stepper_dose_ml(volume_ml, rate_mlmin, &done_ml);
+    } else if (dev == OUTPUT_DEVICE_PUMP) {
         uint32_t spm = control_config_get_steps_per_ml();
         uint32_t total = (uint32_t)(volume_ml * (float)spm);
         err = pump_run_steps(total, rate_to_step_us(rate_mlmin, spm));

@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 74.
+Всего маршрутов: 76.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -65,6 +65,8 @@
 | `POST` | `/api/settings` | `h_settings` | ключ |
 | `POST` | `/api/start` | `h_start` | ключ |
 | `GET` | `/api/state` | `h_state` | ключ |
+| `GET` | `/api/stepper` | `h_stepper` | ключ |
+| `POST` | `/api/stepper` | `h_stepper` | ключ |
 | `POST` | `/api/stop` | `h_stop` | ключ |
 | `POST` | `/api/telegram` | `h_telegram` | ключ |
 | `POST` | `/api/telegram/test` | `h_telegram_test` | ключ |

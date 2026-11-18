@@ -15,6 +15,7 @@
 #define PRIO_WEB_API         4
 #define PRIO_FPS             4
 #define PRIO_PREDICT         3
+#define PRIO_STEPPER         3
 #define PRIO_EVENTS          3
 #define PRIO_VALVE_CALIB     3
 #define PRIO_PRELOADER       2
@@ -27,6 +28,7 @@
 
 #define STACK_ESTOP         2048
 #define STACK_DOSER         4096
+#define STACK_STEPPER       4096
 #define STACK_LUA           12288
 #define STACK_SAFETY        4096
 #define STACK_MODE          8192

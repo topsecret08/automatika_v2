@@ -21,6 +21,7 @@
 | `test_sim_chaos.c` | RC-симулятор, ChaosProbe |
 | `test_loop_verify.c` | mismatch после 3 тактов, NO_RESPONSE 30 с, окно актуатора, разрыв между прогонами, бинарный канал, latency, STUCK, CROSSCHECK, NO_FEEDBACK, low confidence |
 | `test_readback_relay.c` | нормализация GPIO/CURRENT, бинарный канал, логика NC-реле, heartbeat и rearm |
+| `test_stepper.c` | CRC8, кадры запроса/ответа, MOVE/RUN, пересчёт мл→шаги, тайм-аут |
 
 ## Host-тесты
 
@@ -40,7 +41,7 @@ ctest --test-dir test/host/build --output-on-failure
 python test/qemu/run_qemu_tests.py --build-dir test/build
 ```
 
-Последний прогон QEMU: **100 tests, 0 failures**.
+Последний прогон QEMU: **107 tests, 0 failures**.
 
 ## Запуск
 
@@ -73,5 +74,5 @@ GPIO и файловой системы. Их проверка требует и
 
 Проверено на этой итерации (реальная сборка ESP-IDF 5.3.2, esp32s3):
 
-- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2AEF90`);
-- тестовый проект: `test/` — OK, образ `0x44840`.
+- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2B04C0`);
+- тестовый проект: `test/` — OK, образ `0x45330`.

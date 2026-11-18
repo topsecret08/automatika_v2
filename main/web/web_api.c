@@ -39,6 +39,7 @@
 #include "control/param_registry.h"
 #include "control/regulator_driver.h"
 #include "control/safety_gate.h"
+#include "control/ctrl_stepper.h"
 #include "ota/ota_guard.h"
 #include "control/adaptive_pid.h"
 #include "verify/verify_config.h"
@@ -589,6 +590,108 @@ static esp_err_t h_dose(httpd_req_t *r) {
 }
 
 // --- диагностика E-STOP -----------------------------------------------
+static esp_err_t h_stepper(httpd_req_t *r) {
+    if (r->method == HTTP_GET) {
+        if (api_check_read_auth(r) != ESP_OK)
+            return api_reject_unauthorized(r);
+        char json[768];
+        ctrl_stepper_status_json(json, sizeof(json));
+        return send_json(r, json);
+    }
+
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[512];
+    if (recv_body(r, body, sizeof(body)) <= 0)
+        return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    const char *action = json_string(root, "action");
+    esp_err_t err = ESP_ERR_INVALID_ARG;
+
+    if (action && strcmp(action, "stop") == 0) {
+        ctrl_stepper_stop_all();
+        err = ESP_OK;
+    } else if (action && strcmp(action, "stirrer") == 0) {
+        const cJSON *on = cJSON_GetObjectItemCaseSensitive(root, "on");
+        const cJSON *rev = cJSON_GetObjectItemCaseSensitive(root, "reverse");
+        const cJSON *rpm = cJSON_GetObjectItemCaseSensitive(root, "rpm");
+        err = ctrl_stepper_stirrer(cJSON_IsTrue(on),
+                                   cJSON_IsTrue(rev),
+                                   cJSON_IsNumber(rpm)
+                                       ? (float)rpm->valuedouble : 60.0f);
+    } else if (action && strcmp(action, "dose") == 0) {
+        const cJSON *ml = cJSON_GetObjectItemCaseSensitive(root, "ml");
+        const cJSON *rate = cJSON_GetObjectItemCaseSensitive(root, "rate_ml_min");
+        if (!cJSON_IsNumber(ml)) {
+            cJSON_Delete(root);
+            return send_err(r, "400 Bad Request", "{\"error\":\"ml required\"}");
+        }
+        bool queued = ctrl_dose_volume((float)ml->valuedouble,
+                                       cJSON_IsNumber(rate)
+                                           ? (float)rate->valuedouble : 60.0f);
+        cJSON_Delete(root);
+        if (!queued)
+            return send_err(r, "409 Conflict",
+                            "{\"error\":\"dose rejected (safety/queue)\"}");
+        httpd_resp_set_status(r, "202 Accepted");
+        return send_json(r, "{\"status\":\"queued\"}");
+    } else if (action && (strcmp(action, "move") == 0 ||
+                          strcmp(action, "home") == 0)) {
+        if (!control_config_service_enabled()) {
+            cJSON_Delete(root);
+            return send_err(r, "409 Conflict",
+                            "{\"error\":\"service mode required\"}");
+        }
+        const cJSON *axis = cJSON_GetObjectItemCaseSensitive(root, "axis");
+        int ax = cJSON_IsNumber(axis) ? axis->valueint : 0;
+        if (ax < 0 || ax >= STEPPER_AXIS_COUNT) {
+            cJSON_Delete(root);
+            return send_err(r, "400 Bad Request", "{\"error\":\"axis\"}");
+        }
+        if (strcmp(action, "home") == 0) {
+            err = ctrl_stepper_home((stepper_axis_t)ax);
+        } else {
+            const cJSON *steps = cJSON_GetObjectItemCaseSensitive(root, "steps");
+            const cJSON *speed = cJSON_GetObjectItemCaseSensitive(root, "speed_sps");
+            if (!cJSON_IsNumber(steps)) {
+                cJSON_Delete(root);
+                return send_err(r, "400 Bad Request", "{\"error\":\"steps\"}");
+            }
+            err = ctrl_stepper_move_service(
+                (stepper_axis_t)ax, steps->valueint,
+                cJSON_IsNumber(speed) ? (uint16_t)speed->valueint : 0);
+        }
+    } else if (action && strcmp(action, "config") == 0) {
+        stepper_settings_t cfg = *ctrl_stepper_settings();
+        const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "enabled");
+        if (cJSON_IsBool(v)) cfg.enabled = cJSON_IsTrue(v);
+        v = cJSON_GetObjectItemCaseSensitive(root, "address");
+        if (cJSON_IsNumber(v)) cfg.address = (uint8_t)v->valueint;
+        v = cJSON_GetObjectItemCaseSensitive(root, "max_speed_sps");
+        if (cJSON_IsNumber(v)) cfg.max_speed_sps = (uint16_t)v->valueint;
+        v = cJSON_GetObjectItemCaseSensitive(root, "accel_sps2");
+        if (cJSON_IsNumber(v)) cfg.accel_sps2 = (uint16_t)v->valueint;
+        v = cJSON_GetObjectItemCaseSensitive(root, "steps_per_ml");
+        if (cJSON_IsNumber(v)) cfg.steps_per_ml = (float)v->valuedouble;
+        v = cJSON_GetObjectItemCaseSensitive(root, "stirrer_steps_per_rev");
+        if (cJSON_IsNumber(v)) cfg.stirrer_steps_per_rev = (uint16_t)v->valueint;
+        err = ctrl_stepper_apply_settings(&cfg);
+    }
+
+    cJSON_Delete(root);
+    if (err != ESP_OK) {
+        char out[128];
+        snprintf(out, sizeof(out), "{\"error\":\"%s\"}", esp_err_to_name(err));
+        return send_err(r, "409 Conflict", out);
+    }
+
+    char json[768];
+    ctrl_stepper_status_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
 static esp_err_t h_estop(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -2227,6 +2330,8 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/power",    .method=HTTP_POST, .handler=h_power },
         { .uri="/api/safety",   .method=HTTP_POST, .handler=h_safety },
 { .uri="/api/safety",   .method=HTTP_GET,  .handler=h_safety },
+{ .uri="/api/stepper",  .method=HTTP_GET,  .handler=h_stepper },
+{ .uri="/api/stepper",  .method=HTTP_POST, .handler=h_stepper },
         { .uri="/api/estop",    .method=HTTP_POST, .handler=h_estop },
         { .uri="/api/control",  .method=HTTP_GET,  .handler=h_control },
         { .uri="/api/control",  .method=HTTP_POST, .handler=h_control },

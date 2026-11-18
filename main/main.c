@@ -60,6 +60,7 @@
 #include "control/alcohol_balance.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_dose.h"
+#include "control/ctrl_stepper.h"
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/valve_calibration.h"
@@ -235,6 +236,7 @@ void app_main(void) {
     valve_control_init();
     valve_calib_init();
     ctrl_dose_init();
+    ctrl_stepper_init();
     scale_init(PIN_HX711_DOUT, PIN_HX711_SCK);
     sensor_calib_init();
 #if !defined(CONFIG_ACTUATOR_READBACK_ENABLE) || CONFIG_ACTUATOR_READBACK_ENABLE
@@ -317,6 +319,7 @@ void app_main(void) {
     SPAWN(fota_task,          "fota",      3072,              3,                 CORE_NETWORK_AI);
     SPAWN(wd_task,            "wd",        3072,              2,                 CORE_NETWORK_AI);
     SPAWN(ctrl_dose_task,     "doser",     4096,              PRIO_DOSER,        CORE_NETWORK_AI);
+    SPAWN(ctrl_stepper_task,  "stepper",   STACK_STEPPER,     PRIO_STEPPER,      CORE_NETWORK_AI);
     SPAWN(samovar_task,       "samovar",   6144,              3,                 CORE_NETWORK_AI);
     SPAWN(ota_manager_task,   "ota_mgr",   4096,              3,                 CORE_NETWORK_AI);
     SPAWN(telegram_notify_task, "tg_notify", 6144,            3,                 CORE_NETWORK_AI);

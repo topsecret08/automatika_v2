@@ -12,7 +12,7 @@
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
 > (ESP-IDF v5.3.2, образ ≈2,80 МБ из 3 МБ раздела); тестовый проект `test/`
-> собирается, Unity-прогон в QEMU ESP32-S3: **100 tests, 0 failures**.
+> собирается, Unity-прогон в QEMU ESP32-S3: **107 tests, 0 failures**.
 > Host-тесты логики собираются через CMake/CTest. Workflow CI опубликован
 > и зелёный — см. раздел «CI».
 > Ввод в эксплуатацию выполняется после пусконаладки конкретной платы,
@@ -76,6 +76,7 @@
 | Алгоритмы отбора | `main/control/select_algorithm.{h,c}` | классический, тренд, адаптивный |
 | Периодический отбор | `main/control/fraction_periodic.{h,c}` | этапы, декремент, алгоритмы |
 | Внешний регулятор | `main/control/regulator_driver.{h,c}` | KVIC, РМВ-К, SEM, SSR/ШИМ, Finglai SSVR |
+| I2C-степпер | `main/core/stepper_proto.{h,c}`, `main/hal/i2c_stepper.c`, `main/control/ctrl_stepper.c` | дозатор и мешалка, кадры с CRC8, NVS, `/api/stepper` |
 | Настройки регулятора | `main/core/control_config.{h,c}` | тип, UART, PWM, аналоговый диапазон, NVS |
 | Экран выбора | `main/ui/ui_screen_advanced.{h,c}` | алгоритм и регулятор на LCD |
 | Тесты | `test/main/*.c`, `test/host`, `test/qemu/run_qemu_tests.py` | Unity, CMake/CTest, QEMU |
@@ -155,6 +156,7 @@ E-STOP, а не заменяет его.
 | `vle_ew` | модуль и тесты | `CONFIG_VLE_ENABLE` | `n` |
 | `pump_cal` (PCHIP) | модуль и тесты | `CONFIG_PUMP_PCHIP_ENABLE` | `n` |
 | `zone_consensus` | модуль и тесты | `CONFIG_ZONE_CONSENSUS_ENABLE` | `n` |
+| `ctrl_stepper` | дозатор и мешалка | `CONFIG_I2C_STEPPER_ENABLE` | `n` |
 
 При `n` поведение соответствует V0.6: изменённые пути не компилируются или
 обходятся, `safety_gate` и `ctrl_heater` работают как раньше.
@@ -209,7 +211,7 @@ cmake --build test/host/build
 ctest --test-dir test/host/build --output-on-failure
 ```
 
-В QEMU (ESP32-S3) тестовый образ проходит: **100 tests, 0 failures**.
+В QEMU (ESP32-S3) тестовый образ проходит: **107 tests, 0 failures**.
 
 > **Что уже есть:** OTA с автоматическим откатом, миграции NVS,
 > WebSocket-телеметрия, Telegram, датчик уровня, BMP280, расходомер,
@@ -287,7 +289,10 @@ ctest --test-dir test/host/build --output-on-failure
 - **Fail-safe NC-реле** `hal_safety_relay`: удерживается heartbeat от
   safety-задачи, старт с разомкнутого; защёлка `force_open()` снимается
   только явным сбросом аварии.
-- **Модульные тесты** (Unity): 100 тестов, включая loop_verify и readback/реле.
+- **I2C-степпер** `ctrl_stepper`: дозатор и мешалка по протоколу с CRC8,
+  реконнект, контроль fault/position, аварийный STOP обеих осей.
+- **Модульные тесты** (Unity): 107 тестов, включая loop_verify, readback/реле
+  и протокол степпера.
 
 #### Где что лежит (production-модули)
 
@@ -643,7 +648,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.8 beta занимает ~2,80 МБ (`0x2AEF90`),
+указаны слоты по 2 МБ, но образ V0.8 beta занимает ~2,80 МБ (`0x2B04C0`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -788,7 +793,7 @@ curl http://192.168.1.50/api/health
 E-STOP (`estop_logic`), Safety & Trust (`eq_lock`, `trust`,
 `trust_dashboard`, `physics`, `control_filters`, `event_bus`,
 `capability`, `sim_chaos`), активная верификация (`loop_verify`) и
-readback/реле (`readback_relay`). Всего **100 тестов**, прогон в QEMU —
+readback/реле (`readback_relay`). Всего **107 тестов**, прогон в QEMU —
 `0 failures`. См. [`test/README.md`](test/README.md).
 
 ### 10. Порядок инициализации
@@ -1570,9 +1575,11 @@ python tools/automatika_cli.py discover
 python tools/automatika_cli.py --host automatika.local state
 python tools/automatika_cli.py power 40
 python tools/automatika_cli.py gui
+python -m tools.configurator
 ```
 
-Подробности — [`docs/user/CLI.md`](docs/user/CLI.md).
+Подробности — [`docs/user/CLI.md`](docs/user/CLI.md) и
+[`docs/user/CONFIGURATOR.md`](docs/user/CONFIGURATOR.md).
 
 ### Документация
 
@@ -1582,6 +1589,8 @@ python tools/automatika_cli.py gui
   и авторизация;
 - [`docs/service/SAFETY_VERIFICATION.md`](docs/service/SAFETY_VERIFICATION.md) —
   проверка E-STOP, NC-реле, readback, loop_verify, SSVR и OTA;
+- [`docs/hardware/I2C_STEPPER.md`](docs/hardware/I2C_STEPPER.md) — протокол,
+  подключение и калибровка I2C-степпера;
 - краткий старт: [RU](docs/user/QUICK_START.md),
   [EN](docs/user/QUICK_START.en.md), [DE](docs/user/QUICK_START.de.md),
   [ES](docs/user/QUICK_START.es.md), [FR](docs/user/QUICK_START.fr.md).
@@ -1627,8 +1636,8 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.8 beta: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.8 beta): **0x2AEF90 (~2,80 МБ)**, свободно ~11 % раздела.
-Тестовый бинарник: **0x44840**.
+Текущий бинарник (V0.8 beta): **0x2B04C0 (~2,80 МБ)**, свободно ~10 % раздела.
+Тестовый бинарник: **0x45330**.
 
 ### Полезные команды
 

@@ -125,6 +125,16 @@
 #define PUMP_MIN_STEP_US      400      // минимальная длительность шага, мкс
 #define PUMP_STEP_US          3        // длительность импульса STEP, мкс
 
+// I2C-драйвер шагового двигателя (дозатор + мешалка).
+// Протокол: core/stepper_proto.h, документация: docs/hardware/I2C_STEPPER.md.
+// enabled по умолчанию задаётся CONFIG_I2C_STEPPER_ENABLE, адрес и лимиты
+// можно переопределить через API и NVS ("stepper").
+#define STEPPER_I2C_ADDR              0x20
+#define STEPPER_MAX_SPEED_SPS         1600
+#define STEPPER_ACCEL_SPS2            8000
+#define STEPPER_STIRRER_STEPS_PER_REV 3200
+#define STEPPER_POLL_MS               250
+
 // Скрипты Lua
 #define LUA_SCRIPT_MAX_BYTES  8192
 // Жёсткий лимит памяти Lua VM (байт). Скрипт не может выесть всю PSRAM.
