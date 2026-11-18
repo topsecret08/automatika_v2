@@ -20,6 +20,7 @@
 #include "core/events.h"
 #include "core/flags.h"
 #include "core/loop_verify.h"
+#include "core/hw_profile.h"
 #include "core/watchdog.h"
 #include "hal/hal_safety_relay.h"
 #include "esp_timer.h"
@@ -28,6 +29,7 @@
 #include "hal/flow_sensor.h"
 #include "hal/pressure_sensor.h"
 #include "modes/mode_base.h"
+#include "modes/beer_presets.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_dose.h"
@@ -689,6 +691,97 @@ static esp_err_t h_stepper(httpd_req_t *r) {
 
     char json[768];
     ctrl_stepper_status_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static esp_err_t h_hardware(httpd_req_t *r) {
+    if (r->method == HTTP_GET) {
+        if (api_check_read_auth(r) != ESP_OK)
+            return api_reject_unauthorized(r);
+        char json[1536];
+        hw_profile_json(json, sizeof(json));
+        return send_json(r, json);
+    }
+
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[1024];
+    if (recv_body(r, body, sizeof(body)) <= 0)
+        return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    hw_profile_t cfg = *hw_profile_get();
+    static const char *const temp_keys[HW_TEMP_ROLE_COUNT] = {
+        "cube", "column", "jacket", "tank"
+    };
+    const cJSON *temp = cJSON_GetObjectItemCaseSensitive(root, "temp");
+    if (cJSON_IsObject(temp)) {
+        for (int i = 0; i < HW_TEMP_ROLE_COUNT; i++) {
+            const cJSON *v = cJSON_GetObjectItemCaseSensitive(
+                temp, temp_keys[i]);
+            if (cJSON_IsNumber(v)) cfg.temp[i] = (int8_t)v->valueint;
+        }
+    }
+
+    const cJSON *devices = cJSON_GetObjectItemCaseSensitive(root, "devices");
+    if (cJSON_IsObject(devices)) {
+        for (int i = 0; i < HW_DEV_COUNT; i++) {
+            const cJSON *v = cJSON_GetObjectItemCaseSensitive(
+                devices, hw_device_key((hw_device_t)i));
+            if (cJSON_IsBool(v)) {
+                if (cJSON_IsTrue(v)) cfg.devices |= 1u << i;
+                else cfg.devices &= ~(1u << i);
+            }
+        }
+    }
+
+    esp_err_t err = hw_profile_set(&cfg);
+    cJSON_Delete(root);
+    if (err != ESP_OK)
+        return send_err(r, "400 Bad Request",
+                        "{\"error\":\"invalid sensor index or mask\"}");
+
+    char json[1536];
+    hw_profile_json(json, sizeof(json));
+    return send_json(r, json);
+}
+
+static esp_err_t h_beer(httpd_req_t *r) {
+    if (r->method == HTTP_GET) {
+        if (api_check_read_auth(r) != ESP_OK)
+            return api_reject_unauthorized(r);
+    } else if (api_check_auth(r) != ESP_OK) {
+        return api_reject_unauthorized(r);
+    }
+
+    int count = beer_preset_count();
+    if (r->method == HTTP_POST) {
+        char body[128];
+        if (recv_body(r, body, sizeof(body)) <= 0)
+            return send_err(r, "400 Bad Request", "{\"error\":\"empty\"}");
+        cJSON *root = cJSON_Parse(body);
+        const cJSON *v = root ? cJSON_GetObjectItemCaseSensitive(root, "preset")
+                              : NULL;
+        if (cJSON_IsNumber(v)) beer_preset_select(v->valueint);
+        if (root) cJSON_Delete(root);
+    }
+
+    int steps = 0;
+    const beer_step_t *recipe = beer_preset_get(beer_preset_active(), &steps);
+    char json[1024];
+    int off = snprintf(json, sizeof(json),
+                       "{\"active\":%d,\"count\":%d,\"steps\":[",
+                       beer_preset_active(), count);
+    for (int i = 0; i < steps && off < (int)sizeof(json); i++) {
+        off += snprintf(json + off, sizeof(json) - off,
+                        "%s{\"type\":%u,\"name\":\"%s\",\"temp\":%.1f,"
+                        "\"duration_sec\":%u}",
+                        i ? "," : "", recipe[i].type, recipe[i].name,
+                        (double)recipe[i].temp,
+                        (unsigned)recipe[i].duration_sec);
+    }
+    snprintf(json + off, sizeof(json) - off, "]}");
     return send_json(r, json);
 }
 
@@ -2332,6 +2425,10 @@ void web_api_register(httpd_handle_t srv) {
 { .uri="/api/safety",   .method=HTTP_GET,  .handler=h_safety },
 { .uri="/api/stepper",  .method=HTTP_GET,  .handler=h_stepper },
 { .uri="/api/stepper",  .method=HTTP_POST, .handler=h_stepper },
+{ .uri="/api/hardware", .method=HTTP_GET,  .handler=h_hardware },
+{ .uri="/api/hardware", .method=HTTP_POST, .handler=h_hardware },
+{ .uri="/api/beer",     .method=HTTP_GET,  .handler=h_beer },
+{ .uri="/api/beer",     .method=HTTP_POST, .handler=h_beer },
         { .uri="/api/estop",    .method=HTTP_POST, .handler=h_estop },
         { .uri="/api/control",  .method=HTTP_GET,  .handler=h_control },
         { .uri="/api/control",  .method=HTTP_POST, .handler=h_control },

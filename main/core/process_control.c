@@ -1,6 +1,8 @@
 #include "process_control.h"
 #include "core/events.h"
 #include "core/estop.h"
+#include "esp_log.h"
+#include "core/hw_profile.h"
 #include "core/state.h"
 #include "core/session_manager.h"
 #include "core/control_config.h"
@@ -68,6 +70,14 @@ esp_err_t process_control_start(const char *mode_id) {
     }
 
     if (!m) return ESP_ERR_INVALID_ARG;
+
+    hw_mode_status_t hw;
+    hw_profile_check_mode(type, &hw);
+    if (!hw.ready) {
+        events_log(EVENT_WARNING, "Start rejected: %s", hw.reason);
+        ESP_LOGW("PROCESS", "mode %d unavailable: %s", (int)type, hw.reason);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     // mode_set() сам останавливает предыдущий режим и дозатор.
     mode_set(m);

@@ -164,8 +164,23 @@ def make_page(browser, base_url, api_requests):
                 payload = {"mode": 0, "algorithm": 0, "stage": 0, "countdown": 0}
             elif path == "/api/i18n":
                 payload = {"lang": "ru"}
+            elif path == "/api/hardware":
+                payload = {
+                    "onewire_count": 4,
+                    "temp": {"cube": 0, "column": 1, "jacket": 2, "tank": 3},
+                    "devices": {"pressure": 1, "vacuum": 0, "flow": 1,
+                                "level": 0, "scale": 0, "reflux": 1,
+                                "cooling": 1, "water_valve": 1,
+                                "vacuum_pump": 0, "stirrer": 1,
+                                "doser": 1, "valves": 1},
+                    "modes": [
+                        {"id": "distill", "ready": 1, "reason": ""},
+                        {"id": "rectify", "ready": 1, "reason": ""},
+                        {"id": "vacuum", "ready": 0, "reason": "нужен датчик вакуума"},
+                    ],
+                }
             elif path in ("/api/start", "/api/stop", "/api/pause", "/api/safety",
-                          "/api/power", "/api/control"):
+                          "/api/power", "/api/control", "/api/beer"):
                 payload = {"ok": True}
 
             route.fulfill(

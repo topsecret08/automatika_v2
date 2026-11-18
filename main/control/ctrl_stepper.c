@@ -8,6 +8,7 @@
 #include "core/watchdog.h"
 #include "hal/hal_relay.h"
 #include "hal/i2c_stepper.h"
+#include "core/hw_profile.h"
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -195,6 +196,7 @@ esp_err_t ctrl_stepper_apply_settings(const stepper_settings_t *in) {
 esp_err_t ctrl_stepper_dose_ml(float volume_ml, float rate_ml_min,
                                float *done_ml) {
     if (done_ml) *done_ml = 0.0f;
+    if (!hw_has_device(HW_DEV_DOSER)) return ESP_ERR_NOT_SUPPORTED;
     if (!ctrl_stepper_available()) return ESP_ERR_NOT_SUPPORTED;
     if (!guard_ok()) return ESP_ERR_INVALID_STATE;
 
@@ -263,6 +265,7 @@ static uint16_t rpm_to_sps(float rpm) {
 }
 
 esp_err_t ctrl_stepper_stirrer(bool on, bool reverse, float rpm) {
+    if (!hw_has_device(HW_DEV_STIRRER)) return ESP_ERR_NOT_SUPPORTED;
     if (!s_cfg.enabled) {
         // Явный откат: реле мешалки, если I2C-модуль не сконфигурирован.
         hal_relay_set(RELAY_STIRRER, on);
@@ -296,9 +299,14 @@ void ctrl_stepper_stop_all(void) {
 
 esp_err_t ctrl_stepper_move_service(stepper_axis_t axis, int32_t steps,
                                     uint16_t speed_sps) {
+    if (axis >= STEPPER_AXIS_COUNT) return ESP_ERR_INVALID_ARG;
+    if (axis == STEPPER_AXIS_DOSER && !hw_has_device(HW_DEV_DOSER))
+        return ESP_ERR_NOT_SUPPORTED;
+    if (axis == STEPPER_AXIS_STIRRER && !hw_has_device(HW_DEV_STIRRER))
+        return ESP_ERR_NOT_SUPPORTED;
     if (!ctrl_stepper_available()) return ESP_ERR_NOT_SUPPORTED;
     if (!guard_ok()) return ESP_ERR_INVALID_STATE;
-    if (axis >= STEPPER_AXIS_COUNT || steps == 0) return ESP_ERR_INVALID_ARG;
+    if (steps == 0) return ESP_ERR_INVALID_ARG;
     if (speed_sps == 0 || speed_sps > s_cfg.max_speed_sps)
         speed_sps = s_cfg.max_speed_sps;
 
@@ -309,9 +317,13 @@ esp_err_t ctrl_stepper_move_service(stepper_axis_t axis, int32_t steps,
 }
 
 esp_err_t ctrl_stepper_home(stepper_axis_t axis) {
+    if (axis >= STEPPER_AXIS_COUNT) return ESP_ERR_INVALID_ARG;
+    if (axis == STEPPER_AXIS_DOSER && !hw_has_device(HW_DEV_DOSER))
+        return ESP_ERR_NOT_SUPPORTED;
+    if (axis == STEPPER_AXIS_STIRRER && !hw_has_device(HW_DEV_STIRRER))
+        return ESP_ERR_NOT_SUPPORTED;
     if (!ctrl_stepper_available()) return ESP_ERR_NOT_SUPPORTED;
     if (!guard_ok()) return ESP_ERR_INVALID_STATE;
-    if (axis >= STEPPER_AXIS_COUNT) return ESP_ERR_INVALID_ARG;
 
     stepper_status_t st;
     stepper_request_t req = { .cmd = STEPPER_CMD_HOME,

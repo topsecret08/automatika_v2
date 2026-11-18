@@ -3,6 +3,7 @@
 
 #include "control/ctrl_safety.h"
 #include "control/ctrl_stepper.h"
+#include "core/hw_profile.h"
 #include "control/ctrl_valve_control.h"
 #include "core/control_config.h"
 #include "core/estop.h"
@@ -278,6 +279,10 @@ void ctrl_dose_task(void *arg) {
 
 bool ctrl_dose_volume(float volume_ml, float rate_ml_per_min) {
     if (!s_queue) return false;
+    if (!hw_has_device(HW_DEV_DOSER)) {
+        events_log(EVENT_WARNING, "Dose rejected: doser disabled in profile");
+        return false;
+    }
     if (volume_ml <= 0.0f) return false;
     if (!guard_ok()) {
         events_log(EVENT_WARNING, "Dose %.1f ml rejected: safety/estop", volume_ml);

@@ -312,6 +312,7 @@ const PAGES = {
   log: { render: renderLog },
   actuators: { render: renderActuators },
   health: { render: renderHealth },
+  hardware: { render: renderHardware },
   network: { render: renderNetwork },
   ota: { render: renderOta },
   api: { render: renderApi },
@@ -2011,6 +2012,105 @@ async function renderActuators() {
   });
 
   refresh();
+}
+
+const HW_DEVICES = [
+  ['pressure', 'Давление в колонне'],
+  ['vacuum', 'Датчик вакуума'],
+  ['flow', 'Расходомер охлаждения'],
+  ['level', 'Датчик уровня'],
+  ['scale', 'Весы HX711'],
+  ['reflux', 'Флегмовый клапан'],
+  ['cooling', 'Насос охлаждения'],
+  ['water_valve', 'Клапан воды'],
+  ['vacuum_pump', 'Вакуумный насос'],
+  ['stirrer', 'Мешалка'],
+  ['doser', 'Дозатор'],
+  ['valves', 'Клапаны фракций']
+];
+
+const HW_TEMP_ROLES = [
+  ['cube', 'Куб'],
+  ['column', 'Колонна'],
+  ['jacket', 'Рубашка'],
+  ['tank', 'Бак/брожение']
+];
+
+function hwSelect(role, value, count) {
+  const options = ['<option value="-1">нет</option>'];
+  for (let i = 0; i < count; i++) {
+    options.push(`<option value="${i}" ${i === value ? 'selected' : ''}>Датчик ${i}</option>`);
+  }
+  return `<select class="input" id="hw-temp-${role}">${options.join('')}</select>`;
+}
+
+async function renderHardware() {
+  const app = $('#app');
+  if (!app) return;
+  app.innerHTML = '<div class="empty">Загрузка…</div>';
+
+  try {
+    const response = await api('/api/hardware');
+    if (!response.ok) throw new Error(String(response.status));
+    const data = await response.json();
+    const count = Number(data.onewire_count || 0);
+
+    const tempRows = HW_TEMP_ROLES.map(([role, label]) => `
+      <div class="card-row">
+        <span class="card-row-title">${label}</span>
+        ${hwSelect(role, Number(data.temp?.[role] ?? -1), count)}
+      </div>`).join('');
+
+    const devRows = HW_DEVICES.map(([key, label]) => `
+      <label class="card-row">
+        <span class="card-row-title">${label}</span>
+        <input type="checkbox" id="hw-dev-${key}" ${data.devices?.[key] ? 'checked' : ''}>
+      </label>`).join('');
+
+    const modeRows = (data.modes || []).map((mode) => `
+      <div class="card-row">
+        <span class="card-row-title">${mode.id}</span>
+        <span class="card-row-value">${mode.ready ? 'готов' : (mode.reason || 'нет')}</span>
+      </div>`).join('');
+
+    app.innerHTML = `
+      <section class="section">
+        <div class="section-title">Датчики температуры</div>
+        <div class="card">${tempRows}</div>
+        <p class="hint">Индекс — порядок DS18B20 на шине. «Нет» отключает роль.</p>
+      </section>
+      <section class="section">
+        <div class="section-title">Исполнительные устройства</div>
+        <div class="card">${devRows}</div>
+      </section>
+      <section class="section">
+        <div class="section-title">Готовность режимов</div>
+        <div class="card">${modeRows}</div>
+      </section>
+      <button id="hw-save" class="btn btn-primary btn-block" type="button">Сохранить</button>
+    `;
+
+    $('#hw-save')?.addEventListener('click', async () => {
+      const temp = {};
+      for (const [role] of HW_TEMP_ROLES) {
+        temp[role] = Number($(`#hw-temp-${role}`)?.value ?? -1);
+      }
+      const devices = {};
+      for (const [key] of HW_DEVICES) {
+        devices[key] = !!$(`#hw-dev-${key}`)?.checked;
+      }
+      try {
+        const saved = await postJson('/api/hardware', { temp, devices });
+        if (!saved.ok) throw new Error(String(saved.status));
+        toast('Оборудование сохранено');
+        renderHardware();
+      } catch (_) {
+        toast('Не удалось сохранить');
+      }
+    });
+  } catch (_) {
+    app.innerHTML = '<div class="empty">Нет связи с устройством</div>';
+  }
 }
 
 async function renderHealth() {

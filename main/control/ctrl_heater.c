@@ -10,6 +10,7 @@
 #include "core/state.h"
 #include "core/events.h"
 #include "core/watchdog.h"
+#include "core/hw_profile.h"
 #include "core/estop.h"
 #include "level/level_sensor.h"
 #include "config.h"
@@ -43,9 +44,11 @@ static float clamp_power(float pct) {
 static bool heater_allowed(float pct) {
     bool process_or_service = state_get()->is_running ||
                               control_config_service_enabled();
+    bool level_on = hw_has_device(HW_DEV_LEVEL);
     return heater_power_allowed(pct, estop_is_pressed(), ctrl_safety_ok(),
-                                level_is_available(), level_is_too_low(),
-                                level_is_required_fault(),
+                                level_on && level_is_available(),
+                                level_on && level_is_too_low(),
+                                level_on && level_is_required_fault(),
                                 process_or_service);
 }
 
@@ -55,7 +58,9 @@ static float trend_guard(float pct) {
     if (pct <= 0.0f) return 0.0f;
     if (hal_1wire_count() <= 0) return pct;
 
-    if (hal_1wire_rising(0) && pct > TREND_GUARD_MIN_PCT) {
+    int cube_idx = hw_temp_index(HW_TEMP_CUBE);
+    if (cube_idx < 0) return pct;
+    if (hal_1wire_rising(cube_idx) && pct > TREND_GUARD_MIN_PCT) {
         float cut = pct * HEATER_TREND_CUT;
         if (cut < TREND_GUARD_MIN_PCT) cut = TREND_GUARD_MIN_PCT;
         if (cut < pct) {

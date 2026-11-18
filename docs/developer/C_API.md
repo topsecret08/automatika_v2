@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 345.
+Всего функций: 350.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -668,6 +668,29 @@ bool help_show_article(const char *id);
 
 Показ статьи: встроенная → SD → сообщение об отсутствии.
 
+## `main/core/hw_profile.h`
+
+```c
+void hw_profile_check_mode(process_type_t type, hw_mode_status_t *out);
+```
+
+Проверка по текущей карте и реальному числу датчиков.
+
+```c
+void hw_profile_json(char *out, size_t cap);
+```
+
+JSON для /api/hardware.
+
+## `main/core/hw_profile_rules.h`
+
+```c
+void hw_profile_check(const hw_profile_t *p, uint8_t onewire_count, process_type_t type, hw_mode_status_t *out);
+```
+
+Чистая проверка минимального набора режима: без NVS и драйверов,
+чтобы правила можно было тестировать на хосте.
+
 ## `main/core/learning.h`
 
 ```c
@@ -1137,6 +1160,20 @@ bool level_is_fault(void);
 ```
 
 Напоминание «датчик отсутствует/не отвечает» (для телеметрии/API).
+
+## `main/modes/beer_presets.h`
+
+```c
+void beer_preset_select(int idx);
+```
+
+Активный рецепт выбирается до запуска режима (API/UI).
+
+```c
+int beer_preset_active(void);
+```
+
+Активный рецепт выбирается до запуска режима (API/UI).
 
 ## `main/modes/beer_recipe.h`
 

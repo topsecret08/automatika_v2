@@ -17,6 +17,7 @@
 #include "control/fraction_logic.h"
 #include "control/fraction_periodic.h"
 #include "control/volume_feedback.h"
+#include "core/hw_profile.h"
 #include "core/loop_verify.h"
 #include "hal/hal_actuator_readback.h"
 #include "esp_timer.h"
@@ -95,12 +96,12 @@ static void fraction_apply(fraction_t f) {
     if (f == FRAC_BODY || f == FRAC_TAILS) {
         if (!s_reflux_on) {
             s_reflux_on = true;
-            reflux_enable(true);
+            if (hw_has_device(HW_DEV_REFLUX)) reflux_enable(true);
         }
     } else {
         if (s_reflux_on) {
             s_reflux_on = false;
-            reflux_enable(false);
+            if (hw_has_device(HW_DEV_REFLUX)) reflux_enable(false);
         }
     }
 }
@@ -108,17 +109,20 @@ static void fraction_apply(fraction_t f) {
 static proc_stage_t d_update(float dt) {
     s_stage_t += dt;
 
-    float cube = hal_1wire_read(0);
-    float col  = hal_1wire_read(1);
+    float cube = hw_temp_read(HW_TEMP_CUBE);
+    float col  = hw_temp_read(HW_TEMP_COLUMN);
     float pres_hpa = baro_get_pressure_hpa();
     float cube_corr = baro_correct_boiling_point(cube, pres_hpa);
+    bool has_cooling = hw_has_device(HW_DEV_COOLING_PUMP);
+    bool has_reflux = hw_has_device(HW_DEV_REFLUX);
 
     ctrl_forecast_update(cube, dt);
 
     process_state_t *st = state_get();
     st->cube_temp = cube;
-    st->column_temp = col;
-    st->pressure_bar = column_pressure_bar();
+    st->column_temp = isfinite(col) ? col : 0.0f;
+    st->pressure_bar = hw_has_device(HW_DEV_PRESSURE)
+                           ? column_pressure_bar() : 0.0f;
 
     // Периодический отбор — альтернативная логика отбора. Когда она включена,
     // штатный fraction_update/valve/dose не должен работать: иначе два
@@ -136,8 +140,10 @@ static proc_stage_t d_update(float dt) {
 
     switch (s_stage) {
     case ST_PRECHECK:
-        cooling_valve_set(true);
-        hal_relay_set(RELAY_COOLING_PUMP, true);
+        if (hw_has_device(HW_DEV_COOLING_PUMP)) {
+            hal_relay_set(RELAY_COOLING_PUMP, true);
+            cooling_valve_set(true);
+        }
         if (!ctrl_safety_ok()) { s_stage = ST_ERROR; break; }
         s_stage = ST_HEATUP;
         break;
@@ -220,13 +226,15 @@ static proc_stage_t d_update(float dt) {
         ctrl_heater_force_off();
         ctrl_dose_stop();
         ctrl_valves_close_all();
-        reflux_enable(false);
+        if (has_reflux) reflux_enable(false);
         if (cube < 40.0f) s_stage = ST_DONE;
         break;
 
     case ST_DONE:
-        hal_relay_set(RELAY_COOLING_PUMP, false);
-        cooling_valve_set(false);
+        if (has_cooling) {
+            hal_relay_set(RELAY_COOLING_PUMP, false);
+            cooling_valve_set(false);
+        }
         st->is_running = false;
         break;
 
@@ -244,6 +252,7 @@ static proc_stage_t d_update(float dt) {
         { .id = 1, .raw = col, .filtered = col,
           .confidence = isfinite(col) ? 1.0f : 0.0f },
     };
+    size_t n_s = hw_temp_available(HW_TEMP_COLUMN) ? 2 : 1;
     lv_program_frame_t pf = {
         .mode = (uint8_t)PROCESS_DISTILL,
         .sp = st->target_cube_t,
@@ -257,9 +266,9 @@ static proc_stage_t d_update(float dt) {
           .response_window_sec = 120 },
     };
     lv_result_t lr;
-    int64_t sensor_us = hal_1wire_last_update_us(0);
+    int64_t sensor_us = hal_1wire_last_update_us(hw_temp_index(HW_TEMP_CUBE));
     if (sensor_us <= 0) sensor_us = now;
-    lv_tick(sensor_us, sf, 2, &pf, af, 1, &lr);
+    lv_tick(sensor_us, sf, n_s, &pf, af, 1, &lr);
 #endif
 
     return s_stage;
@@ -269,7 +278,7 @@ static void d_stop(void) {
     ctrl_heater_force_off();
     ctrl_dose_stop();
     ctrl_valves_close_all();
-    reflux_enable(false);
+    if (hw_has_device(HW_DEV_REFLUX)) reflux_enable(false);
     hal_relay_all_off();
 }
 

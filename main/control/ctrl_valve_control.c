@@ -1,6 +1,7 @@
 #include "ctrl_valve_control.h"
 #include "ctrl_valves.h"
 #include "safety_gate.h"
+#include "core/hw_profile.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "core/watchdog.h"
@@ -21,6 +22,7 @@ void valve_set_pct(int idx, float pct) {
 }
 
 void valve_set_pct_raw(int idx, float pct) {
+    if (!hw_has_device(HW_DEV_VALVES)) return;
     valve_config_t *v = valve_config_get(idx);
     if (!v) return;
     if (pct < 0) pct = 0;

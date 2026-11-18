@@ -12,6 +12,7 @@
 #include "core/estop.h"
 #include "core/event_log.h"
 #include "core/health.h"
+#include "core/hw_profile.h"
 #include "core/nvs_migration.h"
 #include "core/state.h"
 #include "core/session_manager.h"
@@ -237,6 +238,7 @@ void app_main(void) {
     valve_calib_init();
     ctrl_dose_init();
     ctrl_stepper_init();
+    hw_profile_init();
     scale_init(PIN_HX711_DOUT, PIN_HX711_SCK);
     sensor_calib_init();
 #if !defined(CONFIG_ACTUATOR_READBACK_ENABLE) || CONFIG_ACTUATOR_READBACK_ENABLE

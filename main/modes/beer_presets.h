@@ -23,3 +23,7 @@ typedef struct {
 
 const beer_step_t* beer_preset_get(int idx, int *out_count);
 int  beer_preset_count(void);
+
+// Активный рецепт выбирается до запуска режима (API/UI).
+void beer_preset_select(int idx);
+int  beer_preset_active(void);

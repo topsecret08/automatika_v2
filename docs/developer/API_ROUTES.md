@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 76.
+Всего маршрутов: 80.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -11,6 +11,8 @@
 | `GET` | `/api/autotune` | `h_autotune` | ключ |
 | `POST` | `/api/autotune` | `h_autotune` | ключ |
 | `POST` | `/api/backup/telegram` | `h_backup_telegram` | ключ |
+| `GET` | `/api/beer` | `h_beer` | ключ |
+| `POST` | `/api/beer` | `h_beer` | ключ |
 | `POST` | `/api/brewfather` | `h_brewfather` | ключ |
 | `POST` | `/api/calendar` | `h_calendar` | ключ |
 | `GET` | `/api/config` | `h_config` | ключ |
@@ -25,6 +27,8 @@
 | `GET` | `/api/env` | `h_env` | ключ |
 | `POST` | `/api/estop` | `h_estop` | ключ |
 | `GET` | `/api/events` | `h_events` | ключ |
+| `GET` | `/api/hardware` | `h_hardware` | ключ |
+| `POST` | `/api/hardware` | `h_hardware` | ключ |
 | `GET` | `/api/health` | `h_health` | — |
 | `GET` | `/api/i18n` | `h_i18n` | ключ |
 | `POST` | `/api/i18n` | `h_i18n` | ключ |

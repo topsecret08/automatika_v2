@@ -66,6 +66,17 @@ def test_system_group_navigation(make_page, base_url):
     assert page.locator("#page-title").inner_text()
 
 
+def test_hardware_page_lists_roles(make_page, base_url):
+    page = make_page()
+    page.goto(base_url + "/?page=hardware")
+
+    page.wait_for_selector("#hw-temp-cube")
+    assert page.locator("#hw-temp-column").count() == 1
+    assert page.locator("#hw-dev-reflux").count() == 1
+    assert page.locator("#hw-save").is_visible()
+    assert page.locator("select").count() >= 4
+
+
 def test_manifest_and_offline_assets(base_url, context):
     manifest = context.request.get(base_url + "/manifest.json")
     assert manifest.ok

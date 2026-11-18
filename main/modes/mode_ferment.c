@@ -1,41 +1,68 @@
 #include "mode_base.h"
+#include "config.h"
 #include "core/state.h"
+#include "core/hw_profile.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
-#include "config.h"
+#include "hal/flow_sensor.h"
+#include "control/ctrl_heater.h"
+#include "control/ctrl_valve_control.h"
 
-typedef enum { FM_HEAT, FM_COOL, FM_AUTO } fm_mode_t;
-static fm_mode_t s_mode = FM_AUTO;
-static float s_target = 20.0f;
-static float s_hyst = 0.3f;
+#include <math.h>
+
+static float s_target;
+static float s_hyst;
 
 static proc_stage_t f_init(void) {
-    s_mode = FM_AUTO;
+    s_target = state_get()->target_cube_t > 0.0f
+                   ? state_get()->target_cube_t : 20.0f;
+    s_hyst = state_get()->target_column_t > 0.0f &&
+                     state_get()->target_column_t < 5.0f
+                 ? state_get()->target_column_t : 0.3f;
     return ST_PRECHECK;
 }
 
 static proc_stage_t f_update(float dt) {
     (void)dt;
-    float t = hal_1wire_read(4);
-    if (t < -100) t = hal_1wire_read(0);
+    float t = hw_temp_read(HW_TEMP_TANK);
+    if (!isfinite(t)) t = hw_temp_read(HW_TEMP_CUBE);
+    if (!isfinite(t)) {
+        state_get()->stage = ST_ERROR;
+        return ST_ERROR;
+    }
     state_get()->cube_temp = t;
 
-    if (s_mode == FM_HEAT || (s_mode == FM_AUTO && t < s_target - s_hyst)) {
-        hal_relay_set(RELAY_WATER_VALVE, false);
-        hal_relay_set(RELAY_EXTRA, true);
-        if (t > s_target + s_hyst) hal_relay_set(RELAY_EXTRA, false);
-    } else if (s_mode == FM_COOL ||
-               (s_mode == FM_AUTO && t > s_target + s_hyst)) {
-        hal_relay_set(RELAY_EXTRA, false);
-        hal_relay_set(RELAY_COOLING_PUMP, true);
-        if (t < s_target - s_hyst) hal_relay_set(RELAY_COOLING_PUMP, false);
+    bool cool = hw_has_device(HW_DEV_COOLING_PUMP);
+    if (t < s_target - s_hyst) {
+        if (cool) hal_relay_set(RELAY_COOLING_PUMP, false);
+        ctrl_heater_set_percent(100.0f);
+    } else if (t > s_target + s_hyst) {
+        ctrl_heater_force_off();
+        if (cool) {
+            hal_relay_set(RELAY_COOLING_PUMP, true);
+            cooling_valve_set(true);
+        }
+    } else {
+        ctrl_heater_force_off();
+        if (cool) {
+            hal_relay_set(RELAY_COOLING_PUMP, false);
+            cooling_valve_set(false);
+        }
     }
 
     state_get()->stage = ST_RUNNING;
     return ST_RUNNING;
 }
 
+static void f_stop(void) {
+    ctrl_heater_force_off();
+    if (hw_has_device(HW_DEV_COOLING_PUMP)) {
+        hal_relay_set(RELAY_COOLING_PUMP, false);
+        cooling_valve_set(false);
+    }
+}
+
 const process_mode_t MODE_FERMENT = {
     .name = "Брожение", .id = "ferment",
-    .init = f_init, .update = f_update, .stop = NULL,
+    .init = f_init, .update = f_update, .stop = f_stop,
 };

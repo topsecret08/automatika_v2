@@ -5,6 +5,7 @@
 #include "alcohol_balance.h"
 #include "core/control_config.h"
 #include "core/estop.h"
+#include "core/hw_profile.h"
 #include "core/state.h"
 #include "core/events.h"
 #include "core/event_bus.h"
@@ -24,6 +25,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include <math.h>
 
 // Период safety-задачи. Все проверки — неблокирующие: датчики читаются
 // из кэша (1-Wire опрашивается отдельной задачей), I2C-барометр — из
@@ -103,9 +105,10 @@ esp_err_t ctrl_safety_reset(void) {
         return reset_refused("stop the process and cut heating first");
     if (estop_is_pressed())
         return reset_refused("E-STOP active (release the button first)");
-    if (level_is_available() && level_is_too_low())
+    if (level_is_available() && level_is_too_low() &&
+        hw_has_device(HW_DEV_LEVEL))
         return reset_refused("liquid level is still low");
-    if (level_is_required_fault())
+    if (level_is_required_fault() && hw_has_device(HW_DEV_LEVEL))
         return reset_refused("required level sensor is not available");
 
     s_ok = true;
@@ -159,18 +162,29 @@ void ctrl_safety_task(void *arg) {
         }
 
         // Быстрые чтения из кэша; 1-Wire не блокирует safety-задачу.
-        float cube = hal_1wire_read_fast(0);
-        float col  = hal_1wire_read_fast(1);
-        float pres = column_pressure_bar();
+        float cube = hw_temp_available(HW_TEMP_CUBE)
+                         ? hal_1wire_read_fast(hw_temp_index(HW_TEMP_CUBE))
+                         : NAN;
+        float col = hw_temp_available(HW_TEMP_COLUMN)
+                        ? hal_1wire_read_fast(hw_temp_index(HW_TEMP_COLUMN))
+                        : NAN;
+        float pres = hw_has_device(HW_DEV_PRESSURE)
+                         ? column_pressure_bar() : 0.0f;
         bool  running = state_get()->is_running;
 
         if (cube > SAFE_MAX_CUBE_T)   ctrl_safety_trigger("OVERHEAT_CUBE");
-        if (col > SAFE_MAX_COLUMN_T)  ctrl_safety_trigger("OVERHEAT_COLUMN");
-        if (pres > SAFE_MAX_PRESSURE) ctrl_safety_trigger("OVERPRESSURE");
+        if (hw_temp_available(HW_TEMP_COLUMN) &&
+            col > SAFE_MAX_COLUMN_T)  ctrl_safety_trigger("OVERHEAT_COLUMN");
+        if (hw_has_device(HW_DEV_PRESSURE) && pres > SAFE_MAX_PRESSURE)
+            ctrl_safety_trigger("OVERPRESSURE");
 
         // -127 °C — нет ответа от DS18B20; при работающем процессе это
-        // означает потерю контроля температуры.
-        if (running && (cube <= -50.0f || col <= -50.0f)) {
+        // означает потерю контроля температуры. Отключённая в профиле
+        // колонна не должна давать аварию.
+        if (running && cube <= -50.0f) {
+            ctrl_safety_trigger("SENSOR_FAIL");
+        }
+        if (running && hw_temp_available(HW_TEMP_COLUMN) && col <= -50.0f) {
             ctrl_safety_trigger("SENSOR_FAIL");
         }
 
@@ -181,7 +195,7 @@ void ctrl_safety_task(void *arg) {
         process_type_t ptype = state_get()->type;
         bool water_cooled = (ptype == PROCESS_DISTILL || ptype == PROCESS_RECTIFY ||
                              ptype == PROCESS_DOUBLE || ptype == PROCESS_GABRIEL);
-        if (water_cooled && flow_is_present()) {
+        if (water_cooled && hw_has_device(HW_DEV_FLOW)) {
             if (running && ctrl_heater_get_percent() > 0.0f && !flow_is_ok()) {
                 s_no_flow_ms += SAFETY_PERIOD_MS;
                 if (s_no_flow_ms >= NO_FLOW_GRACE_MS) {
@@ -203,7 +217,8 @@ void ctrl_safety_task(void *arg) {
         // ---- Насос охлаждения: нагрев без насоса недопустим ----
         // Для процессов с водяным охлаждением safety сам включает насос,
         // если режим этого не сделал (например, двойная перегонка).
-        if (water_cooled && state_get()->is_running &&
+        if (water_cooled && hw_has_device(HW_DEV_COOLING_PUMP) &&
+            state_get()->is_running &&
             ctrl_heater_get_percent() > 0 &&
             !hal_relay_get(RELAY_COOLING_PUMP)) {
             hal_relay_set(RELAY_COOLING_PUMP, true);
@@ -211,8 +226,9 @@ void ctrl_safety_task(void *arg) {
         }
 
         // ---- Датчик уровня ----
-        level_sensor_poll();
-        if (level_is_required_fault()) {
+        bool level_enabled = hw_has_device(HW_DEV_LEVEL);
+        if (level_enabled) level_sensor_poll();
+        if (level_enabled && level_is_required_fault()) {
             bool was_heating = ctrl_heater_get_percent() > 0.0f;
             ctrl_heater_force_off();
             if ((running || was_heating) && !s_level_fault_latched) {
@@ -224,7 +240,7 @@ void ctrl_safety_task(void *arg) {
                 events_log(EVENT_EMERGENCY,
                            "Required level sensor unavailable: heating blocked");
             }
-        } else if (level_is_too_low()) {
+        } else if (level_enabled && level_is_too_low()) {
             bool was_heating = ctrl_heater_get_percent() > 0.0f;
             ctrl_heater_force_off();       /* сухой ход: снимаем нагрев */
             // Защёлкиваем аварию, если процесс уже идёт или была запрошена
@@ -242,7 +258,7 @@ void ctrl_safety_task(void *arg) {
             s_level_low_last = false;
             s_level_fault_latched = false;
         }
-        if (level_is_overflow()) {
+        if (level_enabled && level_is_overflow()) {
             if (s_level_over_last != true) {
                 s_level_over_last = true;
                 telegram_notify_alert("АВАРИЯ", "Переполнение ёмкости — процесс остановлен");

@@ -80,3 +80,12 @@ const beer_step_t* beer_preset_get(int idx, int *out_count) {
 }
 
 int beer_preset_count(void) { return PRESET_COUNT; }
+
+static int s_active;
+
+void beer_preset_select(int idx) {
+    if (idx < 0 || idx >= PRESET_COUNT) return;
+    s_active = idx;
+}
+
+int beer_preset_active(void) { return s_active; }

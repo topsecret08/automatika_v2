@@ -22,7 +22,7 @@ idf_component_register(
         "core/stab_detect.c" "core/hampel.c" "core/pump_cal.c"
         "core/event_bus.c"
         "core/loop_verify.c" "core/loop_verify_glue.c"
-        "core/stepper_proto.c"
+        "core/stepper_proto.c" "core/hw_profile.c" "core/hw_profile_rules.c"
         "core/session_manager.c"
         "core/storage.c" "core/watchdog.c" "core/valve_config.c"
         "core/process_control.c"
