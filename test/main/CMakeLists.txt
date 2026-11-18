@@ -56,6 +56,8 @@ idf_component_register(
         "${PROD_DIR}/core/thermal_sim.c"
         "${PROD_DIR}/core/chaos_probe.c"
         "${PROD_DIR}/core/loop_verify.c"
+        "${PROD_DIR}/hal/hal_actuator_readback.c"
+        "${PROD_DIR}/hal/hal_safety_relay.c"
         "${PROD_DIR}/hal/sensor_trust.c"
         "${PROD_DIR}/hal/zone_consensus.c"
         "${PROD_DIR}/script/capability.c"

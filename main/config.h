@@ -1,7 +1,7 @@
 #pragma once
 
-#define FW_VERSION          "V0.7 beta"
-#define FW_NAME             "Automatika V0.7 beta"
+#define FW_VERSION          "V0.8 beta"
+#define FW_NAME             "Automatika V0.8 beta"
 
 // ============================================================
 // GPIO
@@ -219,7 +219,7 @@
 #define PATH_SCRIPTS_FLASH  "/lfs/scripts"
 
 // ------------------------------------------------------------
-// V0.7 beta: Wi-Fi provisioning, время, датчики, безопасность
+// V0.8 beta: Wi-Fi provisioning, время, датчики, безопасность
 // ------------------------------------------------------------
 
 // Wi-Fi provisioning (SoftAP + captive portal)

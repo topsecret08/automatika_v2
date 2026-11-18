@@ -23,6 +23,9 @@ bool      verify_db_is_ready(void);
 
 int64_t   verify_db_start_run(const char *mode, int policy);
 esp_err_t verify_db_log_trace(const verify_trace_t *trace);
+esp_err_t verify_db_log_loop(int64_t run_id, int64_t ts_ms,
+                             uint32_t aggregate, uint32_t flags,
+                             uint32_t latency_us);
 esp_err_t verify_db_finish_run(int64_t run_id, const char *metrics_json);
 
 // Replay: входы из verify_trace прогоняются через algo(setpoint, value_real).

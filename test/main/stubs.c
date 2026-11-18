@@ -26,3 +26,10 @@ bool ctrl_dose_volume(float volume_ml, float rate_ml_per_min) {
     (void)rate_ml_per_min;
     return true;
 }
+
+// hal_actuator_readback.c обращается к ADS1115 только для backend=CURRENT.
+// В тестах CURRENT не используется, поэтому АЦП заменён нулём.
+int16_t hal_adc_raw(int channel) {
+    (void)channel;
+    return 0;
+}

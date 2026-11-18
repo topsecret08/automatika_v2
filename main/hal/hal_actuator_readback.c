@@ -42,6 +42,9 @@ void hal_actuator_readback_init_defaults(void) {
             .adc_channel = ACT_READBACK_ADC_CHANNEL,
             .full_scale = ACT_READBACK_FULL_SCALE,
         },
+        [ACT_VALVE_BODY] = { .id = ACT_VALVE_BODY,
+                             .backend = RB_BACKEND_NONE },
+        [ACT_DOSER] = { .id = ACT_DOSER, .backend = RB_BACKEND_NONE },
     };
     hal_actuator_readback_init(cfg, ACT_RB_COUNT);
 }
@@ -70,5 +73,12 @@ bool hal_actuator_has_feedback(uint8_t id) {
     for (size_t i = 0; i < g_n; i++)
         if (g_cfg[i].id == id && g_cfg[i].backend != RB_BACKEND_NONE)
             return true;
+    return false;
+}
+
+bool hal_actuator_is_binary(uint8_t id) {
+    for (size_t i = 0; i < g_n; i++)
+        if (g_cfg[i].id == id)
+            return g_cfg[i].backend == RB_BACKEND_GPIO;
     return false;
 }

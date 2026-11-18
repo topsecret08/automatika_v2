@@ -112,6 +112,11 @@ esp_err_t ctrl_safety_reset(void) {
     s_reset_error[0] = '\0';
     st->emergency = false;
     st->emergency_reason[0] = '\0';
+#if !defined(CONFIG_SAFETY_RELAY_ENABLE) || CONFIG_SAFETY_RELAY_ENABLE
+    // Сброс — единственный путь снять защёлку реле. Процесс уже остановлен,
+    // E-STOP отпущен, уровень в норме (проверки выше).
+    hal_safety_relay_rearm();
+#endif
     events_log(EVENT_INFO, "Safety reset");
     return ESP_OK;
 }

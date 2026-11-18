@@ -49,6 +49,10 @@ static proc_stage_t d_init(void) {
     volume_feedback_begin(&s_body_fb);
     volume_feedback_begin(&s_tails_fb);
 
+    // Новый прогон — чистое окно верификации. Иначе накопленный dt/тренд
+    // с прошлого запуска даёт ложный NO_RESPONSE на первом такте.
+    loop_verify_init();
+
     fraction_reset();
     reflux_set_ratio(REFLUX_RATIO_DEFAULT);
     reflux_enable(false);
@@ -248,10 +252,14 @@ static proc_stage_t d_update(float dt) {
     };
     lv_actuator_frame_t af[1] = {
         { .id = ACT_HEATER, .cmd = ctrl_heater_get_percent(),
-          .actual = hal_actuator_readback(ACT_HEATER), .latency_us = 0 },
+          .actual = hal_actuator_readback(ACT_HEATER), .latency_us = 0,
+          .binary = hal_actuator_is_binary(ACT_HEATER),
+          .response_window_sec = 120 },
     };
     lv_result_t lr;
-    lv_tick(now, sf, 2, &pf, af, 1, &lr);
+    int64_t sensor_us = hal_1wire_last_update_us(0);
+    if (sensor_us <= 0) sensor_us = now;
+    lv_tick(sensor_us, sf, 2, &pf, af, 1, &lr);
 #endif
 
     return s_stage;

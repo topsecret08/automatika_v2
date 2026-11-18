@@ -4,6 +4,7 @@
 #include "ui_glass_theme.h"
 
 #include "control/ctrl_heater.h"
+#include "control/safety_gate.h"
 #include "control/regulator_driver.h"
 #include "core/control_config.h"
 
@@ -72,7 +73,7 @@ static void slider_cb(lv_event_t *e) {
             !lv_obj_has_state(slider, LV_STATE_PRESSED)) {
             return;
         }
-        esp_err_t err = ctrl_heater_manual_set((float)value);
+        esp_err_t err = safety_gate_submit("ui_power", (float)value);
         if (err == ESP_OK) ui_toast("Ручная мощность установлена");
         else ui_toast("Регулятор не готов или защита");
     }

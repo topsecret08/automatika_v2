@@ -1,4 +1,4 @@
-# Автоматика V0.7 beta — тесты (Unity) для чистой логики
+# Автоматика V0.8 beta — тесты (Unity) для чистой логики
 
 Проверяются модули без зависимости от NVS/железа:
 
@@ -19,8 +19,8 @@
 | `test_event_bus.c` | дедупликация, приоритеты |
 | `test_capability.c` | Lua @requires, deny-by-default |
 | `test_sim_chaos.c` | RC-симулятор, ChaosProbe |
-| `test_loop_verify.c` | mismatch после 3 тактов, NO_RESPONSE 30 с, latency, NO_FEEDBACK, low confidence |
-| `test_readback_relay.c` | нормализация GPIO/CURRENT, логика NC-реле и heartbeat |
+| `test_loop_verify.c` | mismatch после 3 тактов, NO_RESPONSE 30 с, окно актуатора, разрыв между прогонами, бинарный канал, latency, STUCK, CROSSCHECK, NO_FEEDBACK, low confidence |
+| `test_readback_relay.c` | нормализация GPIO/CURRENT, бинарный канал, логика NC-реле, heartbeat и rearm |
 
 ## Host-тесты
 
@@ -40,7 +40,7 @@ ctest --test-dir test/host/build --output-on-failure
 python test/qemu/run_qemu_tests.py --build-dir test/build
 ```
 
-Последний прогон QEMU: **91 tests, 0 failures**.
+Последний прогон QEMU: **100 tests, 0 failures**.
 
 ## Запуск
 
@@ -73,5 +73,5 @@ GPIO и файловой системы. Их проверка требует и
 
 Проверено на этой итерации (реальная сборка ESP-IDF 5.3.2, esp32s3):
 
-- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2AE7F0`);
-- тестовый проект: `test/` — OK, образ `0x41FC0`.
+- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2AEF70`);
+- тестовый проект: `test/` — OK, образ `0x44810`.

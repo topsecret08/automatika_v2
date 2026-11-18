@@ -230,6 +230,14 @@ float hal_1wire_read_fast(int idx) {
     return v;
 }
 
+int64_t hal_1wire_last_update_us(int idx) {
+    if (idx < 0 || idx >= count || !s_cache_mtx) return 0;
+    xSemaphoreTake(s_cache_mtx, portMAX_DELAY);
+    int64_t t = s_update_us[idx];
+    xSemaphoreGive(s_cache_mtx);
+    return t;
+}
+
 float hal_1wire_read(int idx) {
     if (idx < 0 || idx >= count || !s_cache_mtx) return -127.0f;
     int64_t now = esp_timer_get_time();

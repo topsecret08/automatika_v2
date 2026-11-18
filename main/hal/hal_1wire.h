@@ -20,6 +20,7 @@ const uint8_t* hal_1wire_rom(int idx);
 float hal_1wire_read_raw(int idx);       // 0.0625°C шаг (блокирующее чтение)
 float hal_1wire_read_filtered(int idx);  // фильтр TempFilter (окно FILTER_WINDOW)
 float hal_1wire_read_fast(int idx);      // последнее сырое значение + калибровка
+int64_t hal_1wire_last_update_us(int idx); // время последнего сэмпла, us
 float hal_1wire_read(int idx);           // медиана + Калман + калибровка
 float hal_1wire_read_compensated(int idx, float pressure_hpa);
 float hal_1wire_trend(int idx);          // °C/мин по конвейеру

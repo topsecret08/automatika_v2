@@ -19,7 +19,9 @@
 #include "core/state.h"
 #include "core/events.h"
 #include "core/flags.h"
+#include "core/loop_verify.h"
 #include "core/watchdog.h"
+#include "hal/hal_safety_relay.h"
 #include "esp_timer.h"
 #include "hal/hal_1wire.h"
 #include "hal/baro.h"
@@ -349,21 +351,41 @@ static esp_err_t h_power(httpd_req_t *r) {
 static esp_err_t h_safety(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
-    if (!ctrl_safety_ok()) {
+    if (r->method == HTTP_POST && !ctrl_safety_ok()) {
         esp_err_t err = ctrl_safety_reset();
         if (err != ESP_OK) {
-            char out[192];
+            char out[256];
             snprintf(out, sizeof(out),
                      "{\"error\":\"reset refused\",\"detail\":\"%s\","
-                     "\"safety\":0,\"estop\":%d}",
-                     ctrl_safety_reset_error(), estop_is_pressed() ? 1 : 0);
+                     "\"safety\":0,\"estop\":%d,"
+                     "\"relay_enabled\":%d,\"relay_closed\":0,"
+                     "\"relay_forced\":%d}",
+                     ctrl_safety_reset_error(), estop_is_pressed() ? 1 : 0,
+                     hal_safety_relay_is_enabled() ? 1 : 0,
+                     hal_safety_relay_is_forced() ? 1 : 0);
             return send_err(r, "409 Conflict", out);
         }
     }
 
-    char json[128];
-    snprintf(json, sizeof(json), "{\"safety\":%d,\"estop\":%d}",
-             ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0);
+    lv_result_t lr = {0};
+    bool have_loop = loop_verify_last_result(&lr);
+
+    char json[320];
+    snprintf(json, sizeof(json),
+             "{\"safety\":%d,\"estop\":%d,"
+             "\"relay_enabled\":%d,\"relay_closed\":%d,"
+             "\"relay_forced\":%d,"
+             "\"loop_valid\":%d,\"loop_aggregate\":%lu,"
+             "\"loop_flags\":%lu,\"loop_latency_us\":%lu}",
+             ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0,
+             hal_safety_relay_is_enabled() ? 1 : 0,
+             hal_safety_relay_is_closed() ? 1 : 0,
+             hal_safety_relay_is_forced() ? 1 : 0,
+             have_loop ? 1 : 0,
+             (unsigned long)lr.aggregate,
+             (unsigned long)(lr.sensor_flags | lr.program_flags |
+                             lr.actuator_flags),
+             (unsigned long)lr.latency_e2e_us);
     return send_json(r, json);
 }
 
@@ -2204,6 +2226,7 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/pause",    .method=HTTP_POST, .handler=h_pause },
         { .uri="/api/power",    .method=HTTP_POST, .handler=h_power },
         { .uri="/api/safety",   .method=HTTP_POST, .handler=h_safety },
+{ .uri="/api/safety",   .method=HTTP_GET,  .handler=h_safety },
         { .uri="/api/estop",    .method=HTTP_POST, .handler=h_estop },
         { .uri="/api/control",  .method=HTTP_GET,  .handler=h_control },
         { .uri="/api/control",  .method=HTTP_POST, .handler=h_control },
@@ -2230,7 +2253,7 @@ void web_api_register(httpd_handle_t srv) {
 
     actuator_test_register(srv);
 
-    // Новые эндпоинты V0.7 beta: health, журнал, managed OTA, бэкап, ключи,
+    // Новые эндпоинты V0.8 beta: health, журнал, managed OTA, бэкап, ключи,
     // телеметрия (WS), конфигурация.
     httpd_uri_t extra[] = {
         { .uri="/api/health",              .method=HTTP_GET,  .handler=h_health },

@@ -16,6 +16,20 @@
 #define LV_FLAG_NO_RESPONSE           (1u << 9)
 
 #define LV_MAX_ACTUATORS 16
+#define LV_MAX_SENSORS   16
+
+// Бюджет сквозной задержки: 1-Wire опрашивается ~1 Гц, поэтому 50 мс
+// из ТЗ недостижимы физически. 1,5 с ловит зависание конвейера датчиков,
+// но не срабатывает на штатном периоде опроса.
+#define LV_LATENCY_BUDGET_US 1500000u
+
+// Окно по умолчанию для NO_RESPONSE (секунды). Актуатор может задать
+// своё окно в поле response_window_sec.
+#define LV_DEFAULT_RESPONSE_SEC 30u
+
+// Сколько подряд тактов значение датчика должно стоять на месте,
+// чтобы получить SENSOR_STUCK. При 2 Гц это 5 минут.
+#define LV_STUCK_TICKS 600u
 
 typedef struct {
     uint8_t  id;
@@ -30,6 +44,8 @@ typedef struct {
     float    sp;
     float    pv;
     float    out;
+    // Флаги уровня программы. PROG_FSM_ILLEGAL выставляет сама программа
+    // (режим/FSM), потому что loop_verify не знает графа этапов.
     uint32_t flags;
 } lv_program_frame_t;
 
@@ -39,6 +55,10 @@ typedef struct {
     float    actual;
     uint32_t latency_us;
     uint32_t flags;
+    // true — команда бинарная (реле/контактор): cmd>0 ожидает actual=100 %.
+    bool     binary;
+    // 0 — LV_DEFAULT_RESPONSE_SEC.
+    uint16_t response_window_sec;
 } lv_actuator_frame_t;
 
 typedef struct {
@@ -51,6 +71,10 @@ typedef struct {
 } lv_result_t;
 
 void loop_verify_init(void);
+
+// Последний результат (для API/телеметрии). Возвращает false, если
+// проверок ещё не было.
+bool loop_verify_last_result(lv_result_t *out);
 
 // Чистый расчёт (для тестов): now_us задаётся вызывающим.
 void lv_tick_at(int64_t now_us, int64_t sensor_us,
@@ -65,3 +89,9 @@ void lv_tick(int64_t sensor_us,
              const lv_actuator_frame_t *a, size_t n_a,
              lv_result_t *out);
 void lv_escalate(const lv_result_t *r);
+
+// Антидребезг эскалации: true только при смене агрегата или маски.
+// Обновляет *last_aggregate/*last_detail.
+bool lv_escalation_changed(uint32_t aggregate, uint32_t detail,
+                           uint32_t *last_aggregate,
+                           uint32_t *last_detail);

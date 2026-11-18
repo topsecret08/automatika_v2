@@ -31,6 +31,8 @@ void  hal_actuator_readback_init(const rb_config_t *cfgs, size_t n);
 void  hal_actuator_readback_init_defaults(void);
 float hal_actuator_readback(uint8_t id);
 bool  hal_actuator_has_feedback(uint8_t id);
+// true — канал бинарный (GPIO-сухой контакт/оптопара): 0 или 100 %.
+bool  hal_actuator_is_binary(uint8_t id);
 
 // Чистые нормализаторы для тестов.
 static inline float hal_actuator_normalize_gpio(int level) {

@@ -17,4 +17,9 @@ static inline bool safety_relay_should_close(int64_t now_us,
 esp_err_t hal_safety_relay_init(int gpio_pin, uint32_t timeout_ms);
 void      hal_safety_relay_heartbeat(void);
 bool      hal_safety_relay_is_closed(void);
+bool      hal_safety_relay_is_forced(void);
+bool      hal_safety_relay_is_enabled(void);
+// Снять защёлку force_open. Вызывается только из явного сброса аварии
+// оператором; до первого heartbeat реле остаётся разомкнутым.
+esp_err_t hal_safety_relay_rearm(void);
 void      hal_safety_relay_force_open(void);

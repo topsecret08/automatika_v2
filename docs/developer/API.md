@@ -1,7 +1,7 @@
 # REST API и WebSocket
 
 Все эндпоинты ниже реально зарегистрированы в `main/web/web_api.c`,
-`main/web/actuator_test.c` и `main/web/ws_telemetry.c` (прошивка V0.7 beta).
+`main/web/actuator_test.c` и `main/web/ws_telemetry.c` (прошивка V0.8 beta).
 Никаких «предполагаемых» `/api/sensors/*` и `/api/openapi.json` в прошивке
 нет.
 
@@ -50,7 +50,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 {"level":"ok","reason":"","free_heap":182344,"min_free_heap":154112,
  "free_psram":4123456,"uptime_s":9876,"reset":1,"wifi_rssi":-61,
  "sd":1,"db":1,"sensors":2,"safety":1,"estop":0,"running":1,
- "stage":2,"version":"V0.7 beta","tasks":14}
+ "stage":2,"version":"V0.8 beta","tasks":14}
 ```
 
 `level`: `ok` | `degraded` | `fail`. `reason` заполняется при `fail`.
@@ -73,6 +73,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | POST | `/api/stop` | 🔑 | остановка, нагрев снимается |
 | POST | `/api/power` | 🔑 | `{"power":0..100}` — ручной режим; `{"mode":"auto"}` — авто |
 | POST | `/api/safety` | 🔑 | сброс защёлки; `409` с `detail`, если процесс/нагрев/уровень/E-STOP не позволяют |
+| GET | `/api/safety` | 🔑 | `safety`, `estop`, `relay_enabled/closed/forced`, `loop_valid/aggregate/flags/latency` |
 | POST | `/api/estop` | 🔑 | программная фиксация E-STOP |
 | POST | `/api/dose` | 🔑 | `{"volume_ml":10,"rate_mlmin":60}` |
 | POST | `/api/control` | 🔑 | параметры регулирования и внешний регулятор (см. ниже) |

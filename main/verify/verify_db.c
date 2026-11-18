@@ -31,7 +31,8 @@ static const char *SCHEMA =
     " ts_ms INTEGER NOT NULL,"
     " channel TEXT, setpoint REAL,"
     " sensor REAL, value_real REAL, value_shadow REAL,"
-    " kp REAL, ki REAL, kd REAL, stage INTEGER);"
+    " kp REAL, ki REAL, kd REAL, stage INTEGER,"
+    " latency_us INTEGER, flags INTEGER, aggregate INTEGER);"
     "CREATE INDEX IF NOT EXISTS idx_vtrace_run_ts"
     " ON verify_trace(run_id, ts_ms);";
 
@@ -69,6 +70,12 @@ esp_err_t verify_db_init(void) {
     sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN ki REAL;",
                  NULL, NULL, NULL);
     sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN kd REAL;",
+                 NULL, NULL, NULL);
+    sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN latency_us INTEGER;",
+                 NULL, NULL, NULL);
+    sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN flags INTEGER;",
+                 NULL, NULL, NULL);
+    sqlite3_exec(s_db, "ALTER TABLE verify_trace ADD COLUMN aggregate INTEGER;",
                  NULL, NULL, NULL);
 
     s_ready = true;
@@ -119,6 +126,31 @@ esp_err_t verify_db_log_trace(const verify_trace_t *t) {
         sqlite3_bind_double(st, 9, t->ki);
         sqlite3_bind_double(st, 10, t->kd);
         sqlite3_bind_int(st, 11, t->stage);
+        err = (sqlite3_step(st) == SQLITE_DONE) ? ESP_OK : ESP_FAIL;
+    }
+    sqlite3_finalize(st);
+    xSemaphoreGive(s_mtx);
+    return err;
+}
+
+esp_err_t verify_db_log_loop(int64_t run_id, int64_t ts_ms,
+                             uint32_t aggregate, uint32_t flags,
+                             uint32_t latency_us) {
+    if (!s_ready || run_id <= 0) return ESP_ERR_INVALID_STATE;
+
+    xSemaphoreTake(s_mtx, portMAX_DELAY);
+    sqlite3_stmt *st = NULL;
+    const char *sql =
+        "INSERT INTO verify_trace(run_id,ts_ms,channel,flags,aggregate,"
+        "latency_us) VALUES(?,?,?,?,?,?)";
+    esp_err_t err = ESP_FAIL;
+    if (sqlite3_prepare_v2(s_db, sql, -1, &st, NULL) == SQLITE_OK) {
+        sqlite3_bind_int64(st, 1, run_id);
+        sqlite3_bind_int64(st, 2, ts_ms);
+        sqlite3_bind_text(st, 3, "loop", -1, SQLITE_STATIC);
+        sqlite3_bind_int64(st, 4, (sqlite3_int64)flags);
+        sqlite3_bind_int64(st, 5, (sqlite3_int64)aggregate);
+        sqlite3_bind_int64(st, 6, (sqlite3_int64)latency_us);
         err = (sqlite3_step(st) == SQLITE_DONE) ? ESP_OK : ESP_FAIL;
     }
     sqlite3_finalize(st);

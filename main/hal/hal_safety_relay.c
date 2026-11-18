@@ -72,6 +72,18 @@ bool hal_safety_relay_is_closed(void) {
                                      g_timeout_ms, g_forced_open);
 }
 
+bool hal_safety_relay_is_forced(void) { return g_forced_open; }
+
+bool hal_safety_relay_is_enabled(void) { return g_ready; }
+
+esp_err_t hal_safety_relay_rearm(void) {
+    if (g_pin < 0) return ESP_OK;  // реле не установлено
+    g_forced_open = false;
+    g_last_hb_us = 0;              // закроется только со свежим heartbeat
+    gpio_set_level(g_pin, 0);
+    return ESP_OK;
+}
+
 void hal_safety_relay_force_open(void) {
     g_forced_open = true;
     if (g_pin >= 0) gpio_set_level(g_pin, 0);

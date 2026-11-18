@@ -1,4 +1,4 @@
-# Automatika V0.7 beta
+# Automatika V0.8 beta
 
 [![CI](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml)
 
@@ -12,18 +12,18 @@
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
 > (ESP-IDF v5.3.2, образ ≈2,80 МБ из 3 МБ раздела); тестовый проект `test/`
-> собирается, Unity-прогон в QEMU ESP32-S3: **91 tests, 0 failures**.
-> Host-тесты логики собираются через CMake/CTest. Workflow CI подготовлен,
-> но не опубликован на GitHub — см. раздел «CI».
+> собирается, Unity-прогон в QEMU ESP32-S3: **100 tests, 0 failures**.
+> Host-тесты логики собираются через CMake/CTest. Workflow CI опубликован
+> и зелёный — см. раздел «CI».
 > Ввод в эксплуатацию выполняется после пусконаладки конкретной платы,
 > E-STOP и силовой части.
 
-> **V0.7 beta — Finglai SSVR:** отдельный тракт
+> **V0.8 beta — Finglai SSVR:** отдельный тракт
 > `ESP32 PWM → преобразователь PWM→аналог 0–5 В → CONT/COM SSVR`.
 > Это не прямое подключение GPIO к SSVR и не замена однофазному SSR.
 > Трёхфазная нагрузка и точная модель SSVR подлежат обязательной сверке.
 
-> **Исправления по аудиту V0.7 beta:**
+> **Исправления по аудиту V0.8 beta:**
 > `/ws/telemetry` проверяет короткоживущий токен до регистрации клиента;
 > для Finglai SSVR запрещена инверсия PWM, чтобы аварийный ноль не стал
 > максимумом; `/api/verify/module` требует явный boolean `verified`;
@@ -37,7 +37,22 @@
 > резервируется атомарно (`ota_guard_try_reserve`), прямой upload имеет
 > тайм-аут.
 
-> **V0.7 beta — датчики, алгоритмы и внешние регуляторы:** медианный
+> **V0.8 beta — исправления активной верификации:**
+> `loop_verify_init()` вызывается на старте каждого прогона, а разрыв
+> времени больше 5 с считается новой сессией — второй запуск больше не
+> уходит в ложный `NO_RESPONSE`; для бинарного readback (GPIO/контактор)
+> команда сравнивается как «вкл/выкл», а не 50 % против 100 %; окно
+> `NO_RESPONSE` задаётся актуатором (нагрев — 120 с); сквозная задержка
+> считается от реального времени сэмпла 1-Wire с бюджетом 1,5 с; эскалация
+> и запись в журнал срабатывают только на смену состояния, поэтому WARN
+> больше не вытесняет журнал и не пишет на SD каждые 500 мс; результат
+> пишется в `verify_trace` (`channel='loop'`, `latency_us`, `flags`,
+> `aggregate`); `GET /api/safety` показывает состояние реле и loop_verify.
+> Сброс аварии снимает защёлку NC-реле (`hal_safety_relay_rearm()`), но
+> реле закрывается только со свежим heartbeat. UI-слайдер и
+> `/api/param power` переведены на `safety_gate_submit()`.
+
+> **V0.8 beta — датчики, алгоритмы и внешние регуляторы:** медианный
 > фильтр + Калман + компенсация давления, три алгоритма отбора
 > (классический, тренд, адаптивный), драйверы KVIC / РМВ-К / SEM / SSR,
 > многоуровневый адаптивный PID (L1/L2/L3) и проверка интерфейсных
@@ -52,7 +67,7 @@
 > PID-метрики, fuzzing детектора аномалий и единый `safety_gate` для всех
 > путей управления. Подробности — [`docs/verify.md`](docs/verify.md).
 
-### Модули V0.7 beta
+### Модули V0.8 beta
 
 | Модуль | Файлы | Назначение |
 |---|---|---|
@@ -68,7 +83,7 @@
 | Safety gate | `main/control/safety_gate.{h,c}` | классы CRITICAL/QUALITY/EXPERIMENTAL |
 | Адаптивный PID | `main/control/adaptive_pid.{h,c}` | L1 фазы, L2 RLS/IMC, L3 откат |
 
-### Safety & Trust (V0.7 beta)
+### Safety & Trust (V0.8 beta)
 
 | Механизм | Модуль | Состояние |
 |---|---|---|
@@ -88,7 +103,7 @@
 | ChaosProbe | `main/core/chaos_probe.{h,c}` | политика + метрики, только тесты |
 | Активная верификация контура | `main/core/loop_verify.{h,c}`, `loop_verify_glue.c` | встроена в `mode_distill`; mismatch 3 такта, NO_RESPONSE 30 с, эскалация в safety |
 | Readback исполнителей | `main/hal/hal_actuator_readback.{h,c}` | GPIO/CURRENT, `NAN` = NO_FEEDBACK |
-| Fail-safe NC-реле | `main/hal/hal_safety_relay.{h,c}` | heartbeat от safety, старт разомкнут, force_open необратим |
+| Fail-safe NC-реле | `main/hal/hal_safety_relay.{h,c}` | heartbeat от safety, старт разомкнут; защёлка снимается сбросом аварии |
 
 #### Active Verification & Hardware Safety
 
@@ -104,7 +119,7 @@ lv_sensor_frame  lv_program_frame  lv_actuator_frame ◄── hal_actuator_read
         └──────────────┬──────────────────┘
                        ▼
                    loop_verify
-        mismatch ≥ 3 такта │ NO_RESPONSE > 30 с │ NAN = NO_FEEDBACK
+        mismatch ≥ 3 такта │ NO_RESPONSE > 30/120 с │ NAN = NO_FEEDBACK
                        ▼
         WARN ──► DEGRADE ──► CRITICAL ──► safety_gate_submit_flags()
                                               │
@@ -123,8 +138,11 @@ L ──► контактор ──► NC-реле (SAFETY_RELAY_GPIO) ──�
 ```
 
 Нет heartbeat, зависла задача, просел процессор или питание — контакт
-размыкается без участия прошивки. `force_open()` (E-STOP, CRITICAL) необратим
-до перезагрузки. Схема дополняет механический E-STOP, а не заменяет его.
+размыкается без участия прошивки. `force_open()` ставит защёлку: снять её
+может только явный сброс аварии (`POST /api/safety`) после остановки
+процесса, отпускания E-STOP и проверки уровня. После сброса реле остаётся
+разомкнутым до первого свежего heartbeat. Схема дополняет механический
+E-STOP, а не заменяет его.
 
 **Флаги сборки** (`main/Kconfig.projbuild`, значения — `sdkconfig.defaults`):
 
@@ -152,16 +170,20 @@ L ──► контактор ──► NC-реле (SAFETY_RELAY_GPIO) ──�
 | `SAFETY_RELAY_GPIO` | `-1` | выход NC-реле, `-1` = не установлено |
 | `SAFETY_RELAY_TIMEOUT_MS` | `1000` | окно heartbeat, опрос T/4 |
 
-**События:** агрегат `loop_verify` публикует `LOOP_VERIFY` в `event_bus`
-(при активном shadow run событие дополнительно пишется в `verify_trace`),
-детализация — в битовой маске `aggregate`/`detail`. Аварии E-STOP и
-`CRITICAL` журналируются как `SAFETY: <причина>`.
+**События и телеметрия:** агрегат публикует `LOOP_VERIFY` только при смене
+состояния (антидребезг), а при активном shadow run дополнительно пишет
+строку в `verify_trace` (`channel='loop'`, `latency_us`, `flags`,
+`aggregate`). `GET /api/safety` отдаёт `safety`, `estop`,
+`relay_enabled/closed/forced`, `loop_valid/aggregate/flags/latency`.
+Аварии E-STOP и `CRITICAL` журналируются как `SAFETY: <причина>`.
 
-**Ограничения V0.7:** `EQ_LOCK_ENGAGED` публикуется самим модулем
+**Ограничения V0.8:** `EQ_LOCK_ENGAGED` публикуется самим модулем
 `eq_lock`, но `eq_lock_engage()` пока не вызывается из `safety_gate`;
 `VLE`, PCHIP и `zone_consensus` не подключены к режимам; отдельного события
 `SAFETY_RELAY_OPEN` нет — состояние читается через
-`hal_safety_relay_is_closed()`. Readback и реле требуют проверки на стенде.
+`hal_safety_relay_is_closed()`. `latency_us` актуатора пока 0, измеряется
+сквозная задержка от сэмпла датчика (бюджет 1,5 с). Readback и реле требуют
+проверки на стенде.
 
 > Все команды управления по-прежнему проходят через `safety_gate_submit()` /
 > `ctrl_heater`. Тестовый код `thermal_sim`/`chaos_probe` не входит в
@@ -187,7 +209,7 @@ cmake --build test/host/build
 ctest --test-dir test/host/build --output-on-failure
 ```
 
-В QEMU (ESP32-S3) тестовый образ проходит: **91 tests, 0 failures**.
+В QEMU (ESP32-S3) тестовый образ проходит: **100 tests, 0 failures**.
 
 > **Что уже есть:** OTA с автоматическим откатом, миграции NVS,
 > WebSocket-телеметрия, Telegram, датчик уровня, BMP280, расходомер,
@@ -237,7 +259,7 @@ ctest --test-dir test/host/build --output-on-failure
 
 ## Возможности
 
-### Надёжность и эксплуатация (V0.7 beta)
+### Надёжность и эксплуатация (V0.8 beta)
 
 - **OTA с автоматическим откатом (anti-brick):** новый образ подтверждается
   только после 30 с непрерывной «здоровой» работы под health-check; иначе —
@@ -257,14 +279,15 @@ ctest --test-dir test/host/build --output-on-failure
   watchdog).
 - **Активная верификация контура** `loop_verify`: раздельные флаги
   датчик/программа/исполнитель, mismatch только после 3 тактов,
-  `NO_RESPONSE` после 30 с, эскалация WARN → DEGRADE → CRITICAL в safety.
+  `NO_RESPONSE` после окна актуатора (30 с по умолчанию, нагрев — 120 с),
+  эскалация WARN → DEGRADE → CRITICAL в safety.
 - **Обратная связь исполнителей** `hal_actuator_readback`: backend
   NONE/GPIO/CURRENT, нормализация 0..100 %, `NAN` для канала без обратной
-  связи.
+  связи, бинарный режим для контактора.
 - **Fail-safe NC-реле** `hal_safety_relay`: удерживается heartbeat от
-  safety-задачи, старт с разомкнутого, `force_open()` необратим до
-  перезагрузки.
-- **Модульные тесты** (Unity): 91 тест, включая loop_verify и readback/реле.
+  safety-задачи, старт с разомкнутого; защёлка `force_open()` снимается
+  только явным сбросом аварии.
+- **Модульные тесты** (Unity): 100 тестов, включая loop_verify и readback/реле.
 
 #### Где что лежит (production-модули)
 
@@ -326,7 +349,7 @@ ctest --test-dir test/host/build --output-on-failure
 - **MQTT**, **Telegram-бот**, **Яндекс.Алиса** (`/alice`), **NTP**.
 - **FOTA**: с SD-карты, по URL/HTTPS, по QR-коду; проверка версии, откат.
 - **USB-OTG**: Mass Storage (доступ к SD) и CDC-ACM.
-- **Watchdog** на 16 задачах с распределением по двум ядрам.
+- **Watchdog** на 40 задачах (реестр до 48) с распределением по двум ядрам.
 
 ---
 
@@ -397,8 +420,9 @@ ctest --test-dir test/host/build --output-on-failure
 NC-реле удерживается только heartbeat от safety-задачи. Пропал heartbeat,
 зависла задача или пропало питание — контакт размыкается без участия
 процессора. `SAFETY_RELAY_GPIO=-1` по умолчанию: реле не установлено.
-`force_open()` необратим до перезагрузки. Это дополнение к механическому
-E-STOP, а не его замена.
+`force_open()` ставит защёлку, которую снимает только явный сброс аварии;
+после сброса реле закрывается со свежим heartbeat. Это дополнение к
+механическому E-STOP, а не его замена.
 
 Голосовой терминал (SignalVoid/стационарный) в этой версии реализован
 **аппаратной кнопкой E-STOP**, а не дополнительным GPIO: расширение 1-Wire
@@ -455,13 +479,13 @@ I2C-адреса: `ADS1115 0x48`, `MCP4725 0x60`, `Grove SSR 0x11`,
 | `safety` | 15 | 4096 | Аварийная защита, опрос датчиков |
 | `mode` | 10 | 8192 | Конечный автомат процесса |
 | `ui` | 8 | 8192 | LVGL, сенсор |
-| `ws_tel` | 8 | 4096 | Публикатор телеметрии `/ws/telemetry`, 1 Гц (V0.7 beta) |
+| `ws_tel` | 8 | 4096 | Публикатор телеметрии `/ws/telemetry`, 1 Гц (V0.8 beta) |
 | `scale` | 6 | 4096 | HX711 |
 | `fps` | 4 | 3072 | FPS-монитор |
 | `vcalib` | 3 | 3072 | Калибровка клапанов |
 | `events` | 3 | 3072 | Очередь событий |
 | `tinyml` | 2 | 4096 | TinyML-прогноз |
-| `doser` | 4 | 4096 | Шаговый дозатор отбора (V0.7 beta) |
+| `doser` | 4 | 4096 | Шаговый дозатор отбора (V0.8 beta) |
 | `samovar` | 3 | 6144 | Blynk + MQTT мост |
 | `mqtt` | 5 | 4096 | MQTT-клиент (при флаге `mqtt`) |
 | `telegram` | 5 | 4096 | Оповещения |
@@ -619,7 +643,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.7 beta занимает ~2,80 МБ (`0x2AE7F0`),
+указаны слоты по 2 МБ, но образ V0.8 beta занимает ~2,80 МБ (`0x2AEF70`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -745,7 +769,7 @@ curl http://192.168.1.50/api/health
 # {"level":"ok","reason":"","free_heap":142336,"min_free_heap":118720,
 #  "free_psram":6123456,"uptime_s":5310,"reset":1,"wifi_rssi":-57,
 #  "sd":1,"db":1,"sensors":3,"safety":1,"estop":0,"running":1,"stage":4,
-#  "version":"V0.7 beta","tasks":27}
+#  "version":"V0.8 beta","tasks":27}
 ```
 
 Эндпоинт **без X-API-Key** — мониторинг должен проверять устройство до
@@ -764,7 +788,7 @@ curl http://192.168.1.50/api/health
 E-STOP (`estop_logic`), Safety & Trust (`eq_lock`, `trust`,
 `trust_dashboard`, `physics`, `control_filters`, `event_bus`,
 `capability`, `sim_chaos`), активная верификация (`loop_verify`) и
-readback/реле (`readback_relay`). Всего **91 тест**, прогон в QEMU —
+readback/реле (`readback_relay`). Всего **100 тестов**, прогон в QEMU —
 `0 failures`. См. [`test/README.md`](test/README.md).
 
 ### 10. Порядок инициализации
@@ -1253,15 +1277,15 @@ REST: `POST /api/power {"power":35}` — ручной режим,
   shadow != off.
 - **Активная проверка контура:** `loop_verify` сравнивает ожидаемое и
   фактическое поведение по слоям (датчик/программа/исполнитель). Mismatch
-  засчитывается после 3 тактов подряд, `NO_RESPONSE` — после 30 с без
-  реакции PV, `NAN` readback даёт `ACT_NO_FEEDBACK` (WARN). Агрегат
+  засчитывается после 3 тактов подряд, `NO_RESPONSE` — после окна актуатора,
+  `NAN` readback даёт `ACT_NO_FEEDBACK` (WARN). Агрегат
   WARN/DEGRADE/CRITICAL уходит в `safety_gate_submit_flags()`.
 - **Аппаратный рубеж:** `hal_safety_relay` размыкает NC-цепь при потере
-  heartbeat, зависании safety-задачи или E-STOP; `force_open()` необратим
-  до перезагрузки.
+  heartbeat, зависании safety-задачи или E-STOP; защёлка снимается сбросом
+  аварии, закрытие — только по heartbeat.
 - **menuconfig:** `CONFIG_VERIFY_ENABLE` отключает теневую подсистему для
   релиза; `CONFIG_LOOP_VERIFY_ENABLE`, `CONFIG_ACTUATOR_READBACK_ENABLE`,
-  `CONFIG_SAFETY_RELAY_ENABLE` — новые пути V0.7 (см. таблицу флагов выше).
+  `CONFIG_SAFETY_RELAY_ENABLE` — пути V0.8 (см. таблицу флагов выше).
 
 ### Многоуровневый адаптивный PID
 
@@ -1511,35 +1535,19 @@ idf.py -p COM5 flash monitor
 
 ### CI
 
-Workflow подготовлен в `ci/build.yml` и в рабочем дереве
-`.github/workflows/build.yml` (последний ещё не опубликован на GitHub):
+Workflow `build` опубликован в `.github/workflows/build.yml` и запускается
+на push/PR в `main`:
 
 - `host-tests` — собирает и запускает `test/host` через CMake/CTest;
-- `firmware` — собирает прошивку на `espressif/idf:v5.3.2`;
+- `firmware` — собирает прошивку на `espressif/idf:v5.3.2` и выгружает
+  артефакты `automatika-v0.8-beta-<sha>`;
 - `esp-tests` — собирает Unity-приложение и запускает его в QEMU
   (`test/qemu/run_qemu_tests.py`), ожидая `0 Failures`.
 
-GitHub не принимает файлы в `.github/workflows/` от токена без права
-`workflow`:
-
-```
-! refusing to allow a Personal Access Token to create or update workflow
-```
-
-Активация (один раз):
-
-1. Выдать токену (fine-grained PAT) право **Workflows: Read and write** для
-   репозитория или использовать классический PAT со scope `workflow`.
-2. Авторизоваться и запушить:
-
-   ```bash
-   gh auth refresh -h github.com -s workflow
-   git add .github/workflows/build.yml
-   git commit -m "CI: сборка, host-тесты и QEMU Unity"
-   git push origin main
-   ```
-
-3. Проверить вкладку **Actions → build**. Тот же файл приложен к релизу.
+Текущий статус — зелёный по всем трём job. Для merge-gate включите
+branch protection: **Settings → Branches → Require status checks**, выбрав
+`host logic tests`, `firmware (esp32s3)` и `ESP-IDF Unity tests in QEMU`.
+Файл также продублирован в `ci/build.yml`.
 
 На Windows перед сборкой желательно задать кодировку Python, иначе `idf.py`
 может упасть на чтении кириллического `sdkconfig`:
@@ -1557,10 +1565,10 @@ $env:PYTHONUTF8=1
 - `espressif/esp_lcd_touch`, `espressif/esp_lcd_touch_ft5x06`
 - `espressif/esp_tinyusb`, `espressif/tinyusb`
 - `espressif/onewire_bus`, `espressif/ds18b20`
-- **`espressif/lua ^5.5.1`** — скриптовый движок (V0.7 beta)
+- **`espressif/lua ^5.5.1`** — скриптовый движок (V0.8 beta)
 - **`hayschan/autopid_for_esp_idf ^1.0.2`** — PID (C++ класс AutoPID,
-  обвязка в `main/control/autopid_glue.cpp`) (V0.7 beta)
-- **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (V0.7 beta)
+  обвязка в `main/control/autopid_glue.cpp`) (V0.8 beta)
+- **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (V0.8 beta)
 
 `espressif/esp_websocket_client` намеренно **не подключён**: это клиентская
 библиотека, а `/ws/telemetry` — серверный WebSocket на `esp_http_server`
@@ -1579,11 +1587,11 @@ SQLite **не скачивается**: он лежит локально в `com
 | `factory` | app | `0x20000` | **3 МБ** |
 | `ota_0` | app | `0x320000` | **3 МБ** |
 | `ota_1` | app | `0x620000` | **3 МБ** |
-| `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.7 beta: скрипты) |
+| `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.8 beta: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.7 beta): **0x2AE7F0 (~2,80 МБ)**, свободно ~11 % раздела.
-Тестовый бинарник: **0x41FC0**.
+Текущий бинарник (V0.8 beta): **0x2AEF70 (~2,80 МБ)**, свободно ~11 % раздела.
+Тестовый бинарник: **0x44810**.
 
 ### Полезные команды
 
@@ -1609,7 +1617,7 @@ idf.py fullclean            # полная очистка
 
 ### Wi-Fi
 
-С V0.7 beta Wi-Fi настраивается через **provisioning**: при первом запуске
+С V0.8 beta Wi-Fi настраивается через **provisioning**: при первом запуске
 устройство поднимает AP **`Automatika-Setup`** с PoP-аутентификацией, куда
 передаются SSID и пароль домашней сети. PoP задаётся в `PROV_POP_TEXT`
 (`main/config.h`); смените заводское значение перед прошивкой партии.
@@ -1678,7 +1686,7 @@ python generate_sdcard.py
 | `firmware/` | образы для FOTA |
 | `screenshots/` | скриншоты экрана |
 | `ai/` | модели и экспорт AI |
-| `scripts/` | **Lua-скрипты** `*.lua` (V0.7 beta, путь `/sdcard/scripts/`) |
+| `scripts/` | **Lua-скрипты** `*.lua` (V0.8 beta, путь `/sdcard/scripts/`) |
 | `profiles/`, `images/` | профили и изображения |
 
 Файл-маркер `help/.generated` показывает, что полная справка уже развёрнута.
@@ -2021,7 +2029,7 @@ SD-карты; аллокатор БД использует PSRAM.
 
 ### Watchdog
 
-В watchdog регистрируются 16 задач с индивидуальными тайм-аутами.
+В watchdog регистрируются 40 задач с индивидуальными тайм-аутами.
 Критические задачи (`safety`, `mode`, `scale`) перезапускаются или приводят
 к аварии.
 Состояние — в меню «Watchdog» и в логе `selftest`.
@@ -2049,7 +2057,7 @@ SD-карты; аллокатор БД использует PSRAM.
 ищет его в каталоге компонента `main`, а не в корне проекта. Если положить
 файл в корень, `managed_components/` останется пустым.
 
-В V0.7 beta новые аппаратные модули (BMP280, YF-S201, mDNS, LED/buzzer)
+В V0.8 beta новые аппаратные модули (BMP280, YF-S201, mDNS, LED/buzzer)
 реализованы в дереве проекта и **не добавляют зависимостей**. Не пытайтесь
 заменить их компонентами из реестра: офлайн-сборка должна работать без
 сети. `wifi_provisioning` и `esp_https_ota` — штатные компоненты IDF,
@@ -2076,11 +2084,11 @@ CONFIG_TINYUSB_CDC_ENABLED=y
 CONFIG_TINYUSB_MSC_ENABLED=y
 CONFIG_ESP_SQLITE3_PROFILE_STANDARD=y
 CONFIG_HTTPD_WS_SUPPORT=y
-# V0.7 beta
+# V0.8 beta
 CONFIG_LUA_USE_PSRAM=y
 CONFIG_LUA_MAXSTACK=10000
 CONFIG_LITTLEFS_MAX_PARTITIONS=2
-# V0.7 beta — активная верификация и аппаратная защита
+# V0.8 beta — активная верификация и аппаратная защита
 CONFIG_LOOP_VERIFY_ENABLE=y
 CONFIG_ACTUATOR_READBACK_ENABLE=y
 CONFIG_SAFETY_RELAY_ENABLE=y
@@ -2088,7 +2096,7 @@ CONFIG_EQ_LOCK_ENABLE=y
 CONFIG_VLE_ENABLE=n
 CONFIG_PUMP_PCHIP_ENABLE=n
 CONFIG_ZONE_CONSENSUS_ENABLE=n
-# V0.7 beta — OTA только по HTTPS (сертификат через CA bundle)
+# V0.8 beta — OTA только по HTTPS (сертификат через CA bundle)
 CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 ```
 
@@ -2098,7 +2106,7 @@ CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 
 > **Офлайн-сборка.** Если сеть недоступна, менеджер компонентов не в силах
 > восстановить `dependencies.lock` и пытается достать версии из реестра.
-> Проверенная процедура без сети (использована при верификации V0.7 beta):
+> Проверенная процедура без сети (использована при верификации V0.8 beta):
 > временная копия проекта, в которой скачанные компоненты из
 > `managed_components/` скопированы в `components/local/` с плоскими
 > именами, а манифест содержит только имена без версий. После первого
