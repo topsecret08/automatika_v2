@@ -10,7 +10,9 @@
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
 > (ESP-IDF v5.3.2, образ ≈2,80 МБ из 3 МБ раздела); тестовый проект `test/`
-> (Unity) собирается; host-тесты логики запускаются в CI.
+> собирается, Unity-прогон в QEMU ESP32-S3: **82 tests, 0 failures**.
+> Host-тесты логики собираются через CMake/CTest. Workflow CI подготовлен,
+> но не опубликован на GitHub — см. раздел «CI».
 > Ввод в эксплуатацию выполняется после пусконаладки конкретной платы,
 > E-STOP и силовой части.
 
@@ -26,11 +28,12 @@
 > host-тесты линкуются с `libm`; объёмы distill/rectify используют вес
 > HX711 при наличии калиброванных весов и fallback на расчёт; уведомление
 > «Процесс завершён» отслеживает переход `running`→`stopped`; аналоговые
-> давление/вакуум фильтруются медианой 5 отсчётов; OTA имеет тайм-аут и
-> кормит watchdog; Telegram `/power` идёт через `safety_gate`; ошибки
-> `/api/control` больше не выдаются как ошибка регулятора; `estop_since_ms`
-> возвращает длительность, а не метку времени; OTA резервируется атомарно
-> (`ota_guard_try_reserve`), прямой upload имеет тайм-аут.
+> давление/вакуум/пролив/пары фильтруются Hampel 7 + IIR; OTA имеет тайм-аут
+> и кормит watchdog; Telegram `/power` идёт через `safety_gate_submit()`;
+> ошибки `/api/control` больше не выдаются как ошибка регулятора;
+> `estop_since_ms` возвращает длительность, а не метку времени; OTA
+> резервируется атомарно (`ota_guard_try_reserve`), прямой upload имеет
+> тайм-аут.
 
 > **V0.6 beta — датчики, алгоритмы и внешние регуляторы:** медианный
 > фильтр + Калман + компенсация давления, три алгоритма отбора
@@ -55,10 +58,10 @@
 | Интеграция 1-Wire | `main/hal/hal_1wire.c` | сглаженные и компенсированные readings, тренд |
 | Алгоритмы отбора | `main/control/select_algorithm.{h,c}` | классический, тренд, адаптивный |
 | Периодический отбор | `main/control/fraction_periodic.{h,c}` | этапы, декремент, алгоритмы |
-| Внешний регулятор | `main/control/regulator_driver.{h,c}` | KVIC, РМВ-К, SEM, SSR/ШИМ |
-| Настройки регулятора | `main/core/control_config.{h,c}` | тип, скорость UART, NVS |
+| Внешний регулятор | `main/control/regulator_driver.{h,c}` | KVIC, РМВ-К, SEM, SSR/ШИМ, Finglai SSVR |
+| Настройки регулятора | `main/core/control_config.{h,c}` | тип, UART, PWM, аналоговый диапазон, NVS |
 | Экран выбора | `main/ui/ui_screen_advanced.{h,c}` | алгоритм и регулятор на LCD |
-| Тесты | `test/main/test_sensor_pipeline.c`, `test_selection_logic.c`, `test_interface_conflicts.c`, `test_pid_metrics.c`, `test_verify_fuzz.c` | Unity |
+| Тесты | `test/main/*.c`, `test/host`, `test/qemu/run_qemu_tests.py` | Unity, CMake/CTest, QEMU |
 | Верификация | `main/verify/verify_config.{h,c}`, `verify_db`, `shadow`, `pid_metrics`, `verify_fuzz` | этапы, SQLite, replay, метрики |
 | Safety gate | `main/control/safety_gate.{h,c}` | классы CRITICAL/QUALITY/EXPERIMENTAL |
 | Адаптивный PID | `main/control/adaptive_pid.{h,c}` | L1 фазы, L2 RLS/IMC, L3 откат |
@@ -95,9 +98,17 @@
 # прошивка
 idf.py build
 
-# тестовый проект (Unity, запуск на устройстве)
+# тестовый проект (Unity)
 idf.py -C test build
 idf.py -C test -p COM5 flash monitor
+
+# или автоматический прогон в QEMU ESP32-S3
+python test/qemu/run_qemu_tests.py --build-dir test/build
+
+# host-тесты логики
+cmake -S test/host -B test/host/build
+cmake --build test/host/build
+ctest --test-dir test/host/build --output-on-failure
 ```
 
 В QEMU (ESP32-S3) тестовый образ проходит: **82 tests, 0 failures**.
@@ -913,9 +924,9 @@ DS18B20:
    Для пара дополнительно применяется пересчёт точки кипения по BMP280.
 
 Аналоговые каналы ADS1115 (давление ПВК, вакуум, пролив, пары) проходят
-медианный фильтр 5 отсчётов в `main/hal/hal_adc.c`. Это не Калман, но
-фильтр убирает одиночные импульсные выбросы; при необходимости
-дальнейшего сглаживания добавляйте EMA на уровне потребителя.
+Hampel-фильтр 7 отсчётов + IIR в `main/hal/hal_adc.c`. Выбросы помечаются
+и логируются, порог MAD не схлопывается ниже 0.01. Это не Калман, но
+фильтр устойчив к одиночным импульсным выбросам.
 
 `hal_1wire_read()` отдаёт сглаженное значение, `hal_1wire_read_fast()` —
 сырое (для safety), `hal_1wire_read_compensated(idx, hpa)` — с поправкой,
@@ -1127,7 +1138,7 @@ REST: `POST /api/power {"power":35}` — ручной режим,
   `pid_metrics.h`.
 - **Fuzzing:** детерминированные выбросы, обрыв и дрейф, подсчёт TP/FP/FN.
 - **Safety gate:** все пути (REST, Telegram, MQTT, Lua, UI) проходят через
-  `safety_gate_apply()` / `safety_gate_apply_valve()`. `QUALITY`/`EXPERIMENTAL`
+  `safety_gate_submit()` / `safety_gate_apply_valve()`. `QUALITY`/`EXPERIMENTAL`
   без флага `verified` блокируются; `EXPERIMENTAL` дополнительно требует
   shadow != off.
 - **menuconfig:** `CONFIG_VERIFY_ENABLE` отключает подсистему для релиза.
@@ -1377,7 +1388,8 @@ idf.py -p COM5 flash monitor
 
 ### CI
 
-Workflow — `ci/build.yml` (и копия `.github/workflows/build.yml`):
+Workflow подготовлен в `ci/build.yml` и в рабочем дереве
+`.github/workflows/build.yml` (последний ещё не опубликован на GitHub):
 
 - `host-tests` — собирает и запускает `test/host` через CMake/CTest;
 - `firmware` — собирает прошивку на `espressif/idf:v5.3.2`;
@@ -1448,6 +1460,7 @@ SQLite **не скачивается**: он лежит локально в `com
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
 Текущий бинарник (V0.6 beta): **0x2AD880 (~2,80 МБ)**, свободно ~11 % раздела.
+Тестовый бинарник: **0x414A0**.
 
 ### Полезные команды
 
@@ -1643,8 +1656,9 @@ UI построен на LVGL 8.3: 480×320, сенсорный ввод, рус
 | `POST` | `/api/diag/actuators` | Тест исполнителей, **только сервисный режим** (ключ) |
 | `POST` | `/api/diag/service` | Включить/выключить сервисный режим (ключ) |
 | `GET` | `/api/health` | Health-check, **без ключа**, без секретов |
-| `GET` | `/api/env` | Барометр, давление, проток, фракция (без ключа) |
+| `GET` | `/api/env` | Барометр, давление, проток, фракция (ключ после провижининга) |
 | `GET` | `/api/events` | Журнал событий JSON, `?limit=N` (ключ) |
+| `GET` | `/api/trust` | Доверие к датчикам: trust/trend/status/last_good_us (ключ) |
 | `GET` | `/api/session` | Снимок последней сессии (ключ) |
 | `POST` | `/api/session` | `{"action":"restore"\|"clear"}` (ключ) |
 | `GET/POST/DELETE` | `/api/profiles` | Профили в `/lfs/profiles` (ключ) |
