@@ -1555,10 +1555,13 @@ Workflow `build` опубликован в `.github/workflows/build.yml` и за
 SBOM (`sbom.spdx.json`), `build-info.json`, `SHA256SUMS.txt` и публикует
 GitHub Release.
 
-Branch protection включён: обязательные checks `host logic tests`,
-`firmware (esp32s3)` и `ESP-IDF Unity tests in QEMU`, direct push разрешён,
-force-push и удаление ветки запрещены. Файл также продублирован в
-`ci/build.yml`.
+Branch protection включён: обязательные checks — `host logic tests`,
+`static analysis (cppcheck)`, `python tools and docs`, `PWA end-to-end`,
+`config (minimal)`, `config (full)`, `firmware (esp32s3)`,
+`ESP-IDF Unity tests in QEMU` и `CodeQL (python tools)`. Direct push
+разрешён, force-push и удаление ветки запрещены. Файл также продублирован
+в `ci/build.yml`; release можно прогнать вручную без публикации
+(`workflow_dispatch`, `publish=false`).
 
 ### CLI и поиск устройства
 
