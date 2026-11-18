@@ -1412,7 +1412,7 @@ GitHub не принимает файлы в `.github/workflows/` от токе�
    ```bash
    gh auth refresh -h github.com -s workflow
    git add .github/workflows/build.yml
-   git commit -m "CI: сборка прошивки и host-тестов"
+   git commit -m "CI: сборка, host-тесты и QEMU Unity"
    git push origin main
    ```
 
