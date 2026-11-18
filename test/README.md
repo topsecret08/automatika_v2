@@ -19,6 +19,8 @@
 | `test_event_bus.c` | дедупликация, приоритеты |
 | `test_capability.c` | Lua @requires, deny-by-default |
 | `test_sim_chaos.c` | RC-симулятор, ChaosProbe |
+| `test_loop_verify.c` | mismatch после 3 тактов, NO_RESPONSE 30 с, latency, NO_FEEDBACK, low confidence |
+| `test_readback_relay.c` | нормализация GPIO/CURRENT, логика NC-реле и heartbeat |
 
 ## Host-тесты
 
