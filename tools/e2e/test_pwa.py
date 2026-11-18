@@ -77,6 +77,31 @@ def test_hardware_page_lists_roles(make_page, base_url):
     assert page.locator("select").count() >= 4
 
 
+def test_temperature_chart_opens_log(make_page, base_url):
+    page = make_page()
+    page.goto(base_url + "/?page=dashboard")
+    page.wait_for_function(
+        "document.querySelector('#temp-cube')?.textContent === '78.5'"
+    )
+
+    page.locator("#chart-card").click()
+    page.wait_for_selector("#temp-modal.open")
+    assert page.locator("#temp-log .temp-row").count() >= 1
+    assert page.locator("#temp-summary").inner_text()
+    assert page.locator("#temp-title").inner_text()
+
+
+def test_temperature_log_highlights_invalid_sensor(make_page, base_url):
+    page = make_page({"cube": -127, "col": -127})
+    page.goto(base_url + "/?page=dashboard")
+    page.wait_for_selector("#chart-card")
+    page.wait_for_timeout(500)
+
+    page.locator("#chart-card").click()
+    page.wait_for_selector("#temp-modal.open")
+    assert page.locator("#temp-log .temp-row.alarm").count() >= 1
+
+
 def test_manifest_and_offline_assets(base_url, context):
     manifest = context.request.get(base_url + "/manifest.json")
     assert manifest.ok

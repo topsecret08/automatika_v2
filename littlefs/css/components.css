@@ -787,3 +787,75 @@
   .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .hero-value { font-size: 64px; }
 }
+
+
+/* Температурный журнал */
+.chart-card { cursor: pointer; }
+.chart-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chart-hint {
+  margin-top: var(--space-8);
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+.temp-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: max(8px, env(safe-area-inset-top)) 0 0;
+}
+.temp-modal.open { display: flex; }
+.temp-sheet {
+  width: min(760px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  background: var(--bg-card-solid);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+}
+.temp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-8); }
+.temp-title { font-size: 20px; font-weight: 700; }
+.temp-sub { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
+.temp-close {
+  border: 0; background: var(--bg-primary); color: var(--text-primary);
+  width: 32px; height: 32px; border-radius: 50%; font-size: 16px;
+}
+.temp-summary { color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+.temp-columns, .temp-row {
+  display: grid;
+  grid-template-columns: 78px 64px 64px minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+}
+.temp-columns {
+  color: var(--text-secondary); font-size: 11px; text-transform: uppercase;
+  padding: 4px 8px; border-bottom: 1px solid var(--separator);
+}
+.temp-log { overflow: auto; overscroll-behavior: contain; flex: 1; min-height: 120px; }
+.temp-row {
+  padding: 6px 8px;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--separator);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.temp-row.alarm { background: rgba(255, 59, 48, 0.12); border-left-color: var(--red); }
+.temp-row.warn { background: rgba(255, 149, 0, 0.13); border-left-color: var(--orange); }
+.temp-note { color: var(--text-secondary); min-width: 0; overflow-wrap: anywhere; }
+.temp-badge {
+  display: inline-block; padding: 1px 6px; margin-right: 4px;
+  border-radius: var(--radius-badge); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; color: #fff;
+}
+.temp-badge.alarm { background: var(--red); }
+.temp-badge.warn { background: var(--orange); }
+.temp-ok { color: var(--text-tertiary); font-size: 11px; }
+.temp-actions { display: flex; gap: var(--space-8); flex-wrap: wrap; }
+body.modal-open { overflow: hidden; }

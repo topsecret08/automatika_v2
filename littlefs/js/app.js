@@ -69,7 +69,14 @@ let ws = null;
 let wsRetry = null;
 let chart = null;
 let chartData = [];
+let chartAnomalies = [];
+let tempEvents = [];
+let tempSaveTick = 0;
 let currentPage = 'dashboard';
+
+const TEMP_HISTORY_MAX = 7200;          // ~2 часа при 1 Гц
+const TEMP_HISTORY_KEY = 'automatika.tempHistory';
+const TEMP_HISTORY_TTL = 6 * 3600;      // хранить не старше 6 часов
 let powerDragging = false;
 let deferredPrompt = null;
 
@@ -510,7 +517,8 @@ function renderDashboard() {
     </section>
 
     <section class="section">
-      <div class="card chart-card">
+      <div class="card chart-card" id="chart-card" role="button" tabindex="0"
+           aria-label="Открыть журнал температур" title="Журнал температур">
         <div class="chart-head">
           <span class="card-row-title">Динамика</span>
           <span class="chart-legend">
@@ -519,6 +527,7 @@ function renderDashboard() {
           </span>
         </div>
         <div class="chart-wrap"><canvas id="chart"></canvas></div>
+        <div class="chart-hint">Нажмите, чтобы открыть журнал и аномалии</div>
       </div>
     </section>
 
@@ -591,6 +600,17 @@ function renderDashboard() {
 
   initChart();
   renderLiveValues();
+
+  const chartCard = $('#chart-card');
+  if (chartCard) {
+    chartCard.addEventListener('click', () => openTempLog());
+    chartCard.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openTempLog();
+      }
+    });
+  }
 }
 
 function renderLiveValues() {
@@ -906,8 +926,8 @@ function initChart() {
     const data = [[], [], []];
     chartData.forEach((point, index) => {
       data[0].push(point.t || (Date.now() / 1000 - (chartData.length - index)));
-      data[1].push(point.tc);
-      data[2].push(point.ts);
+      data[1].push(Number.isFinite(point.tc) ? point.tc : null);
+      data[2].push(Number.isFinite(point.ts) ? point.ts : null);
     });
 
     uplot = new uPlot({
@@ -916,6 +936,7 @@ function initChart() {
       padding: [8, 8, 0, 0],
       legend: { show: false },
       cursor: { drag: { x: true, y: false }, points: { show: false } },
+      hooks: { draw: [drawChartAnomalies] },
       scales: { x: { time: true }, y: { auto: true } },
       axes: [
         {
@@ -955,24 +976,341 @@ function initChart() {
   drawChart();
 }
 
+function loadTempHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TEMP_HISTORY_KEY) || '[]');
+    if (!Array.isArray(raw)) return;
+    const cutoff = Date.now() / 1000 - TEMP_HISTORY_TTL;
+    chartData = raw
+      .filter((point) => point && Number.isFinite(point.t) && point.t > cutoff)
+      .map((point) => ({
+        t: Number(point.t),
+        tc: point.tc === null ? NaN : Number(point.tc),
+        ts: point.ts === null ? NaN : Number(point.ts)
+      }))
+      .slice(-TEMP_HISTORY_MAX);
+  } catch (_) {
+    chartData = [];
+  }
+}
+
+function saveTempHistory() {
+  try {
+    localStorage.setItem(
+      TEMP_HISTORY_KEY,
+      JSON.stringify(chartData.slice(-TEMP_HISTORY_MAX))
+    );
+  } catch (_) { /* приватный режим или переполнение — не критично */ }
+}
+
+function clearTempHistory() {
+  chartData = [];
+  chartAnomalies = [];
+  saveTempHistory();
+  if (uplot) {
+    uplot.setData([[], [], []]);
+    uplot.redraw();
+  } else {
+    drawChart();
+  }
+}
+
 function pushChartPoint() {
-  if (!Number.isFinite(state.tc) || !Number.isFinite(state.ts)) return;
-  chartData.push({ t: Date.now() / 1000, tc: state.tc, ts: state.ts });
-  if (chartData.length > 300) chartData.shift();
+  if (!Number.isFinite(state.tc) && !Number.isFinite(state.ts)) return;
+  const now = Date.now() / 1000;
+  const last = chartData[chartData.length - 1];
+  if (last && now - last.t < 0.9) {
+    last.tc = state.tc;
+    last.ts = state.ts;
+  } else {
+    chartData.push({ t: now, tc: state.tc, ts: state.ts });
+    if (chartData.length > TEMP_HISTORY_MAX) chartData.shift();
+  }
+
+  tempSaveTick++;
+  if (tempSaveTick % 30 === 0) {
+    saveTempHistory();
+    chartAnomalies = computeTempAnomalies(chartData);
+  }
 
   if (uplot) {
     uplot.setData([
       chartData.map((point) => point.t),
-      chartData.map((point) => point.tc),
-      chartData.map((point) => point.ts)
+      chartData.map((point) => Number.isFinite(point.tc) ? point.tc : null),
+      chartData.map((point) => Number.isFinite(point.ts) ? point.ts : null)
     ]);
   } else {
     drawChart();
   }
 }
 
-function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function nearestSample(points, seconds) {
+  let lo = 0;
+  let hi = points.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].t < seconds) lo = mid + 1;
+    else hi = mid;
+  }
+  let best = lo;
+  if (lo > 0 && Math.abs(points[lo - 1].t - seconds) <
+                 Math.abs(points[lo].t - seconds)) {
+    best = lo - 1;
+  }
+  return best;
+}
+
+function computeTempAnomalies(points) {
+  const flags = new Array(points.length).fill(null);
+  let flat = 0;
+  if (!points.length) return flags;
+
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i];
+    let reason = '';
+    let level = 0;
+
+    const tcOk = Number.isFinite(point.tc);
+    const tsOk = Number.isFinite(point.ts);
+    const bad = (!tcOk && !tsOk) ||
+                (tcOk && (point.tc <= -50 || point.tc >= 150)) ||
+                (tsOk && (point.ts <= -50 || point.ts >= 150));
+    if (bad) {
+      reason = 'некорректное показание';
+      level = 2;
+    }
+
+    if (i > 0 && !bad) {
+      const prev = points[i - 1];
+      const dt = point.t - prev.t;
+      if (dt > 0 && dt <= 15 && tcOk && tsOk &&
+          Number.isFinite(prev.tc) && Number.isFinite(prev.ts)) {
+        const dc = point.tc - prev.tc;
+        const ds = point.ts - prev.ts;
+        if (Math.abs(dc) > 2.0) {
+          reason = `скачок куба ${dc > 0 ? '+' : ''}${dc.toFixed(1)} °C`;
+          level = 2;
+        } else if (Math.abs(ds) > 4.0) {
+          reason = `скачок пара ${ds > 0 ? '+' : ''}${ds.toFixed(1)} °C`;
+          level = 2;
+        }
+        if (Math.abs(dc) < 0.02) flat++;
+        else flat = 0;
+        if (flat > 0 && flat % 120 === 0) {
+          reason = 'куб не меняется более 2 минут';
+          level = Math.max(level, 1);
+        }
+      }
+    }
+
+    if (reason) flags[i] = { level, reason };
+  }
+
+  for (const event of tempEvents) {
+    const type = Number(event.type || 0);
+    if (type < 1) continue;  // WARN и выше
+    const seconds = Number(event.ts_ms || 0) / 1000;
+    if (!seconds) continue;
+    const index = nearestSample(points, seconds);
+    if (index < 0 || Math.abs(points[index].t - seconds) > 20) continue;
+    const level = type >= 3 ? 2 : 1;
+    const label = `${event.name || 'событие'}: ${event.msg || ''}`;
+    if (!flags[index] || flags[index].level < level) {
+      flags[index] = { level, reason: label };
+    }
+  }
+
+  return flags;
+}
+
+function drawChartAnomalies(u) {
+  if (!u || !chartAnomalies.length || !chartData.length) return;
+  const ctx = u.ctx;
+  const top = u.bbox.top;
+  const height = u.bbox.height;
+  for (let i = 0; i < chartData.length; i++) {
+    const flag = chartAnomalies[i];
+    if (!flag) continue;
+    const x = u.valToPos(chartData[i].t, 'x');
+    if (!Number.isFinite(x)) continue;
+    ctx.save();
+    ctx.fillStyle = flag.level >= 2
+      ? 'rgba(255, 59, 48, 0.18)'
+      : 'rgba(255, 149, 0, 0.16)';
+    ctx.fillRect(x - 2, top, 4, height);
+    ctx.restore();
+  }
+}
+
+async function fetchTempEvents() {
+  try {
+    const response = await api('/api/events?limit=100');
+    if (!response.ok) return;
+    const data = await response.json();
+    tempEvents = Array.isArray(data) ? data : [];
+  } catch (_) {
+    tempEvents = [];
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function formatTempTime(seconds) {
+  return new Date(seconds * 1000).toLocaleTimeString([], {
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+
+let tempLogLimit = 400;
+
+function ensureTempModal() {
+  let modal = document.getElementById('temp-modal');
+  if (modal) return modal;
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="temp-modal" class="temp-modal" role="dialog" aria-modal="true"
+         aria-labelledby="temp-title">
+      <div class="temp-sheet">
+        <div class="temp-head">
+          <div>
+            <div id="temp-title" class="temp-title">Журнал температур</div>
+            <div id="temp-sub" class="temp-sub"></div>
+          </div>
+          <button id="temp-close" class="temp-close" type="button"
+                  aria-label="Закрыть">✕</button>
+        </div>
+        <div id="temp-summary" class="temp-summary"></div>
+        <div class="temp-columns">
+          <span>Время</span><span>Куб</span><span>Пар</span><span>Отметка</span>
+        </div>
+        <div id="temp-log" class="temp-log"></div>
+        <div class="temp-actions">
+          <button id="temp-refresh" class="btn btn-secondary" type="button">Обновить</button>
+          <button id="temp-more" class="btn btn-secondary hidden" type="button">Показать ещё</button>
+          <button id="temp-clear" class="btn btn-danger" type="button">Очистить</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  modal = document.getElementById('temp-modal');
+  const close = () => {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+  };
+  const refresh = async () => {
+    await fetchTempEvents();
+    chartAnomalies = computeTempAnomalies(chartData);
+    renderTempLog();
+    if (uplot) uplot.redraw();
+  };
+
+  document.getElementById('temp-close')?.addEventListener('click', close);
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) close();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal.classList.contains('open')) close();
+  });
+  document.getElementById('temp-refresh')?.addEventListener('click', refresh);
+  document.getElementById('temp-more')?.addEventListener('click', () => {
+    tempLogLimit += 400;
+    renderTempLog();
+  });
+  document.getElementById('temp-clear')?.addEventListener('click', () => {
+    clearTempHistory();
+    renderTempLog();
+  });
+
+  return modal;
+}
+
+function renderTempLog() {
+  const modal = ensureTempModal();
+  const log = document.getElementById('temp-log');
+  if (!log) return;
+  chartAnomalies = computeTempAnomalies(chartData);
+
+  const total = chartData.length;
+  let alarms = 0;
+  let warnings = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < total; i++) {
+    const flag = chartAnomalies[i];
+    if (flag) {
+      if (flag.level >= 2) alarms++;
+      else warnings++;
+    }
+    const value = chartData[i].tc;
+    if (Number.isFinite(value)) {
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+  }
+
+  const from = total ? formatTempTime(chartData[0].t) : '—';
+  const to = total ? formatTempTime(chartData[total - 1].t) : '—';
+  const summary = document.getElementById('temp-summary');
+  if (summary) {
+    summary.innerHTML = total
+      ? `Записей: <b>${total}</b> · аномалий: <b>${alarms}</b> · ` +
+        `предупреждений: <b>${warnings}</b><br>` +
+        `Куб: ${Number.isFinite(min) ? min.toFixed(1) : '—'}…` +
+        `${Number.isFinite(max) ? max.toFixed(1) : '—'} °C · ${from}–${to}`
+      : 'Записей пока нет. График заполняется во время процесса.';
+  }
+  const sub = document.getElementById('temp-sub');
+  if (sub) {
+    sub.textContent = 'Красное — аномалия, оранжевое — предупреждение. ' +
+                      'Красные метки на графике соответствуют этим строкам.';
+  }
+
+  const rows = [];
+  const start = Math.max(0, total - tempLogLimit);
+  for (let i = total - 1; i >= start; i--) {
+    const point = chartData[i];
+    const flag = chartAnomalies[i];
+    const cls = flag ? (flag.level >= 2 ? 'alarm' : 'warn') : '';
+    const note = flag
+      ? `<span class="temp-badge ${flag.level >= 2 ? 'alarm' : 'warn'}">` +
+        `${flag.level >= 2 ? 'аномалия' : 'внимание'}</span> ` +
+        escapeHtml(flag.reason)
+      : '<span class="temp-ok">норма</span>';
+    rows.push(`<div class="temp-row ${cls}">
+      <span>${formatTempTime(point.t)}</span>
+      <span>${Number.isFinite(point.tc) ? point.tc.toFixed(1) : '—'}</span>
+      <span>${Number.isFinite(point.ts) ? point.ts.toFixed(1) : '—'}</span>
+      <span class="temp-note">${note}</span>
+    </div>`);
+  }
+  log.innerHTML = rows.length ? rows.join('')
+                              : '<div class="empty">Нет данных</div>';
+
+  const more = document.getElementById('temp-more');
+  if (more) more.classList.toggle('hidden', start === 0);
+}
+
+async function openTempLog() {
+  tempLogLimit = 400;
+  await fetchTempEvents();
+  chartAnomalies = computeTempAnomalies(chartData);
+  const modal = ensureTempModal();
+  renderTempLog();
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+  if (uplot) uplot.redraw();
+}
+
+function cssVar(name) {  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function drawChart() {
@@ -2641,6 +2979,12 @@ window.addEventListener('appinstalled', () => {
 // Инициализация
 // ------------------------------------------------------------------
 function init() {
+  loadTempHistory();
+  window.addEventListener('pagehide', saveTempHistory);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) saveTempHistory();
+  });
+
   $('#install-btn')?.addEventListener('click', promptInstall);
 
   window.addEventListener('popstate', router);
