@@ -1,19 +1,37 @@
-menu "Verification / shadow mode"
+menu "Automatika V0.7 beta"
 
-    config VERIFY_ENABLE
-        bool "Enable shadow mode, staged flags and SQLite verification"
-        default y
-        help
-            Включает verify_config, shadow, verify_db, safety_gate и
-            REST /api/verify/*. Для релизной сборки можно выключить:
-            сложные алгоритмы не смогут применяться, останется только
-            критическая логика.
+config LOOP_VERIFY_ENABLE
+    bool "Active loop verification"
+    default y
+    help
+        Сквозная проверка датчик → программа → исполнитель.
 
-    config ADAPTIVE_PID_ENABLE
-        bool "Enable multi-layer adaptive PID"
-        default y
-        help
-            L1 gain scheduling, L2 RLS/IMC, L3 degradation rollback.
-            При выключении ctrl_pid использует обычный PID/AutoPID.
+config ACTUATOR_READBACK_ENABLE
+    bool "Actuator readback"
+    default y
+    help
+        GPIO/CURRENT обратная связь исполнителей.
+
+config SAFETY_RELAY_ENABLE
+    bool "Fail-safe NC safety relay"
+    default y
+    help
+        Heartbeat-реле, размыкающее цепь при зависании.
+
+config EQ_LOCK_ENABLE
+    bool "EQ_LOCK module"
+    default y
+
+config VLE_ENABLE
+    bool "VLE ethanol-water thresholds"
+    default n
+
+config PUMP_PCHIP_ENABLE
+    bool "PCHIP pump calibration"
+    default n
+
+config ZONE_CONSENSUS_ENABLE
+    bool "Zone sensor consensus"
+    default n
 
 endmenu

@@ -1,5 +1,38 @@
 # История
 
+## V0.7 beta
+
+- **Активная верификация контура:** `main/core/loop_verify.{h,c}` —
+  раздельные флаги слоёв датчик/программа/исполнитель, агрегация по
+  временному окну. Mismatch засчитывается только после 3 тактов подряд,
+  `NO_RESPONSE` — после 30 с без реакции PV при изменении команды,
+  `NAN` readback даёт `LV_FLAG_ACT_NO_FEEDBACK` (WARN), а не mismatch.
+- **Эскалация:** `loop_verify_glue.c` переводит агрегат в
+  `SAFETY_FLAG_WARN/DEGRADE/CRITICAL`, публикует событие `LOOP_VERIFY` в
+  `event_bus` и вызывает `safety_gate_submit_flags()`; CRITICAL уходит в
+  `ctrl_safety_trigger("LOOP_VERIFY")`.
+- **Readback исполнителей:** `main/hal/hal_actuator_readback.{h,c}` —
+  backend NONE/GPIO/CURRENT/PWM_CAPTURE, нормализация в 0..100 %,
+  `NAN` для каналов без обратной связи, `hal_actuator_has_feedback()`.
+- **Fail-safe реле:** `main/hal/hal_safety_relay.{h,c}` — NC-контакт
+  удерживается heartbeat от safety-задачи, старт с разомкнутого,
+  `force_open()` необратим до перезагрузки, таймер FreeRTOS.
+  `SAFETY_RELAY_GPIO=-1` по умолчанию (реле не установлено).
+- **Интеграции:** `loop_verify` встроен в `mode_distill`; heartbeat и
+  аварийное размыкание реле в `ctrl_safety`; E-STOP и `CRITICAL`
+  размыкают реле.
+- **Конфигурация:** `main/Kconfig.projbuild` — `LOOP_VERIFY_ENABLE`,
+  `ACTUATOR_READBACK_ENABLE`, `SAFETY_RELAY_ENABLE`, `EQ_LOCK_ENABLE`,
+  `VLE_ENABLE`, `PUMP_PCHIP_ENABLE`, `ZONE_CONSENSUS_ENABLE`.
+  Значения по умолчанию в `sdkconfig.defaults`: первые четыре `y`,
+  VLE/PCHIP/ZONE — `n` до полной интеграции в режимы.
+- **Тесты:** `test_loop_verify.c` (6 сценариев), `test_readback_relay.c`
+  (3 сценария). QEMU ESP32-S3: **91 tests, 0 failures**.
+- **Сборка:** main `0x2AE7F0`, test `0x41FC0`.
+- **Документация:** README дополнен разделом «Safety & Trust»,
+  таблицей модулей, схемой fail-safe реле и распиновкой.
+- **Версия:** V0.7 beta.
+
 ## V0.6 beta
 
 - **Safety & Trust:** добавлены `eq_lock`, `sensor_trust`,

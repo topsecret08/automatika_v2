@@ -132,6 +132,25 @@ esp_err_t safety_gate_submit(const char *module, float value) {
     return safety_gate_apply(module, value);
 }
 
+esp_err_t safety_gate_submit_flags(uint32_t aggregate, uint32_t detail) {
+    if (aggregate >= SAFETY_FLAG_CRITICAL) {
+        events_log(EVENT_EMERGENCY, "LOOP_VERIFY critical (0x%lx)",
+                   (unsigned long)detail);
+        ctrl_safety_trigger("LOOP_VERIFY");
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (aggregate >= SAFETY_FLAG_DEGRADE) {
+        events_log(EVENT_WARNING, "LOOP_VERIFY degrade (0x%lx)",
+                   (unsigned long)detail);
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (aggregate >= SAFETY_FLAG_WARN) {
+        events_log(EVENT_INFO, "LOOP_VERIFY warn (0x%lx)",
+                   (unsigned long)detail);
+    }
+    return ESP_OK;
+}
+
 esp_err_t safety_gate_apply_valve(const char *module, int idx, float value) {
     const module_reg_t *m = find(module);
     if (!m) return ESP_ERR_NOT_FOUND;

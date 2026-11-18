@@ -17,6 +17,9 @@
 #include "control/fraction_logic.h"
 #include "control/fraction_periodic.h"
 #include "control/volume_feedback.h"
+#include "core/loop_verify.h"
+#include "hal/hal_actuator_readback.h"
+#include "esp_timer.h"
 #include "control/reflux.h"
 #include "web/telegram_notify.h"
 #include "config.h"
@@ -228,6 +231,29 @@ static proc_stage_t d_update(float dt) {
     }
 
     st->stage = s_stage;
+
+#if !defined(CONFIG_LOOP_VERIFY_ENABLE) || CONFIG_LOOP_VERIFY_ENABLE
+    int64_t now = esp_timer_get_time();
+    lv_sensor_frame_t sf[2] = {
+        { .id = 0, .raw = cube, .filtered = cube,
+          .confidence = isfinite(cube) ? 1.0f : 0.0f },
+        { .id = 1, .raw = col, .filtered = col,
+          .confidence = isfinite(col) ? 1.0f : 0.0f },
+    };
+    lv_program_frame_t pf = {
+        .mode = (uint8_t)PROCESS_DISTILL,
+        .sp = st->target_cube_t,
+        .pv = cube,
+        .out = ctrl_heater_get_percent(),
+    };
+    lv_actuator_frame_t af[1] = {
+        { .id = ACT_HEATER, .cmd = ctrl_heater_get_percent(),
+          .actual = hal_actuator_readback(ACT_HEATER), .latency_us = 0 },
+    };
+    lv_result_t lr;
+    lv_tick(now, sf, 2, &pf, af, 1, &lr);
+#endif
+
     return s_stage;
 }
 

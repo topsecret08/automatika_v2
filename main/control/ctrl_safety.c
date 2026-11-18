@@ -7,6 +7,7 @@
 #include "core/state.h"
 #include "core/events.h"
 #include "core/event_bus.h"
+#include "hal/hal_safety_relay.h"
 #include "core/flags.h"
 #include "core/watchdog.h"
 #include "hal/hal_1wire.h"
@@ -70,6 +71,9 @@ void ctrl_safety_trigger(const char *reason) {
     s_ok = false;
 
     ctrl_heater_force_off();
+#if !defined(CONFIG_SAFETY_RELAY_ENABLE) || CONFIG_SAFETY_RELAY_ENABLE
+    hal_safety_relay_force_open();
+#endif
     hal_relay_all_off();
     ctrl_dose_stop();
 
@@ -124,6 +128,12 @@ void ctrl_safety_task(void *arg) {
 
     while (1) {
         WD_FEED("safety");
+#if !defined(CONFIG_SAFETY_RELAY_ENABLE) || CONFIG_SAFETY_RELAY_ENABLE
+        if (ctrl_safety_ok() && !estop_is_pressed())
+            hal_safety_relay_heartbeat();
+        else
+            hal_safety_relay_force_open();
+#endif
 
         // ---- E-STOP: наивысший приоритет проверки ----
         if (estop_is_pressed()) {

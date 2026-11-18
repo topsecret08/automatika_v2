@@ -1,7 +1,7 @@
 #pragma once
 
-#define FW_VERSION          "V0.6 beta"
-#define FW_NAME             "Automatika V0.6 beta"
+#define FW_VERSION          "V0.7 beta"
+#define FW_NAME             "Automatika V0.7 beta"
 
 // ============================================================
 // GPIO
@@ -219,7 +219,7 @@
 #define PATH_SCRIPTS_FLASH  "/lfs/scripts"
 
 // ------------------------------------------------------------
-// V0.6 beta: Wi-Fi provisioning, время, датчики, безопасность
+// V0.7 beta: Wi-Fi provisioning, время, датчики, безопасность
 // ------------------------------------------------------------
 
 // Wi-Fi provisioning (SoftAP + captive portal)
@@ -319,6 +319,18 @@
 #define REG_ANALOG_MIN_PCT           0.0f
 #define REG_ANALOG_MAX_PCT           100.0f
 #define REG_SSVR_POWER_SQRT          1
+
+// Обратная связь исполнителей (loop_verify).
+// 0=NONE, 1=GPIO, 2=CURRENT (ADS1115), 3=PWM_CAPTURE (stub).
+#define ACT_READBACK_BACKEND         0
+#define ACT_READBACK_GPIO           -1
+#define ACT_READBACK_ADC_CHANNEL     0
+#define ACT_READBACK_FULL_SCALE      32767.0f
+
+// Аппаратное fail-safe NC-реле: heartbeat от safety_gate.
+// -1 — реле не установлено.
+#define SAFETY_RELAY_GPIO           -1
+#define SAFETY_RELAY_TIMEOUT_MS      1000
 
 // Начальные параметры расчёта остатка спирта (abv/cfg в NVS).
 #define ABV_VOLUME_START_ML           20000.0f

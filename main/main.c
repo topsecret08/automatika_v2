@@ -46,6 +46,8 @@
 #include "hal/hal_1wire.h"
 #include "hal/hal_dac.h"
 #include "hal/hal_relay.h"
+#include "hal/hal_actuator_readback.h"
+#include "hal/hal_safety_relay.h"
 #include "hal/hal_display.h"
 #include "hal/hal_hx711.h"
 #include "hal/hal_usb.h"
@@ -128,7 +130,7 @@ void vApplicationIdleHook(void) {
     ui_cpu_idle_hook();
 }
 
-// Порядок инициализации (V0.6 beta):
+// Порядок инициализации (V0.7 beta):
 //   nvs_flash_init → nvs_migration_run → control_config_init → ota_manager_init
 //   → event_log/health → estop_init → level_sensor_init → lua_engine_init
 //   → telegram_notify_init → ... → web_start() (регистрация HTTP/WS)
@@ -235,6 +237,13 @@ void app_main(void) {
     ctrl_dose_init();
     scale_init(PIN_HX711_DOUT, PIN_HX711_SCK);
     sensor_calib_init();
+#if !defined(CONFIG_ACTUATOR_READBACK_ENABLE) || CONFIG_ACTUATOR_READBACK_ENABLE
+    hal_actuator_readback_init_defaults();
+#endif
+#if !defined(CONFIG_SAFETY_RELAY_ENABLE) || CONFIG_SAFETY_RELAY_ENABLE
+    hal_safety_relay_init(SAFETY_RELAY_GPIO, SAFETY_RELAY_TIMEOUT_MS);
+#endif
+
     ctrl_safety_init();
     fsel_init();
     verify_config_init();

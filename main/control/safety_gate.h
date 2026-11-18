@@ -9,6 +9,10 @@ typedef enum {
     SAFETY_CLASS_EXPERIMENTAL,
 } safety_class_t;
 
+#define SAFETY_FLAG_WARN      1u
+#define SAFETY_FLAG_DEGRADE   2u
+#define SAFETY_FLAG_CRITICAL  4u
+
 // Единая точка применения выходов нагрева.
 // CRITICAL применяется всегда (после проверки safety/E-STOP).
 // QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
@@ -17,6 +21,7 @@ esp_err_t safety_gate_apply(const char *module, float value);
 // Каноническая точка отправки команд управления. Сейчас алиас apply,
 // сохраняется для нового кода и внешних интеграций.
 esp_err_t safety_gate_submit(const char *module, float value);
+esp_err_t safety_gate_submit_flags(uint32_t aggregate, uint32_t detail);
 esp_err_t safety_gate_apply_valve(const char *module, int idx, float value);
 bool      safety_gate_can_apply(const char *module);
 safety_class_t safety_gate_class(const char *module);

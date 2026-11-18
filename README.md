@@ -1,4 +1,6 @@
-# Automatika V0.6 beta
+# Automatika V0.7 beta
+
+[![CI](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml)
 
 Универсальная система управления технологическими процессами на **ESP32-S3**:
 дистилляция, ректификация, пивоварение, ПВК, НБК, вакуумная и двойная
@@ -10,18 +12,18 @@
 
 > **Статус:** прошивка собирается `idf.py build` под `esp32s3`
 > (ESP-IDF v5.3.2, образ ≈2,80 МБ из 3 МБ раздела); тестовый проект `test/`
-> собирается, Unity-прогон в QEMU ESP32-S3: **82 tests, 0 failures**.
+> собирается, Unity-прогон в QEMU ESP32-S3: **91 tests, 0 failures**.
 > Host-тесты логики собираются через CMake/CTest. Workflow CI подготовлен,
 > но не опубликован на GitHub — см. раздел «CI».
 > Ввод в эксплуатацию выполняется после пусконаладки конкретной платы,
 > E-STOP и силовой части.
 
-> **V0.6 beta — Finglai SSVR:** отдельный тракт
+> **V0.7 beta — Finglai SSVR:** отдельный тракт
 > `ESP32 PWM → преобразователь PWM→аналог 0–5 В → CONT/COM SSVR`.
 > Это не прямое подключение GPIO к SSVR и не замена однофазному SSR.
 > Трёхфазная нагрузка и точная модель SSVR подлежат обязательной сверке.
 
-> **Исправления по аудиту V0.6 beta:**
+> **Исправления по аудиту V0.7 beta:**
 > `/ws/telemetry` проверяет короткоживущий токен до регистрации клиента;
 > для Finglai SSVR запрещена инверсия PWM, чтобы аварийный ноль не стал
 > максимумом; `/api/verify/module` требует явный boolean `verified`;
@@ -35,7 +37,7 @@
 > резервируется атомарно (`ota_guard_try_reserve`), прямой upload имеет
 > тайм-аут.
 
-> **V0.6 beta — датчики, алгоритмы и внешние регуляторы:** медианный
+> **V0.7 beta — датчики, алгоритмы и внешние регуляторы:** медианный
 > фильтр + Калман + компенсация давления, три алгоритма отбора
 > (классический, тренд, адаптивный), драйверы KVIC / РМВ-К / SEM / SSR,
 > многоуровневый адаптивный PID (L1/L2/L3) и проверка интерфейсных
@@ -50,7 +52,7 @@
 > PID-метрики, fuzzing детектора аномалий и единый `safety_gate` для всех
 > путей управления. Подробности — [`docs/verify.md`](docs/verify.md).
 
-### Модули V0.6 beta
+### Модули V0.7 beta
 
 | Модуль | Файлы | Назначение |
 |---|---|---|
@@ -66,7 +68,7 @@
 | Safety gate | `main/control/safety_gate.{h,c}` | классы CRITICAL/QUALITY/EXPERIMENTAL |
 | Адаптивный PID | `main/control/adaptive_pid.{h,c}` | L1 фазы, L2 RLS/IMC, L3 откат |
 
-### Safety & Trust (V0.6 beta)
+### Safety & Trust (V0.7 beta)
 
 | Механизм | Модуль | Состояние |
 |---|---|---|
@@ -84,6 +86,45 @@
 | Lua capability-токены | `main/script/capability.{h,c}` | `@requires`, deny-by-default |
 | Тепловой RC-симулятор | `main/core/thermal_sim.{h,c}` | только тестовая сборка |
 | ChaosProbe | `main/core/chaos_probe.{h,c}` | политика + метрики, только тесты |
+| Активная верификация контура | `main/core/loop_verify.{h,c}`, `loop_verify_glue.c` | встроена в `mode_distill`; mismatch 3 такта, NO_RESPONSE 30 с, эскалация в safety |
+| Readback исполнителей | `main/hal/hal_actuator_readback.{h,c}` | GPIO/CURRENT, `NAN` = NO_FEEDBACK |
+| Fail-safe NC-реле | `main/hal/hal_safety_relay.{h,c}` | heartbeat от safety, старт разомкнут, force_open необратим |
+
+#### Active Verification & Hardware Safety
+
+Сквозная проверка контура идёт по трём слоям, агрегатор решает по окну, а не
+по одному такту:
+
+```
+Датчик ──► sensor_pipeline ──► режим/PID ──► ctrl_heater ──► SSR
+   │              │                 │              │           │
+   │ confidence   │ sp/pv/out       │ cmd          │ readback  │
+   ▼              ▼                 ▼              ▼           ▼
+lv_sensor_frame  lv_program_frame  lv_actuator_frame ◄── hal_actuator_readback
+        └──────────────┬──────────────────┘
+                       ▼
+                   loop_verify
+        mismatch ≥ 3 такта │ NO_RESPONSE > 30 с │ NAN = NO_FEEDBACK
+                       ▼
+        WARN ──► DEGRADE ──► CRITICAL ──► safety_gate_submit_flags()
+                                              │
+                                              ▼
+                            ctrl_safety_trigger("LOOP_VERIFY")
+```
+
+Реле аварийного разрыва — нормально замкнутый контакт, который удерживается
+только heartbeat:
+
+```
+L ──► контактор ──► NC-реле (SAFETY_RELAY_GPIO) ──► SSR/симистор ──► ТЭН
+                        ▲
+                        │ heartbeat каждые T/4
+                   safety-задача (ctrl_safety)
+```
+
+Нет heartbeat, зависла задача, просел процессор или питание — контакт
+размыкается без участия прошивки. `force_open()` (E-STOP, CRITICAL) необратим
+до перезагрузки. Схема дополняет механический E-STOP, а не заменяет его.
 
 > EQ_LOCK, VLE и PCHIP пока представлены модулями с тестами; их
 > автоматическое включение в UI/режимы — отдельный этап. Все команды
@@ -91,6 +132,15 @@
 > `ctrl_heater`. Тестовый код `thermal_sim`/`chaos_probe` не входит в
 > продуктивную сборку. События шины при активном shadow run дополнительно
 > пишутся в `verify_trace`.
+>
+> `loop_verify` агрегирует флаги датчика/программы/актуатора: mismatch
+> эскалируется только после 3 тактов, NO_RESPONSE — после 30 с без реакции
+> PV, `NAN` readback даёт WARN `ACT_NO_FEEDBACK`, а CRITICAL уходит в
+> `safety_gate_submit_flags()`.
+>
+> Fail-safe реле: NC-контакт удерживается только heartbeat от safety-задачи.
+> Пропал heartbeat/питание — цепь размыкается аппаратно. GPIO по умолчанию
+> `-1` (реле не установлено), задаётся `SAFETY_RELAY_GPIO`.
 
 Проверка сборки и тестов:
 
@@ -111,7 +161,7 @@ cmake --build test/host/build
 ctest --test-dir test/host/build --output-on-failure
 ```
 
-В QEMU (ESP32-S3) тестовый образ проходит: **82 tests, 0 failures**.
+В QEMU (ESP32-S3) тестовый образ проходит: **91 tests, 0 failures**.
 
 > **Что уже есть:** OTA с автоматическим откатом, миграции NVS,
 > WebSocket-телеметрия, Telegram, датчик уровня, BMP280, расходомер,
@@ -124,6 +174,7 @@ ctest --test-dir test/host/build --output-on-failure
 ## Содержание
 
 - [Возможности](#возможности)
+- [Active Verification & Hardware Safety](#active-verification--hardware-safety)
 - [Аппаратная платформа](#аппаратная-платформа)
 - [Распиновка](#распиновка)
 - [Режимы работы](#режимы-работы)
@@ -160,7 +211,7 @@ ctest --test-dir test/host/build --output-on-failure
 
 ## Возможности
 
-### Надёжность и эксплуатация (V0.6 beta)
+### Надёжность и эксплуатация (V0.7 beta)
 
 - **OTA с автоматическим откатом (anti-brick):** новый образ подтверждается
   только после 30 с непрерывной «здоровой» работы под health-check; иначе —
@@ -283,6 +334,7 @@ ctest --test-dir test/host/build --output-on-failure
 | **STEP дозатора** | **-1** | **ENABLE дозатора** | **-1** |
 | **E-STOP (NC)** | **27** | Level float | 28 |
 | **PWM SSR** | **-1** | *(задаётся в NVS/PWA/LCD)* | — |
+| **Fail-safe реле** | **-1** | `SAFETY_RELAY_GPIO`, NC, heartbeat | — |
 
 **Важно по GPIO:** у ESP32-S3 физически есть только GPIO 0–21 и 26–48;
 **GPIO 22–25 отсутствуют**. Поэтому `REG_SSR_GPIO` и `PUMP_STEP_GPIO`
@@ -296,6 +348,19 @@ ctest --test-dir test/host/build --output-on-failure
 `regulator_ready=false`, нагрев через SSR запрещён. Для дозатора задайте
 `PUMP_STEP_GPIO`/`PUMP_EN_GPIO` в `config.h` под свою плату; при `-1`
 насос отключён, клапанный выход продолжает работать.
+
+### Fail-safe реле
+
+```
+ТЭН ← контактор ← NC-реле (SAFETY_RELAY_GPIO) ← L
+                 ← SSR/симистор
+```
+
+NC-реле удерживается только heartbeat от safety-задачи. Пропал heartbeat,
+зависла задача или пропало питание — контакт размыкается без участия
+процессора. `SAFETY_RELAY_GPIO=-1` по умолчанию: реле не установлено.
+`force_open()` необратим до перезагрузки. Это дополнение к механическому
+E-STOP, а не его замена.
 
 Голосовой терминал (SignalVoid/стационарный) в этой версии реализован
 **аппаратной кнопкой E-STOP**, а не дополнительным GPIO: расширение 1-Wire
@@ -352,13 +417,13 @@ I2C-адреса: `ADS1115 0x48`, `MCP4725 0x60`, `Grove SSR 0x11`,
 | `safety` | 15 | 4096 | Аварийная защита, опрос датчиков |
 | `mode` | 10 | 8192 | Конечный автомат процесса |
 | `ui` | 8 | 8192 | LVGL, сенсор |
-| `ws_tel` | 8 | 4096 | Публикатор телеметрии `/ws/telemetry`, 1 Гц (V0.6 beta) |
+| `ws_tel` | 8 | 4096 | Публикатор телеметрии `/ws/telemetry`, 1 Гц (V0.7 beta) |
 | `scale` | 6 | 4096 | HX711 |
 | `fps` | 4 | 3072 | FPS-монитор |
 | `vcalib` | 3 | 3072 | Калибровка клапанов |
 | `events` | 3 | 3072 | Очередь событий |
 | `tinyml` | 2 | 4096 | TinyML-прогноз |
-| `doser` | 4 | 4096 | Шаговый дозатор отбора (V0.6 beta) |
+| `doser` | 4 | 4096 | Шаговый дозатор отбора (V0.7 beta) |
 | `samovar` | 3 | 6144 | Blynk + MQTT мост |
 | `mqtt` | 5 | 4096 | MQTT-клиент (при флаге `mqtt`) |
 | `telegram` | 5 | 4096 | Оповещения |
@@ -516,7 +581,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.6 beta занимает ~2,80 МБ (`0x2AD880`),
+указаны слоты по 2 МБ, но образ V0.7 beta занимает ~2,80 МБ (`0x2AE7F0`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -642,7 +707,7 @@ curl http://192.168.1.50/api/health
 # {"level":"ok","reason":"","free_heap":142336,"min_free_heap":118720,
 #  "free_psram":6123456,"uptime_s":5310,"reset":1,"wifi_rssi":-57,
 #  "sd":1,"db":1,"sensors":3,"safety":1,"estop":0,"running":1,"stage":4,
-#  "version":"V0.6 beta","tasks":27}
+#  "version":"V0.7 beta","tasks":27}
 ```
 
 Эндпоинт **без X-API-Key** — мониторинг должен проверять устройство до
@@ -1434,10 +1499,10 @@ $env:PYTHONUTF8=1
 - `espressif/esp_lcd_touch`, `espressif/esp_lcd_touch_ft5x06`
 - `espressif/esp_tinyusb`, `espressif/tinyusb`
 - `espressif/onewire_bus`, `espressif/ds18b20`
-- **`espressif/lua ^5.5.1`** — скриптовый движок (V0.6 beta)
+- **`espressif/lua ^5.5.1`** — скриптовый движок (V0.7 beta)
 - **`hayschan/autopid_for_esp_idf ^1.0.2`** — PID (C++ класс AutoPID,
-  обвязка в `main/control/autopid_glue.cpp`) (V0.6 beta)
-- **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (V0.6 beta)
+  обвязка в `main/control/autopid_glue.cpp`) (V0.7 beta)
+- **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (V0.7 beta)
 
 `espressif/esp_websocket_client` намеренно **не подключён**: это клиентская
 библиотека, а `/ws/telemetry` — серверный WebSocket на `esp_http_server`
@@ -1456,11 +1521,11 @@ SQLite **не скачивается**: он лежит локально в `com
 | `factory` | app | `0x20000` | **3 МБ** |
 | `ota_0` | app | `0x320000` | **3 МБ** |
 | `ota_1` | app | `0x620000` | **3 МБ** |
-| `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.6 beta: скрипты) |
+| `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.7 beta: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.6 beta): **0x2AD880 (~2,80 МБ)**, свободно ~11 % раздела.
-Тестовый бинарник: **0x414A0**.
+Текущий бинарник (V0.7 beta): **0x2AE7F0 (~2,80 МБ)**, свободно ~11 % раздела.
+Тестовый бинарник: **0x41FC0**.
 
 ### Полезные команды
 
@@ -1486,7 +1551,7 @@ idf.py fullclean            # полная очистка
 
 ### Wi-Fi
 
-С V0.6 beta Wi-Fi настраивается через **provisioning**: при первом запуске
+С V0.7 beta Wi-Fi настраивается через **provisioning**: при первом запуске
 устройство поднимает AP **`Automatika-Setup`** с PoP-аутентификацией, куда
 передаются SSID и пароль домашней сети. PoP задаётся в `PROV_POP_TEXT`
 (`main/config.h`); смените заводское значение перед прошивкой партии.
@@ -1555,7 +1620,7 @@ python generate_sdcard.py
 | `firmware/` | образы для FOTA |
 | `screenshots/` | скриншоты экрана |
 | `ai/` | модели и экспорт AI |
-| `scripts/` | **Lua-скрипты** `*.lua` (V0.6 beta, путь `/sdcard/scripts/`) |
+| `scripts/` | **Lua-скрипты** `*.lua` (V0.7 beta, путь `/sdcard/scripts/`) |
 | `profiles/`, `images/` | профили и изображения |
 
 Файл-маркер `help/.generated` показывает, что полная справка уже развёрнута.
@@ -1926,7 +1991,7 @@ SD-карты; аллокатор БД использует PSRAM.
 ищет его в каталоге компонента `main`, а не в корне проекта. Если положить
 файл в корень, `managed_components/` останется пустым.
 
-В V0.6 beta новые аппаратные модули (BMP280, YF-S201, mDNS, LED/buzzer)
+В V0.7 beta новые аппаратные модули (BMP280, YF-S201, mDNS, LED/buzzer)
 реализованы в дереве проекта и **не добавляют зависимостей**. Не пытайтесь
 заменить их компонентами из реестра: офлайн-сборка должна работать без
 сети. `wifi_provisioning` и `esp_https_ota` — штатные компоненты IDF,
@@ -1953,17 +2018,17 @@ CONFIG_TINYUSB_CDC_ENABLED=y
 CONFIG_TINYUSB_MSC_ENABLED=y
 CONFIG_ESP_SQLITE3_PROFILE_STANDARD=y
 CONFIG_HTTPD_WS_SUPPORT=y
-# V0.6 beta
+# V0.7 beta
 CONFIG_LUA_USE_PSRAM=y
 CONFIG_LUA_MAXSTACK=10000
 CONFIG_LITTLEFS_MAX_PARTITIONS=2
-# V0.6 beta — OTA только по HTTPS (сертификат через CA bundle)
+# V0.7 beta — OTA только по HTTPS (сертификат через CA bundle)
 CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 ```
 
 > **Офлайн-сборка.** Если сеть недоступна, менеджер компонентов не в силах
 > восстановить `dependencies.lock` и пытается достать версии из реестра.
-> Проверенная процедура без сети (использована при верификации V0.6 beta):
+> Проверенная процедура без сети (использована при верификации V0.7 beta):
 > временная копия проекта, в которой скачанные компоненты из
 > `managed_components/` скопированы в `components/local/` с плоскими
 > именами, а манифест содержит только имена без версий. После первого
