@@ -155,7 +155,7 @@ void ui_show_logs(void) {
 
 // 5. Ручное управление
 static float s_manual_power = 0;
-static void on_manual_power(float v) { safety_gate_apply("ui_power", v); }
+static void on_manual_power(float v) { safety_gate_submit("ui_power", v); }
 void ui_show_manual(void) {
     lv_obj_t *c = ui_make_page("Ручное управление");
     static ui_slider_t sl = { "Мощность", 0, 100, 5, &s_manual_power, "%", on_manual_power };

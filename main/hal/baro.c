@@ -4,6 +4,8 @@
 
 #include "core/events.h"
 #include "core/watchdog.h"
+#include "core/boil_table.h"
+#include "core/antoine.h"
 
 #include "driver/i2c_master.h"
 #include "esp_log.h"
@@ -218,17 +220,22 @@ float baro_get_temperature_c(void) { return s_temperature_c; }
 
 float baro_boiling_point_c(float p_hpa) {
     if (!isfinite(p_hpa) || p_hpa <= 0.0f) p_hpa = STANDARD_ATM_HPA;
+
+    float t;
+    if (boil_table_lookup(p_hpa, &t)) return t;
+
+    // Вне таблицы 300..1100 гПа — Антуан, затем линейный fallback.
+    if (antoine_inverse(ANTOINE_WATER, 2, p_hpa * 0.7500617f, &t))
+        return t;
+
     return 100.0f + (p_hpa - STANDARD_ATM_HPA) * BOIL_CORRECTION_COEFF;
 }
 
 float baro_correct_boiling_point(float t_measured, float p_hpa) {
     if (!isfinite(t_measured)) return t_measured;
     if (!isfinite(p_hpa) || p_hpa <= 0.0f) p_hpa = STANDARD_ATM_HPA;
-    // Приведение измеренной температуры пара к нормальному давлению:
-    // при пониженном давлении вещество кипит раньше, поэтому к измеренному
-    // значению добавляется положительная поправка. Пороги фракций заданы
-    // для 1013.25 гПа и остаются неизменными.
-    return t_measured + (STANDARD_ATM_HPA - p_hpa) * BOIL_CORRECTION_COEFF;
+    // Поправка через температуру насыщения (IAPWS/Антуан).
+    return t_measured + (baro_boiling_point_c(p_hpa) - 100.0f);
 }
 
 void baro_task(void *arg) {

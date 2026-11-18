@@ -32,6 +32,10 @@
 #include "core/profiles.h"
 #include "core/sd_resilience.h"
 #include "core/session_recovery.h"
+#include "core/event_bus.h"
+
+#include <stdio.h>
+#include <string.h>
 
 #include "net/mdns_service.h"
 #include "net/time_sync.h"
@@ -98,6 +102,25 @@
 #include "ota/fota.h"
 
 static const char *TAG = "MAIN";
+
+static void events_log_sink(const bus_event_t *e) {
+    if (!e) return;
+    events_log(EVENT_INFO, "%s: %s", e->type ? e->type : "EVENT",
+               e->msg ? e->msg : "");
+}
+
+static void verify_trace_sink(const bus_event_t *e) {
+    if (!e) return;
+    int64_t run = shadow_current_run();
+    if (run <= 0) return;
+    verify_trace_t tr = {0};
+    tr.run_id = run;
+    tr.ts_ms = e->ts_us / 1000;
+    snprintf(tr.channel, sizeof(tr.channel), "%s",
+             e->type ? e->type : "EVENT");
+    tr.value_real = (float)e->prio;
+    (void)verify_db_log_trace(&tr);
+}
 int64_t g_current_process_id = 0;
 
 void vApplicationIdleHook(void) {
@@ -124,6 +147,8 @@ void app_main(void) {
 
     // 0. События/журнал и базовая конфигурация.
     events_init();
+    event_bus_reset();
+    event_bus_register(events_log_sink, EV_INFO);
     i18n_init();
     if (nvs_migration_run() != ESP_OK) {
         ESP_LOGW(TAG, "NVS migration skipped — settings may be at old schema");
@@ -223,6 +248,7 @@ void app_main(void) {
     db_init();
     verify_db_init();
     shadow_init();
+    event_bus_register(verify_trace_sink, EV_MINOR);
 
     cache_init(2 * 1024 * 1024);
     predictor_init();

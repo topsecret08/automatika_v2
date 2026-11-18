@@ -95,6 +95,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | Метод | Путь | Доступ | Описание |
 |---|---|---|---|
 | GET | `/api/events?limit=N` | 🔑 | журнал, N ≤ 200 |
+| GET | `/api/trust` | 🔑 | доверие к датчикам: trust/trend/status/last_good_us |
 | GET | `/api/session` | 🔑 | снимок последней сессии |
 | POST | `/api/session` | 🔑 | `{"action":"restore"}` или `{"action":"clear"}` |
 

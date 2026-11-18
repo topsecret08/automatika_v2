@@ -12,6 +12,8 @@
 #include "control/ctrl_forecast.h"
 #include "control/fraction_periodic.h"
 #include "control/volume_feedback.h"
+#include "core/stab_detect.h"
+#include "esp_timer.h"
 #include "config.h"
 #include <math.h>
 
@@ -19,6 +21,7 @@ static proc_stage_t s_stage = ST_IDLE;
 static float s_stab_time = 0;
 static float s_head_stable_time = 0;
 static float s_last_col = 0;
+static stab_detector_t s_stab;
 static volume_feedback_t s_heads_fb;
 static volume_feedback_t s_body_fb;
 static volume_feedback_t s_tails_fb;
@@ -33,6 +36,8 @@ static proc_stage_t r_init(void) {
     s_stab_time = 0;
     s_head_stable_time = 0;
     s_last_col = 0;
+    stab_init(&s_stab, 0.1f, 0.01f, 60.0f, 3600.0f,
+              esp_timer_get_time());
     volume_feedback_begin(&s_heads_fb);
     volume_feedback_begin(&s_body_fb);
     volume_feedback_begin(&s_tails_fb);
@@ -71,11 +76,16 @@ static proc_stage_t r_update(float dt) {
     case ST_STABILIZE:
         ctrl_heater_set_percent(50.0f);
         s_stab_time += dt;
-        if ((flags_get_by_key("autodetect_heads") &&
-             auto_heads_done(col, dt)) || s_stab_time > 3600.0f) {
-            s_stage = ST_HEADS;
-            volume_feedback_begin(&s_heads_fb);
-            events_log(EVENT_STAGE_CHANGE, "→ HEADS");
+        {
+            float target = state_get()->target_column_t;
+            bool converged = stab_tick(&s_stab, col, target,
+                                       esp_timer_get_time());
+            if ((flags_get_by_key("autodetect_heads") &&
+                 auto_heads_done(col, dt)) || converged) {
+                s_stage = ST_HEADS;
+                volume_feedback_begin(&s_heads_fb);
+                events_log(EVENT_STAGE_CHANGE, "→ HEADS (stab)");
+            }
         }
         break;
 

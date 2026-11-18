@@ -14,6 +14,9 @@ typedef enum {
 // QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
 // EXPERIMENTAL дополнительно требует ненулевой shadow policy.
 esp_err_t safety_gate_apply(const char *module, float value);
+// Каноническая точка отправки команд управления. Сейчас алиас apply,
+// сохраняется для нового кода и внешних интеграций.
+esp_err_t safety_gate_submit(const char *module, float value);
 esp_err_t safety_gate_apply_valve(const char *module, int idx, float value);
 bool      safety_gate_can_apply(const char *module);
 safety_class_t safety_gate_class(const char *module);

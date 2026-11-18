@@ -6,6 +6,7 @@
 #include "core/estop.h"
 #include "core/state.h"
 #include "core/events.h"
+#include "core/event_bus.h"
 #include "core/flags.h"
 #include "core/watchdog.h"
 #include "hal/hal_1wire.h"
@@ -79,6 +80,14 @@ void ctrl_safety_trigger(const char *reason) {
     st->is_running = false;
 
     events_log(EVENT_EMERGENCY, "SAFETY: %s", reason);
+    bus_event_t ev = {
+        .prio = EV_CRITICAL,
+        .type = reason ? reason : "SAFETY",
+        .source_id = 0,
+        .msg = reason ? reason : "safety",
+        .ts_us = esp_timer_get_time(),
+    };
+    event_bus_publish(&ev);
     telegram_notify_alert("АВАРИЯ", reason);
 }
 

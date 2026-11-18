@@ -63,6 +63,32 @@
 | Safety gate | `main/control/safety_gate.{h,c}` | классы CRITICAL/QUALITY/EXPERIMENTAL |
 | Адаптивный PID | `main/control/adaptive_pid.{h,c}` | L1 фазы, L2 RLS/IMC, L3 откат |
 
+### Safety & Trust (V0.6 beta)
+
+| Механизм | Модуль | Состояние |
+|---|---|---|
+| EQ_LOCK: PREPARE→RAMP→EQUILIBRATE→LOCKED→RELEASE | `main/core/eq_lock.{h,c}` | конечный автомат + Unity-тесты |
+| Доверие к датчику 85 °C | `main/hal/sensor_trust.{h,c}` | встроено в `hal_1wire_read` |
+| Зональный консенсус median/MAD | `main/hal/zone_consensus.{h,c}` | модуль + тесты; API зон — следующий шаг |
+| Дашборд доверия | `main/core/trust_dashboard.{h,c}` | `GET /api/trust`, тренд и статус |
+| Таблица кипения IAPWS-IF97 | `main/core/boil_table.{h,c}` | встроена в `baro_boiling_point_c` |
+| Антуан с Newton-Raphson | `main/core/antoine.{h,c}` | fallback вне таблицы |
+| VLE этанол–вода NRTL | `main/core/vle_ew.{h,c}` | модуль + тесты |
+| Детектор стабилизации | `main/core/stab_detect.{h,c}` | встроен в `mode_rectify` |
+| Hampel + IIR для ADC | `main/core/hampel.{h,c}` | встроен в `hal_adc` |
+| PCHIP-калибровка насоса | `main/core/pump_cal.{h,c}` | модуль + тесты |
+| Шина событий с дедупликацией | `main/core/event_bus.{h,c}` | safety-события + sink в журнал |
+| Lua capability-токены | `main/script/capability.{h,c}` | `@requires`, deny-by-default |
+| Тепловой RC-симулятор | `main/core/thermal_sim.{h,c}` | только тестовая сборка |
+| ChaosProbe | `main/core/chaos_probe.{h,c}` | политика + метрики, только тесты |
+
+> EQ_LOCK, VLE и PCHIP пока представлены модулями с тестами; их
+> автоматическое включение в UI/режимы — отдельный этап. Все команды
+> управления по-прежнему проходят через `safety_gate_submit()` /
+> `ctrl_heater`. Тестовый код `thermal_sim`/`chaos_probe` не входит в
+> продуктивную сборку. События шины при активном shadow run дополнительно
+> пишутся в `verify_trace`.
+
 Проверка сборки и тестов:
 
 ```bash
@@ -477,7 +503,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.6 beta занимает ~2,80 МБ (`0x2AC410`),
+указаны слоты по 2 МБ, но образ V0.6 beta занимает ~2,80 МБ (`0x2AD8A0`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -1418,7 +1444,7 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.6 beta: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.6 beta): **0x2AC410 (~2,80 МБ)**, свободно ~11 % раздела.
+Текущий бинарник (V0.6 beta): **0x2AD8A0 (~2,80 МБ)**, свободно ~11 % раздела.
 
 ### Полезные команды
 

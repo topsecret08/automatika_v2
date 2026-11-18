@@ -14,6 +14,7 @@
 #include "core/profiles.h"
 #include "core/roles.h"
 #include "core/session_recovery.h"
+#include "core/trust_dashboard.h"
 #include "core/session_manager.h"
 #include "core/state.h"
 #include "core/events.h"
@@ -310,7 +311,7 @@ static esp_err_t h_power(httpd_req_t *r) {
         if (pct < 0) pct = 0;
         if (pct > 100) pct = 100;
 
-        esp_err_t err = safety_gate_apply("web_power", pct);
+        esp_err_t err = safety_gate_submit("web_power", pct);
         if (err == ESP_ERR_INVALID_STATE)
             return send_err(r, "409 Conflict",
                             "{\"error\":\"regulator not ready or safety active\"}");
@@ -955,6 +956,29 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
 // ============================================================
 // health / events / OTA-managed / backup / config
 // ============================================================
+
+// GET /api/trust — состояние доверия к датчикам.
+static esp_err_t h_trust(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    trust_entry_t ents[TRUST_MAX_SENSORS];
+    size_t n = trust_dashboard_snapshot(ents, TRUST_MAX_SENSORS);
+
+    char json[1024];
+    int off = snprintf(json, sizeof(json), "{\"sensors\":[");
+    for (size_t i = 0; i < n && off > 0 && off < (int)sizeof(json); i++) {
+        off += snprintf(json + off, sizeof(json) - (size_t)off,
+                        "%s{\"id\":%u,\"trust\":%.3f,\"trend\":%.3f,"
+                        "\"status\":%u,\"last_good_us\":%lld}",
+                        i ? "," : "", (unsigned)ents[i].sensor_id,
+                        (double)ents[i].trust, (double)ents[i].trend,
+                        (unsigned)ents[i].status,
+                        (long long)ents[i].last_good_us);
+    }
+    if (off > 0 && off < (int)sizeof(json) - 4)
+        snprintf(json + off, sizeof(json) - (size_t)off, "]}");
+    return send_json(r, json);
+}
 
 // GET /api/health — БЕЗ ключа: мониторингу нужно проверять устройство
 // до провижининга ключа. Секретов в ответе нет.
@@ -2210,6 +2234,7 @@ void web_api_register(httpd_handle_t srv) {
     // телеметрия (WS), конфигурация.
     httpd_uri_t extra[] = {
         { .uri="/api/health",              .method=HTTP_GET,  .handler=h_health },
+        { .uri="/api/trust",               .method=HTTP_GET,  .handler=h_trust },
         { .uri="/api/ws-token",            .method=HTTP_GET,  .handler=h_ws_token },
         { .uri="/api/events",              .method=HTTP_GET,  .handler=h_events },
         { .uri="/api/ota",                 .method=HTTP_GET,  .handler=h_ota_get },

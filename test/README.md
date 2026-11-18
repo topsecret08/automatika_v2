@@ -11,6 +11,14 @@
 | `test_regulator.c` | duty 0/25/50/100 %, NaN/диапазон, инверсия, допустимые GPIO ESP32-S3, Finglai sqrt/калибровка |
 | `test_heater_logic.c` | ручной приоритет, E-STOP/safety/уровень, обязательный датчик, запрет нагрева вне процесса |
 | `test_estop_logic.c` | активный высокий уровень NC-кнопки |
+| `test_eq_lock.c` | EQ_LOCK: закрытый клапан, ramp, стабильность, release, timeout |
+| `test_trust.c` | trust 85 °C, гистерезис, зональный median/MAD |
+| `test_trust_dashboard.c` | статус/тренд/last_good |
+| `test_physics.c` | IAPWS-таблица, Антуан, NRTL VLE, PCHIP |
+| `test_control_filters.c` | stab_detect, Hampel |
+| `test_event_bus.c` | дедупликация, приоритеты |
+| `test_capability.c` | Lua @requires, deny-by-default |
+| `test_sim_chaos.c` | RC-симулятор, ChaosProbe |
 
 ## Host-тесты
 
@@ -57,5 +65,5 @@ GPIO и файловой системы. Их проверка требует и
 
 Проверено на этой итерации (реальная сборка ESP-IDF 5.3.2, esp32s3):
 
-- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2AC410`);
-- тестовый проект: `test/` — OK, образ `0x3D340`.
+- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2AD8A0`);
+- тестовый проект: `test/` — OK, образ `0x41420`.

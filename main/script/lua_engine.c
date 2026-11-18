@@ -1,9 +1,11 @@
 #include "lua_engine.h"
+#include "capability.h"
 #include "config.h"
 
 #include "core/control_config.h"
 #include "core/estop.h"
 #include "core/events.h"
+#include "core/event_bus.h"
 #include "core/state.h"
 #include "core/watchdog.h"
 #include "control/ctrl_heater.h"
@@ -41,6 +43,16 @@ typedef struct {
 static QueueHandle_t s_queue = NULL;
 static TaskHandle_t  s_task = NULL;
 static lua_State    *L = NULL;
+static cap_set_t     s_caps;
+
+static bool cap_ok(uint64_t cap, const char *ctx) {
+    if (cap_check(&s_caps, cap, ctx)) return true;
+    events_log(EVENT_WARNING, "Lua capability denied: %s", cap_name(cap));
+    bus_event_t ev = { EV_MAJOR, "CAP_DENIED", 0, cap_name(cap),
+                   esp_timer_get_time() };
+    event_bus_publish(&ev);
+    return false;
+}
 
 static volatile bool s_enabled = false;
 static volatile bool s_busy = false;
@@ -127,24 +139,41 @@ static int guard_ok(void) {
 
 static int l_set_percent(lua_State *l) {
     double pct = luaL_checknumber(l, 1);
+    if (!cap_ok(CAP_ACTUATOR_HEATER, "actuator.write:heater")) {
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "capability denied");
+        return 2;
+    }
     if (!guard_ok()) {
         lua_pushboolean(l, 0);
         lua_pushstring(l, "safety/estop");
         return 2;
     }
-    safety_gate_apply("lua_power", (float)pct);
+    safety_gate_submit("lua_power", (float)pct);
     lua_pushboolean(l, 1);
     return 1;
 }
 
 static int l_get_temp(lua_State *l) {
     int idx = (int)luaL_optinteger(l, 1, 0);
+    uint64_t cap = (idx == 1) ? CAP_SENSOR_READ_COLUMN : CAP_SENSOR_READ_CUBE;
+    if (!cap_ok(cap, "sensor.read")) {
+        lua_pushnil(l);
+        lua_pushstring(l, "capability denied");
+        return 2;
+    }
     lua_pushnumber(l, hal_1wire_read(idx));
     return 1;
 }
 
 static int l_get_rising(lua_State *l) {
     int idx = (int)luaL_optinteger(l, 1, 0);
+    uint64_t cap = (idx == 1) ? CAP_SENSOR_READ_COLUMN : CAP_SENSOR_READ_CUBE;
+    if (!cap_ok(cap, "sensor.read")) {
+        lua_pushnil(l);
+        lua_pushstring(l, "capability denied");
+        return 2;
+    }
     lua_pushboolean(l, hal_1wire_rising(idx));
     return 1;
 }
@@ -157,6 +186,11 @@ static int l_get_power(lua_State *l) {
 static int l_dose(lua_State *l) {
     double ml = luaL_checknumber(l, 1);
     double rate = luaL_optnumber(l, 2, (lua_Number)control_config_get_rate_ml_min());
+    if (!cap_ok(CAP_ACTUATOR_DOSER, "actuator.write:doser")) {
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "capability denied");
+        return 2;
+    }
     if (!guard_ok()) {
         lua_pushboolean(l, 0);
         return 1;
@@ -275,6 +309,11 @@ lua_run_result_t run_file(const char *path) {
     size_t got = fread(src, 1, (size_t)sz, f);
     fclose(f);
     src[got] = '\0';
+
+    cap_set_reset(&s_caps);
+    (void)cap_parse_requires(src, &s_caps);
+    if (s_caps.granted == 0)
+        events_log(EVENT_WARNING, "Lua script without @requires: deny-by-default");
 
     strncpy(s_status, "running", sizeof(s_status) - 1);
     int rc = luaL_loadbuffer(L, src, got, path);

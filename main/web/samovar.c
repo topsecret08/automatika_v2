@@ -206,7 +206,7 @@ bool samovar_set_power_percent(float pct, const char *source) {
         return false;
     }
 
-    safety_gate_apply("mqtt_power", pct);
+    safety_gate_submit("mqtt_power", pct);
     events_log(EVENT_USER_ACTION, "Samovar[%s]: power %.0f%%",
                source ? source : "?", pct);
     return true;

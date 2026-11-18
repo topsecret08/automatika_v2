@@ -1,4 +1,7 @@
 #include "hal_1wire.h"
+#include "sensor_trust.h"
+#include "core/trust_dashboard.h"
+#include "core/event_bus.h"
 #include "temp_filter.h"
 #include "sensor_pipeline.h"
 #include "config.h"
@@ -44,6 +47,8 @@ static TempPipeline s_pipe[MAX_SENSORS];
 static bool    s_pipe_ready[MAX_SENSORS];
 static int64_t s_pipe_source_us[MAX_SENSORS];
 static float   s_pipe_out[MAX_SENSORS];
+static sensor_trust_t s_trust[MAX_SENSORS];
+static bool    s_trust_ready[MAX_SENSORS];
 
 static onewire_bus_handle_t s_bus = NULL;
 static SemaphoreHandle_t s_bus_mtx = NULL;
@@ -169,6 +174,8 @@ esp_err_t hal_1wire_init(void) {
         s_pipe_source_us[i] = -1;
         s_pipe_out[i] = -127.0f;
         s_pipe_ready[i] = false;
+        s_trust_ready[i] = false;
+        sensor_trust_init(&s_trust[i]);
     }
     ESP_LOGI(TAG, "Found %d DS18B20 (12-bit)", count);
 
@@ -229,6 +236,24 @@ float hal_1wire_read(int idx) {
     xSemaphoreTake(s_cache_mtx, portMAX_DELAY);
     float v = cache_fresh(idx, now) ? s_calibrated[idx] : -127.0f;
     if (cache_fresh(idx, now)) {
+        float peers[MAX_SENSORS];
+        int pn = 0;
+        for (int j = 0; j < count && pn < MAX_SENSORS; j++) {
+            if (j != idx && cache_fresh(j, now) && s_calibrated[j] > -50.0f)
+                peers[pn++] = s_calibrated[j];
+        }
+        float score = sensor_trust_score(&s_trust[idx], v, now, peers, pn);
+        bool accepted = sensor_trust_accept(&s_trust[idx], score);
+        trust_dashboard_push((uint8_t)idx, score, now);
+        if (!accepted) {
+            bus_event_t ev = { EV_MAJOR, "TRUST_DROP", (uint8_t)idx,
+                               "sensor rejected by trust", now };
+            event_bus_publish(&ev);
+            xSemaphoreGive(s_cache_mtx);
+            return -127.0f;
+        }
+        sensor_trust_mark_accepted(&s_trust[idx], v, now);
+
         if (!s_pipe_ready[idx]) {
             temp_pipeline_init(&s_pipe[idx], 0.01f, 0.1f);
             s_pipe_ready[idx] = true;

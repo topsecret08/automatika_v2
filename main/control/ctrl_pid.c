@@ -256,7 +256,7 @@ float ctrl_pid_compute_and_apply_scaled(float input, float scale) {
     bool want_adaptive = s_apid_ready && adaptive_pid_is_enabled() &&
                          control_config_get_adaptive_pid();
     if (!want_adaptive) {
-        (void)safety_gate_apply("heater_pid", legacy);
+        (void)safety_gate_submit("heater_pid", legacy);
         return ctrl_heater_get_percent();
     }
 
@@ -275,10 +275,10 @@ float ctrl_pid_compute_and_apply_scaled(float input, float scale) {
                         s_apid.shadow_kp, s_apid.shadow_ki, s_apid.shadow_kd);
 
     if (allow) {
-        (void)safety_gate_apply("adaptive_pid", out);
+        (void)safety_gate_submit("adaptive_pid", out);
     } else {
         // Тень/неверифицированный режим: нагрев ведёт обычный PID.
-        (void)safety_gate_apply("heater_pid", legacy);
+        (void)safety_gate_submit("heater_pid", legacy);
     }
     return ctrl_heater_get_percent();
 }

@@ -2,6 +2,19 @@
 
 ## V0.6 beta
 
+- **Safety & Trust:** добавлены `eq_lock`, `sensor_trust`,
+  `zone_consensus`, `trust_dashboard`, `boil_table` (IAPWS-IF97),
+  `antoine`, `vle_ew` (NRTL), `stab_detect`, `hampel`, `pump_cal` (PCHIP),
+  `event_bus`, Lua `capability`, `thermal_sim`, `chaos_probe`.
+- **Интеграции:** sensor trust в `hal_1wire`, Hampel в `hal_adc`,
+  IAPWS/Антуан в `baro`, детектор стабилизации в `mode_rectify`,
+  `GET /api/trust`, safety-события в event bus, Lua `@requires`.
+- **verify_trace:** event bus дополнительно пишет события (при активном
+  shadow run) в `verify_trace`.
+- **Тесты:** Unity-тесты на все новые модули; test-сборка зелёная.
+- **Тестовые модули:** `thermal_sim`/`chaos_probe` не входят в
+  продуктивную прошивку.
+
 - **WS-телеметрия:** `/ws/telemetry` теперь проверяет короткоживущий токен
   до `add_client()`; общая проверка вынесена в `api_auth_ws_handshake_ok()`.
 - **Finglai SSVR:** инверсия PWM запрещена, чтобы аварийный ноль не давал
@@ -164,7 +177,7 @@ managed-компонентов, которых нет в офлайн-кэше).
 - `test/`: добавлены unit-тесты фасада дозатора (значения по умолчанию,
   отказ при нулевом/отрицательном объёме и превышении `DOSER_MAX_DOSE_ML`).
 - `partitions.csv`: OTA-слоты оставлены по 3 МБ — образ ~2,80 МБ
-  (`0x2AC410`) не помещается в 2 МБ из ТЗ; решение и формула пересчёта
+  (`0x2AD8A0`) не помещается в 2 МБ из ТЗ; решение и формула пересчёта
   описаны в файле.
 - **Устойчивость SD** — probe/remount, очередь записей в PSRAM,
   сброс в `/sdcard/logs/resilience.log` (`core/sd_resilience.c`).

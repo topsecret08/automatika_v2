@@ -128,6 +128,10 @@ esp_err_t safety_gate_apply(const char *module, float value) {
     return ESP_OK;
 }
 
+esp_err_t safety_gate_submit(const char *module, float value) {
+    return safety_gate_apply(module, value);
+}
+
 esp_err_t safety_gate_apply_valve(const char *module, int idx, float value) {
     const module_reg_t *m = find(module);
     if (!m) return ESP_ERR_NOT_FOUND;
