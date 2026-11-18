@@ -5,7 +5,7 @@ PWA-Installation: [PWA_INSTALL.md](PWA_INSTALL.md).
 
 ## 1. Voraussetzungen
 
-- Automatika mit Firmware V0.8 beta.
+- Automatika mit Firmware V0.9 beta.
 - Telefon oder Notebook mit 2,4-GHz-WLAN.
 - 220-V-Steckdose mit FI-Schutzschalter und Erdung.
 - Kühlwasser und Flüssigkeit zum Destillieren (mindestens 15 % des Volumens).

@@ -5,7 +5,7 @@ installation PWA : [PWA_INSTALL.md](PWA_INSTALL.md).
 
 ## 1. Matériel nécessaire
 
-- Automatika avec firmware V0.8 beta.
+- Automatika avec firmware V0.9 beta.
 - Téléphone ou ordinateur en Wi-Fi 2,4 GHz.
 - Prise 220 V avec différentiel et mise à la terre.
 - Eau de refroidissement et liquide à distiller (au moins 15 % du volume).

@@ -148,7 +148,7 @@ jobs:
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: automatika-v0.8-beta-${{ github.sha }}
+          name: automatika-v0.9-beta-${{ github.sha }}
           path: |
             build/automatika_v2.bin
             build/automatika_v2.elf

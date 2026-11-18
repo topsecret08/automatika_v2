@@ -5,7 +5,7 @@ PWA installation: [PWA_INSTALL.md](PWA_INSTALL.md).
 
 ## 1. What you need
 
-- Automatika device with firmware V0.8 beta.
+- Automatika device with firmware V0.9 beta.
 - Phone or laptop on 2.4 GHz Wi-Fi.
 - 220 V outlet with earth leakage protection and grounding.
 - Cooling water and at least 15 % of the cube volume filled.

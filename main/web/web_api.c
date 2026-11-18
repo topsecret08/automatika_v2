@@ -2358,7 +2358,7 @@ void web_api_register(httpd_handle_t srv) {
 
     actuator_test_register(srv);
 
-    // Новые эндпоинты V0.8 beta: health, журнал, managed OTA, бэкап, ключи,
+    // Новые эндпоинты V0.9 beta: health, журнал, managed OTA, бэкап, ключи,
     // телеметрия (WS), конфигурация.
     httpd_uri_t extra[] = {
         { .uri="/api/health",              .method=HTTP_GET,  .handler=h_health },

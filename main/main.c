@@ -131,7 +131,7 @@ void vApplicationIdleHook(void) {
     ui_cpu_idle_hook();
 }
 
-// Порядок инициализации (V0.8 beta):
+// Порядок инициализации (V0.9 beta):
 //   nvs_flash_init → nvs_migration_run → control_config_init → ota_manager_init
 //   → event_log/health → estop_init → level_sensor_init → lua_engine_init
 //   → telegram_notify_init → ... → web_start() (регистрация HTTP/WS)

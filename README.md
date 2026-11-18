@@ -1,4 +1,4 @@
-# Automatika V0.8 beta
+# Automatika V0.9 beta
 
 [![CI](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml)
 
@@ -37,7 +37,7 @@
 > резервируется атомарно (`ota_guard_try_reserve`), прямой upload имеет
 > тайм-аут.
 
-> **V0.8 beta — исправления активной верификации:**
+> **V0.9 beta — исправления активной верификации:**
 > `loop_verify_init()` вызывается на старте каждого прогона, а разрыв
 > времени больше 5 с считается новой сессией — второй запуск больше не
 > уходит в ложный `NO_RESPONSE`; для бинарного readback (GPIO/контактор)
@@ -67,7 +67,7 @@
 > PID-метрики, fuzzing детектора аномалий и единый `safety_gate` для всех
 > путей управления. Подробности — [`docs/verify.md`](docs/verify.md).
 
-### Модули V0.8 beta
+### Модули V0.9 beta
 
 | Модуль | Файлы | Назначение |
 |---|---|---|
@@ -84,7 +84,7 @@
 | Safety gate | `main/control/safety_gate.{h,c}` | классы CRITICAL/QUALITY/EXPERIMENTAL |
 | Адаптивный PID | `main/control/adaptive_pid.{h,c}` | L1 фазы, L2 RLS/IMC, L3 откат |
 
-### Safety & Trust (V0.8 beta)
+### Safety & Trust (V0.9 beta)
 
 | Механизм | Модуль | Состояние |
 |---|---|---|
@@ -261,7 +261,7 @@ ctest --test-dir test/host/build --output-on-failure
 
 ## Возможности
 
-### Надёжность и эксплуатация (V0.8 beta)
+### Надёжность и эксплуатация (V0.9 beta)
 
 - **OTA с автоматическим откатом (anti-brick):** новый образ подтверждается
   только после 30 с непрерывной «здоровой» работы под health-check; иначе —
@@ -484,13 +484,13 @@ I2C-адреса: `ADS1115 0x48`, `MCP4725 0x60`, `Grove SSR 0x11`,
 | `safety` | 15 | 4096 | Аварийная защита, опрос датчиков |
 | `mode` | 10 | 8192 | Конечный автомат процесса |
 | `ui` | 8 | 8192 | LVGL, сенсор |
-| `ws_tel` | 8 | 4096 | Публикатор телеметрии `/ws/telemetry`, 1 Гц (V0.8 beta) |
+| `ws_tel` | 8 | 4096 | Публикатор телеметрии `/ws/telemetry`, 1 Гц (V0.9 beta) |
 | `scale` | 6 | 4096 | HX711 |
 | `fps` | 4 | 3072 | FPS-монитор |
 | `vcalib` | 3 | 3072 | Калибровка клапанов |
 | `events` | 3 | 3072 | Очередь событий |
 | `tinyml` | 2 | 4096 | TinyML-прогноз |
-| `doser` | 4 | 4096 | Шаговый дозатор отбора (V0.8 beta) |
+| `doser` | 4 | 4096 | Шаговый дозатор отбора (V0.9 beta) |
 | `samovar` | 3 | 6144 | Blynk + MQTT мост |
 | `mqtt` | 5 | 4096 | MQTT-клиент (при флаге `mqtt`) |
 | `telegram` | 5 | 4096 | Оповещения |
@@ -648,7 +648,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.8 beta занимает ~2,80 МБ (`0x2B04C0`),
+указаны слоты по 2 МБ, но образ V0.9 beta занимает ~2,80 МБ (`0x2B04C0`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -774,7 +774,7 @@ curl http://192.168.1.50/api/health
 # {"level":"ok","reason":"","free_heap":142336,"min_free_heap":118720,
 #  "free_psram":6123456,"uptime_s":5310,"reset":1,"wifi_rssi":-57,
 #  "sd":1,"db":1,"sensors":3,"safety":1,"estop":0,"running":1,"stage":4,
-#  "version":"V0.8 beta","tasks":27}
+#  "version":"V0.9 beta","tasks":27}
 ```
 
 Эндпоинт **без X-API-Key** — мониторинг должен проверять устройство до
@@ -1551,7 +1551,7 @@ Workflow `build` опубликован в `.github/workflows/build.yml` и за
 - `config-matrix` — сборка профилей `minimal` и `full` из
   `tools/config_profiles/`;
 - `firmware` — собирает прошивку на `espressif/idf:v5.3.2` и выгружает
-  артефакты `automatika-v0.8-beta-<sha>`;
+  артефакты `automatika-v0.9-beta-<sha>`;
 - `esp-tests` — собирает Unity-приложение и запускает его в QEMU
   (`test/qemu/run_qemu_tests.py`), ожидая `0 Failures`.
 
@@ -1611,10 +1611,10 @@ $env:PYTHONUTF8=1
 - `espressif/esp_lcd_touch`, `espressif/esp_lcd_touch_ft5x06`
 - `espressif/esp_tinyusb`, `espressif/tinyusb`
 - `espressif/onewire_bus`, `espressif/ds18b20`
-- **`espressif/lua ^5.5.1`** — скриптовый движок (V0.8 beta)
+- **`espressif/lua ^5.5.1`** — скриптовый движок (V0.9 beta)
 - **`hayschan/autopid_for_esp_idf ^1.0.2`** — PID (C++ класс AutoPID,
-  обвязка в `main/control/autopid_glue.cpp`) (V0.8 beta)
-- **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (V0.8 beta)
+  обвязка в `main/control/autopid_glue.cpp`) (V0.9 beta)
+- **`joltwallet/littlefs ~1.14.8`** — раздел `assets` для скриптов (V0.9 beta)
 
 `espressif/esp_websocket_client` намеренно **не подключён**: это клиентская
 библиотека, а `/ws/telemetry` — серверный WebSocket на `esp_http_server`
@@ -1633,10 +1633,10 @@ SQLite **не скачивается**: он лежит локально в `com
 | `factory` | app | `0x20000` | **3 МБ** |
 | `ota_0` | app | `0x320000` | **3 МБ** |
 | `ota_1` | app | `0x620000` | **3 МБ** |
-| `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.8 beta: скрипты) |
+| `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.9 beta: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.8 beta): **0x2B04C0 (~2,80 МБ)**, свободно ~10 % раздела.
+Текущий бинарник (V0.9 beta): **0x2B04C0 (~2,80 МБ)**, свободно ~10 % раздела.
 Тестовый бинарник: **0x45330**.
 
 ### Полезные команды
@@ -1663,7 +1663,7 @@ idf.py fullclean            # полная очистка
 
 ### Wi-Fi
 
-С V0.8 beta Wi-Fi настраивается через **provisioning**: при первом запуске
+С V0.9 beta Wi-Fi настраивается через **provisioning**: при первом запуске
 устройство поднимает AP **`Automatika-Setup`** с PoP-аутентификацией, куда
 передаются SSID и пароль домашней сети. PoP задаётся в `PROV_POP_TEXT`
 (`main/config.h`); смените заводское значение перед прошивкой партии.
@@ -1732,7 +1732,7 @@ python generate_sdcard.py
 | `firmware/` | образы для FOTA |
 | `screenshots/` | скриншоты экрана |
 | `ai/` | модели и экспорт AI |
-| `scripts/` | **Lua-скрипты** `*.lua` (V0.8 beta, путь `/sdcard/scripts/`) |
+| `scripts/` | **Lua-скрипты** `*.lua` (V0.9 beta, путь `/sdcard/scripts/`) |
 | `profiles/`, `images/` | профили и изображения |
 
 Файл-маркер `help/.generated` показывает, что полная справка уже развёрнута.
@@ -2103,7 +2103,7 @@ SD-карты; аллокатор БД использует PSRAM.
 ищет его в каталоге компонента `main`, а не в корне проекта. Если положить
 файл в корень, `managed_components/` останется пустым.
 
-В V0.8 beta новые аппаратные модули (BMP280, YF-S201, mDNS, LED/buzzer)
+В V0.9 beta новые аппаратные модули (BMP280, YF-S201, mDNS, LED/buzzer)
 реализованы в дереве проекта и **не добавляют зависимостей**. Не пытайтесь
 заменить их компонентами из реестра: офлайн-сборка должна работать без
 сети. `wifi_provisioning` и `esp_https_ota` — штатные компоненты IDF,
@@ -2130,11 +2130,11 @@ CONFIG_TINYUSB_CDC_ENABLED=y
 CONFIG_TINYUSB_MSC_ENABLED=y
 CONFIG_ESP_SQLITE3_PROFILE_STANDARD=y
 CONFIG_HTTPD_WS_SUPPORT=y
-# V0.8 beta
+# V0.9 beta
 CONFIG_LUA_USE_PSRAM=y
 CONFIG_LUA_MAXSTACK=10000
 CONFIG_LITTLEFS_MAX_PARTITIONS=2
-# V0.8 beta — активная верификация и аппаратная защита
+# V0.9 beta — активная верификация и аппаратная защита
 CONFIG_LOOP_VERIFY_ENABLE=y
 CONFIG_ACTUATOR_READBACK_ENABLE=y
 CONFIG_SAFETY_RELAY_ENABLE=y
@@ -2142,7 +2142,7 @@ CONFIG_EQ_LOCK_ENABLE=y
 CONFIG_VLE_ENABLE=n
 CONFIG_PUMP_PCHIP_ENABLE=n
 CONFIG_ZONE_CONSENSUS_ENABLE=n
-# V0.8 beta — OTA только по HTTPS (сертификат через CA bundle)
+# V0.9 beta — OTA только по HTTPS (сертификат через CA bundle)
 CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 ```
 
@@ -2152,7 +2152,7 @@ CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 
 > **Офлайн-сборка.** Если сеть недоступна, менеджер компонентов не в силах
 > восстановить `dependencies.lock` и пытается достать версии из реестра.
-> Проверенная процедура без сети (использована при верификации V0.8 beta):
+> Проверенная процедура без сети (использована при верификации V0.9 beta):
 > временная копия проекта, в которой скачанные компоненты из
 > `managed_components/` скопированы в `components/local/` с плоскими
 > именами, а манифест содержит только имена без версий. После первого

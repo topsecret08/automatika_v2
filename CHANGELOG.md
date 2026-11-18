@@ -1,5 +1,22 @@
 # История
 
+## V0.9 beta
+
+- **I2C-степпер:** `core/stepper_proto` (кадры с CRC8), `hal/i2c_stepper`
+  (транспорт, реконнект), `control/ctrl_stepper` (дозатор, мешалка,
+  fault/position, STOP по safety). Настройки в NVS, API `GET/POST
+  /api/stepper`, ручные move/home только в сервисном режиме.
+- **Конфигуратор:** `tools/configurator` — поиск устройства, телеметрия,
+  параметры, журнал и потоковая прошивка по Wi-Fi с прогрессом, отменой,
+  проверкой размера/SHA-256 и ожиданием перезагрузки.
+- **Документация:** протокол и калибровка I2C-степпера
+  (`docs/hardware/I2C_STEPPER.md`), руководство конфигуратора
+  (`docs/user/CONFIGURATOR.md`), обновлённый чек-лист безопасности.
+- **Тесты:** 107 Unity-тестов (добавлены CRC/кадры/расчёты степпера) и
+  13 Python-тестов (включая потоковую OTA против мок-сервера).
+- **Сборка:** main `0x2B04C0`, test `0x45330`.
+- **Версия:** V0.9 beta.
+
 ## V0.8 beta
 
 - **loop_verify:** `loop_verify_init()` вызывается на старте каждого прогона;
@@ -31,10 +48,10 @@
 - **Safety gate:** UI-слайдер и `/api/param power` переведены на
   `safety_gate_submit()`.
 - **Readback:** явные записи valve/doser в конфигурации по умолчанию.
-- **Тесты:** 107 тестов, 0 сбоев в QEMU; добавлены сценарии разрыва между
+- **Тесты:** 100 тестов, 0 сбоев в QEMU; добавлены сценарии разрыва между
   прогонами, бинарного канала, окна актуатора, STUCK, CROSSCHECK,
   антидребезга и rearm.
-- **Сборка:** main `0x2B04C0`, test `0x45330`.
+- **Сборка:** main `0x2AEF90`, test `0x44840`.
 - **CI:** workflow опубликован, все три базовых job зелёные; branch
   protection требует эти checks для merge, force-push и удаление `main`
   запрещены.
@@ -47,7 +64,7 @@
   исправил ошибку: кубовая температура не обновлялась из `/api/state`.
 - **Матрица конфигураций:** профили `minimal` и `full` в
   `tools/config_profiles/`, обе сборки проверяются в CI.
-- **CLI и конфигуратор:** `tools/automatika_cli.py` — mDNS-поиск,
+- **CLI:** `tools/automatika_cli.py` — mDNS-поиск,
   health/state/safety/power/start/stop, конфиг `~/.automatika.json`,
   опциональное окно Tkinter.
 - **Документация:** генерация `docs/developer/C_API.md` (337 функций) и
@@ -56,15 +73,6 @@
 - **Release:** workflow по тегу `v*` собирает прошивку и тесты, формирует
   SPDX-совместимый `sbom.spdx.json`, `build-info.json`, `SHA256SUMS.txt`
   и публикует GitHub Release.
-- **I2C-степпер:** `core/stepper_proto` (кадры с CRC8), `hal/i2c_stepper`
-  (транспорт, реконнект), `control/ctrl_stepper` (дозатор, мешалка,
-  fault/position, STOP по safety). Настройки в NVS, API `GET/POST
-  /api/stepper`, ручные move/home только в сервисном режиме.
-- **Конфигуратор:** `tools/configurator` — поиск устройства, телеметрия,
-  параметры, журнал и потоковая прошивка по Wi-Fi с прогрессом, отменой,
-  проверкой размера/SHA-256 и ожиданием перезагрузки.
-- **Тесты:** 107 Unity-тестов (добавлены CRC/кадры/расчёты степпера) и
-  13 Python-тестов (включая потоковую OTA против мок-сервера).
 - **Версия:** V0.8 beta.
 
 ## V0.7 beta
