@@ -1,0 +1,100 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    name: host logic tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S test/host -B test/host/build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build test/host/build --parallel
+
+      - name: Run
+        run: ctest --test-dir test/host/build --output-on-failure
+
+  firmware:
+    name: firmware (esp32s3)
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py build
+          idf.py size | tee build/size.txt
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: automatika-v0.7-beta-${{ github.sha }}
+          path: |
+            build/automatika_v2.bin
+            build/automatika_v2.elf
+            build/automatika_v2.map
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+            build/ota_data_initial.bin
+            build/assets.bin
+            build/size.txt
+          if-no-files-found: error
+
+  esp-tests:
+    name: ESP-IDF Unity tests in QEMU
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Unity test app
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py -C test set-target esp32s3
+          idf.py -C test build
+
+      - name: Install QEMU
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          python "$IDF_PATH/tools/idf_tools.py" install qemu-xtensa
+
+      - name: Run Unity tests in QEMU
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          python test/qemu/run_qemu_tests.py --build-dir test/build
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: automatika-test-${{ github.sha }}
+          path: |
+            test/build/automatika_test.bin
+            test/build/automatika_test.elf
+            test/build/automatika_test.map
+          if-no-files-found: error
