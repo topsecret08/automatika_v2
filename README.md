@@ -126,21 +126,47 @@ L ──► контактор ──► NC-реле (SAFETY_RELAY_GPIO) ──�
 размыкается без участия прошивки. `force_open()` (E-STOP, CRITICAL) необратим
 до перезагрузки. Схема дополняет механический E-STOP, а не заменяет его.
 
-> EQ_LOCK, VLE и PCHIP пока представлены модулями с тестами; их
-> автоматическое включение в UI/режимы — отдельный этап. Все команды
-> управления по-прежнему проходят через `safety_gate_submit()` /
+**Флаги сборки** (`main/Kconfig.projbuild`, значения — `sdkconfig.defaults`):
+
+| Модуль | Где активен | Флаг | По умолчанию |
+|---|---|---|---|
+| `loop_verify` | `mode_distill` каждый такт, `safety` | `CONFIG_LOOP_VERIFY_ENABLE` | `y` |
+| `hal_actuator_readback` | `main.c`, `mode_distill` | `CONFIG_ACTUATOR_READBACK_ENABLE` | `y` |
+| `hal_safety_relay` | `main.c`, `ctrl_safety` | `CONFIG_SAFETY_RELAY_ENABLE` | `y` |
+| `eq_lock` | модуль и тесты, в контур не включён | `CONFIG_EQ_LOCK_ENABLE` | `y` |
+| `vle_ew` | модуль и тесты | `CONFIG_VLE_ENABLE` | `n` |
+| `pump_cal` (PCHIP) | модуль и тесты | `CONFIG_PUMP_PCHIP_ENABLE` | `n` |
+| `zone_consensus` | модуль и тесты | `CONFIG_ZONE_CONSENSUS_ENABLE` | `n` |
+
+При `n` поведение соответствует V0.6: изменённые пути не компилируются или
+обходятся, `safety_gate` и `ctrl_heater` работают как раньше.
+
+**Настройки в `main/config.h`:**
+
+| Макрос | По умолчанию | Назначение |
+|---|---:|---|
+| `ACT_READBACK_BACKEND` | `0` | 0 NONE, 1 GPIO, 2 CURRENT, 3 PWM_CAPTURE |
+| `ACT_READBACK_GPIO` | `-1` | вход обратной связи (GPIO backend) |
+| `ACT_READBACK_ADC_CHANNEL` | `0` | канал ADC (CURRENT backend) |
+| `ACT_READBACK_FULL_SCALE` | `32767.0` | нормировка тока в 0..100 % |
+| `SAFETY_RELAY_GPIO` | `-1` | выход NC-реле, `-1` = не установлено |
+| `SAFETY_RELAY_TIMEOUT_MS` | `1000` | окно heartbeat, опрос T/4 |
+
+**События:** агрегат `loop_verify` публикует `LOOP_VERIFY` в `event_bus`
+(при активном shadow run событие дополнительно пишется в `verify_trace`),
+детализация — в битовой маске `aggregate`/`detail`. Аварии E-STOP и
+`CRITICAL` журналируются как `SAFETY: <причина>`.
+
+**Ограничения V0.7:** `EQ_LOCK_ENGAGED` публикуется самим модулем
+`eq_lock`, но `eq_lock_engage()` пока не вызывается из `safety_gate`;
+`VLE`, PCHIP и `zone_consensus` не подключены к режимам; отдельного события
+`SAFETY_RELAY_OPEN` нет — состояние читается через
+`hal_safety_relay_is_closed()`. Readback и реле требуют проверки на стенде.
+
+> Все команды управления по-прежнему проходят через `safety_gate_submit()` /
 > `ctrl_heater`. Тестовый код `thermal_sim`/`chaos_probe` не входит в
 > продуктивную сборку. События шины при активном shadow run дополнительно
 > пишутся в `verify_trace`.
->
-> `loop_verify` агрегирует флаги датчика/программы/актуатора: mismatch
-> эскалируется только после 3 тактов, NO_RESPONSE — после 30 с без реакции
-> PV, `NAN` readback даёт WARN `ACT_NO_FEEDBACK`, а CRITICAL уходит в
-> `safety_gate_submit_flags()`.
->
-> Fail-safe реле: NC-контакт удерживается только heartbeat от safety-задачи.
-> Пропал heartbeat/питание — цепь размыкается аппаратно. GPIO по умолчанию
-> `-1` (реле не установлено), задаётся `SAFETY_RELAY_GPIO`.
 
 Проверка сборки и тестов:
 
@@ -229,7 +255,16 @@ ctest --test-dir test/host/build --output-on-failure
 - **Журнал событий в JSON** — `GET /api/events` (кольцо 200 записей).
 - **Health-check** `GET /api/health` без ключа (память, uptime, SD/БД, датчики,
   watchdog).
-- **Модульные тесты** (Unity) для фильтра, уровня, журнала и фасада дозатора.
+- **Активная верификация контура** `loop_verify`: раздельные флаги
+  датчик/программа/исполнитель, mismatch только после 3 тактов,
+  `NO_RESPONSE` после 30 с, эскалация WARN → DEGRADE → CRITICAL в safety.
+- **Обратная связь исполнителей** `hal_actuator_readback`: backend
+  NONE/GPIO/CURRENT, нормализация 0..100 %, `NAN` для канала без обратной
+  связи.
+- **Fail-safe NC-реле** `hal_safety_relay`: удерживается heartbeat от
+  safety-задачи, старт с разомкнутого, `force_open()` необратим до
+  перезагрузки.
+- **Модульные тесты** (Unity): 91 тест, включая loop_verify и readback/реле.
 
 #### Где что лежит (production-модули)
 
@@ -243,6 +278,9 @@ ctest --test-dir test/host/build --output-on-failure
 | Датчик уровня | `level/level_sensor.{h,c}` | `safety` (ядро 1), GPIO 28 |
 | Журнал событий | `core/event_log.c`, `core/events.c` | `GET /api/events` |
 | Health-check | `core/health.{h,c}` | `GET /api/health` (без ключа) |
+| Активная верификация контура | `core/loop_verify.{h,c}`, `core/loop_verify_glue.c` | `mode` (ядро 1), `safety`, `verify_trace` |
+| Readback исполнителей | `hal/hal_actuator_readback.{h,c}` | `mode`, `hal_adc` |
+| Fail-safe реле | `hal/hal_safety_relay.{h,c}` | `safety` (ядро 1), GPIO `SAFETY_RELAY_GPIO` |
 | Тесты | `test/` | отдельный Unity-проект, см. `SETUP.md` |
 
 ### Управление процессами
@@ -721,8 +759,13 @@ curl http://192.168.1.50/api/health
 `idf.py -C test set-target esp32s3`, затем `idf.py -C test build` и
 `idf.py -C test -p COM5 flash monitor`.
 Тесты: сглаживание/тренд/отказ датчика (`temp_filter`), логика уровня и
-пороги, JSON-экранирование журнала, фасад дозатора (`pump_doser`).
-См. [`test/README.md`](test/README.md).
+пороги, JSON-экранирование журнала, фасад дозатора (`pump_doser`),
+регулятор и Finglai SSVR (`regulator`), блокировки нагрева (`heater_logic`),
+E-STOP (`estop_logic`), Safety & Trust (`eq_lock`, `trust`,
+`trust_dashboard`, `physics`, `control_filters`, `event_bus`,
+`capability`, `sim_chaos`), активная верификация (`loop_verify`) и
+readback/реле (`readback_relay`). Всего **91 тест**, прогон в QEMU —
+`0 failures`. См. [`test/README.md`](test/README.md).
 
 ### 10. Порядок инициализации
 
@@ -1179,7 +1222,9 @@ REST: `POST /api/power {"power":35}` — ручной режим,
   не являются источником команд нагрева.
 - HIL-стенда и автоматического fault injection пока нет; сценарии
   «отказ датчика», «зависание задачи», «обрыв I2C» выполняются по
-  стендовой процедуре.
+  стендовой процедуре. Readback исполнителей, NC-реле и Finglai SSVR
+  обязательно проверяются на реальной плате: без обратной связи
+  `loop_verify` видит `ACT_NO_FEEDBACK`, а не факт срабатывания.
 - `verify_trace` пишется, но метрики MTBF/error rate/max latency и
   CI-replay пока не автоматизированы.
 - Контракт слоёв и перечень непокрытых проверок —
@@ -1206,7 +1251,17 @@ REST: `POST /api/power {"power":35}` — ручной режим,
   `safety_gate_submit()` / `safety_gate_apply_valve()`. `QUALITY`/`EXPERIMENTAL`
   без флага `verified` блокируются; `EXPERIMENTAL` дополнительно требует
   shadow != off.
-- **menuconfig:** `CONFIG_VERIFY_ENABLE` отключает подсистему для релиза.
+- **Активная проверка контура:** `loop_verify` сравнивает ожидаемое и
+  фактическое поведение по слоям (датчик/программа/исполнитель). Mismatch
+  засчитывается после 3 тактов подряд, `NO_RESPONSE` — после 30 с без
+  реакции PV, `NAN` readback даёт `ACT_NO_FEEDBACK` (WARN). Агрегат
+  WARN/DEGRADE/CRITICAL уходит в `safety_gate_submit_flags()`.
+- **Аппаратный рубеж:** `hal_safety_relay` размыкает NC-цепь при потере
+  heartbeat, зависании safety-задачи или E-STOP; `force_open()` необратим
+  до перезагрузки.
+- **menuconfig:** `CONFIG_VERIFY_ENABLE` отключает теневую подсистему для
+  релиза; `CONFIG_LOOP_VERIFY_ENABLE`, `CONFIG_ACTUATOR_READBACK_ENABLE`,
+  `CONFIG_SAFETY_RELAY_ENABLE` — новые пути V0.7 (см. таблицу флагов выше).
 
 ### Многоуровневый адаптивный PID
 
@@ -1377,12 +1432,15 @@ automatika_v2/
     ├── main.c                  app_main и запуск задач
     ├── selftest.c              самотест при старте
     ├── config.h                пины, адреса, пороги, пути
+    ├── Kconfig.projbuild       флаги верификации и новых модулей
     ├── idf_component.yml       зависимости Component Manager
     ├── CMakeLists.txt          список исходников и REQUIRES
     ├── core/                   состояние, события, меню, роли, справка,
-    │                           обучение, рецепты, SD, watchdog
+    │                           обучение, рецепты, SD, watchdog,
+    │                           loop_verify (активная проверка контура)
     ├── hal/                    I2C, 1-Wire, ADC/DAC, реле, дисплей,
-    │                           тач, SD, USB, HX711
+    │                           тач, SD, USB, HX711, readback исполнителей,
+    │                           fail-safe NC-реле
     ├── control/                PID, нагрев, клапаны, безопасность,
     │                           весы, калибровки, прогнозы
     ├── modes/                  8 режимов и пивные рецепты
@@ -2022,9 +2080,21 @@ CONFIG_HTTPD_WS_SUPPORT=y
 CONFIG_LUA_USE_PSRAM=y
 CONFIG_LUA_MAXSTACK=10000
 CONFIG_LITTLEFS_MAX_PARTITIONS=2
+# V0.7 beta — активная верификация и аппаратная защита
+CONFIG_LOOP_VERIFY_ENABLE=y
+CONFIG_ACTUATOR_READBACK_ENABLE=y
+CONFIG_SAFETY_RELAY_ENABLE=y
+CONFIG_EQ_LOCK_ENABLE=y
+CONFIG_VLE_ENABLE=n
+CONFIG_PUMP_PCHIP_ENABLE=n
+CONFIG_ZONE_CONSENSUS_ENABLE=n
 # V0.7 beta — OTA только по HTTPS (сертификат через CA bundle)
 CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP=n
 ```
+
+`CONFIG_VERIFY_ENABLE` и `CONFIG_ADAPTIVE_PID_ENABLE` объявлены в
+`main/Kconfig.projbuild` с `default y`; их можно выключить для релиза без
+потери новых модулей.
 
 > **Офлайн-сборка.** Если сеть недоступна, менеджер компонентов не в силах
 > восстановить `dependencies.lock` и пытается достать версии из реестра.
