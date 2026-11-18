@@ -201,5 +201,5 @@ idf.py -C test -p COM5 flash monitor
 ```
 
 Проверено: `automatika_v2.bin` = `0x2AD8A0`, свободно 11 % раздела;
-`automatika_test.bin` = `0x41420`, тесты собраны и слинкованы, сборка без
+`automatika_test.bin` = `0x41460`, тесты собраны и слинкованы, сборка без
 предупреждений.

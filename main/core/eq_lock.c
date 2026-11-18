@@ -1,4 +1,5 @@
 #include "eq_lock.h"
+#include "event_bus.h"
 #include <math.h>
 #include <stddef.h>
 
@@ -80,6 +81,9 @@ bool eq_lock_tick(eq_lock_t *eq, const eq_lock_input_t *in,
         if (eq->stable_acc_sec >= eq->stable_sec) {
             eq->phase = EQ_LOCKED;
             eq->phase_start_us = now_us;
+            bus_event_t ev = { EV_MAJOR, "EQ_LOCK_ENGAGED", 0,
+                               "thermal equilibrium locked", now_us };
+            event_bus_publish(&ev);
         }
         break;
     }
