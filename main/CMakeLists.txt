@@ -154,8 +154,10 @@ idf_component_register(
 set(LITTLEFS_PY_VENV "${CMAKE_BINARY_DIR}/littlefs_py_venv")
 if(CMAKE_HOST_WIN32)
     set(LITTLEFS_PY "${LITTLEFS_PY_VENV}/Scripts/littlefs-python.exe")
+    set(LITTLEFS_PYTHON "${LITTLEFS_PY_VENV}/Scripts/python.exe")
 else()
     set(LITTLEFS_PY "${LITTLEFS_PY_VENV}/bin/littlefs-python")
+    set(LITTLEFS_PYTHON "${LITTLEFS_PY_VENV}/bin/python")
 endif()
 if(NOT EXISTS "${LITTLEFS_PY}")
     message(STATUS "Preparing littlefs-python venv (prebuilt wheel)")
@@ -163,7 +165,7 @@ if(NOT EXISTS "${LITTLEFS_PY}")
                     RESULT_VARIABLE _lfs_venv_rc)
     if(_lfs_venv_rc EQUAL 0)
         execute_process(
-            COMMAND "${LITTLEFS_PY_VENV}/Scripts/pip.exe" install --only-binary=:all:
+            COMMAND "${LITTLEFS_PYTHON}" -m pip install --only-binary=:all:
                     "littlefs-python==0.19.0"
             RESULT_VARIABLE _lfs_pip_rc)
         if(NOT _lfs_pip_rc EQUAL 0)
