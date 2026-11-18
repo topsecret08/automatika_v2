@@ -31,7 +31,7 @@ float hampel_process(hampel_t *h, float raw, bool *was_outlier) {
     if (h->count < HAMPEL_WINDOW) h->count++;
 
     float m = med(h->buf, (int)h->count);
-    float dev[HAMPEL_WINDOW];
+    float dev[HAMPEL_WINDOW] = {0};
     for (size_t i = 0; i < h->count; i++)
         dev[i] = fabsf(h->buf[i] - m);
     float mad = med(dev, (int)h->count);

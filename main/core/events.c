@@ -34,7 +34,7 @@ void events_log(event_type_t t, const char *fmt, ...) {
     ring_total++;
     if (storage_sd_ready()) {
         FILE *f = fopen(PATH_EVENTS, "a");
-        if (f) { fprintf(f, "%lu,%d,%s\n", e->timestamp_ms, t, e->msg); fclose(f); }
+        if (f) { fprintf(f, "%lu,%d,%s\n", (unsigned long)e->timestamp_ms, t, e->msg); fclose(f); }
     }
     ESP_LOGI("EVENT", "[%s] %s", events_type_name(t), e->msg);
     xSemaphoreGive(mtx);

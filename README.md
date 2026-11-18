@@ -643,7 +643,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.8 beta занимает ~2,80 МБ (`0x2AEF70`),
+указаны слоты по 2 МБ, но образ V0.8 beta занимает ~2,80 МБ (`0x2AEF90`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -1539,15 +1539,49 @@ Workflow `build` опубликован в `.github/workflows/build.yml` и за
 на push/PR в `main`:
 
 - `host-tests` — собирает и запускает `test/host` через CMake/CTest;
+- `static-analysis` — cppcheck с подавлениями и `--error-exitcode=1`;
+- `python-tools` — unit-тесты утилит, проверка актуальности
+  сгенерированных API-справочников, пробный SBOM;
+- `pwa-e2e` — Playwright: 6 сценариев PWA на моках API;
+- `config-matrix` — сборка профилей `minimal` и `full` из
+  `tools/config_profiles/`;
 - `firmware` — собирает прошивку на `espressif/idf:v5.3.2` и выгружает
   артефакты `automatika-v0.8-beta-<sha>`;
 - `esp-tests` — собирает Unity-приложение и запускает его в QEMU
   (`test/qemu/run_qemu_tests.py`), ожидая `0 Failures`.
 
-Текущий статус — зелёный по всем трём job. Branch protection включён:
-обязательные checks `host logic tests`, `firmware (esp32s3)` и
-`ESP-IDF Unity tests in QEMU`, direct push разрешён, force-push и удаление
-ветки запрещены. Файл также продублирован в `ci/build.yml`.
+Отдельный workflow `codeql.yml` анализирует Python-инструменты, а
+`release.yml` по тегу `v*` собирает прошивку, прогоняет тесты, формирует
+SBOM (`sbom.spdx.json`), `build-info.json`, `SHA256SUMS.txt` и публикует
+GitHub Release.
+
+Branch protection включён: обязательные checks `host logic tests`,
+`firmware (esp32s3)` и `ESP-IDF Unity tests in QEMU`, direct push разрешён,
+force-push и удаление ветки запрещены. Файл также продублирован в
+`ci/build.yml`.
+
+### CLI и поиск устройства
+
+```bash
+python tools/automatika_cli.py discover
+python tools/automatika_cli.py --host automatika.local state
+python tools/automatika_cli.py power 40
+python tools/automatika_cli.py gui
+```
+
+Подробности — [`docs/user/CLI.md`](docs/user/CLI.md).
+
+### Документация
+
+- [`docs/developer/C_API.md`](docs/developer/C_API.md) — C API из заголовков
+  (генерируется `tools/gen_api_docs.py`);
+- [`docs/developer/API_ROUTES.md`](docs/developer/API_ROUTES.md) — HTTP-маршруты
+  и авторизация;
+- [`docs/service/SAFETY_VERIFICATION.md`](docs/service/SAFETY_VERIFICATION.md) —
+  проверка E-STOP, NC-реле, readback, loop_verify, SSVR и OTA;
+- краткий старт: [RU](docs/user/QUICK_START.md),
+  [EN](docs/user/QUICK_START.en.md), [DE](docs/user/QUICK_START.de.md),
+  [ES](docs/user/QUICK_START.es.md), [FR](docs/user/QUICK_START.fr.md).
 
 На Windows перед сборкой желательно задать кодировку Python, иначе `idf.py`
 может упасть на чтении кириллического `sdkconfig`:
@@ -1590,8 +1624,8 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.8 beta: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.8 beta): **0x2AEF70 (~2,80 МБ)**, свободно ~11 % раздела.
-Тестовый бинарник: **0x44810**.
+Текущий бинарник (V0.8 beta): **0x2AEF90 (~2,80 МБ)**, свободно ~11 % раздела.
+Тестовый бинарник: **0x44840**.
 
 ### Полезные команды
 

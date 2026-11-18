@@ -1,0 +1,82 @@
+# HTTP API
+
+Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
+
+Всего маршрутов: 74.
+
+| Метод | Путь | Обработчик | Авторизация |
+|---|---|---|---|
+| `GET` | `/api/alcohol` | `h_alcohol` | ключ |
+| `POST` | `/api/alcohol` | `h_alcohol` | ключ |
+| `GET` | `/api/autotune` | `h_autotune` | ключ |
+| `POST` | `/api/autotune` | `h_autotune` | ключ |
+| `POST` | `/api/backup/telegram` | `h_backup_telegram` | ключ |
+| `POST` | `/api/brewfather` | `h_brewfather` | ключ |
+| `POST` | `/api/calendar` | `h_calendar` | ключ |
+| `GET` | `/api/config` | `h_config` | ключ |
+| `POST` | `/api/config` | `h_config` | ключ |
+| `POST` | `/api/config/clear-key` | `h_config_clear_key` | ключ |
+| `POST` | `/api/config/export` | `h_config_export` | ключ |
+| `POST` | `/api/config/generate-key` | `h_config_generate_key` | ключ |
+| `POST` | `/api/config/import` | `h_config_import` | ключ |
+| `GET` | `/api/control` | `h_control` | ключ |
+| `POST` | `/api/control` | `h_control` | ключ |
+| `POST` | `/api/dose` | `h_dose` | ключ |
+| `GET` | `/api/env` | `h_env` | ключ |
+| `POST` | `/api/estop` | `h_estop` | ключ |
+| `GET` | `/api/events` | `h_events` | ключ |
+| `GET` | `/api/health` | `h_health` | — |
+| `GET` | `/api/i18n` | `h_i18n` | ключ |
+| `POST` | `/api/i18n` | `h_i18n` | ключ |
+| `POST` | `/api/mqtt` | `h_mqtt` | ключ |
+| `GET` | `/api/ota` | `h_ota_get` | ключ |
+| `POST` | `/api/ota` | `h_ota_post` | ключ |
+| `POST` | `/api/ota/confirm` | `h_ota_confirm` | ключ |
+| `POST` | `/api/ota/secure` | `h_ota_secure` | ключ |
+| `POST` | `/api/ota/url` | `h_ota_url` | ключ |
+| `GET` | `/api/param` | `h_param_get` | ключ |
+| `POST` | `/api/param` | `h_param_post` | ключ |
+| `POST` | `/api/pause` | `h_pause` | ключ |
+| `POST` | `/api/power` | `h_power` | ключ |
+| `DELETE` | `/api/profiles` | `h_profiles` | ключ |
+| `GET` | `/api/profiles` | `h_profiles` | ключ |
+| `POST` | `/api/profiles` | `h_profiles` | ключ |
+| `GET` | `/api/safety` | `h_safety` | ключ |
+| `POST` | `/api/safety` | `h_safety` | ключ |
+| `GET` | `/api/samovar` | `h_samovar` | ключ |
+| `POST` | `/api/samovar` | `h_samovar` | ключ |
+| `POST` | `/api/script/enable` | `h_script_enable` | ключ |
+| `POST` | `/api/script/run` | `h_script_run` | ключ |
+| `GET` | `/api/script/state` | `h_script_state` | ключ |
+| `POST` | `/api/selection/algo` | `h_fsel_algo` | ключ |
+| `GET` | `/api/selection/config` | `h_fsel_config` | ключ |
+| `POST` | `/api/selection/config` | `h_fsel_config` | ключ |
+| `POST` | `/api/selection/next` | `h_fsel_next` | ключ |
+| `POST` | `/api/selection/next_stage` | `h_fsel_next` | ключ |
+| `POST` | `/api/selection/options` | `h_fsel_options` | ключ |
+| `POST` | `/api/selection/param` | `h_fsel_param` | ключ |
+| `GET` | `/api/selection/state` | `h_fsel_state` | ключ |
+| `GET` | `/api/session` | `h_session` | ключ |
+| `POST` | `/api/session` | `h_session` | ключ |
+| `POST` | `/api/session/minimize` | `h_session_minimize` | ключ |
+| `POST` | `/api/session/restore` | `h_session_restore` | ключ |
+| `GET` | `/api/session/state` | `h_session_state` | ключ |
+| `POST` | `/api/session/stop` | `h_session_stop` | ключ |
+| `POST` | `/api/settings` | `h_settings` | ключ |
+| `POST` | `/api/start` | `h_start` | ключ |
+| `GET` | `/api/state` | `h_state` | ключ |
+| `POST` | `/api/stop` | `h_stop` | ключ |
+| `POST` | `/api/telegram` | `h_telegram` | ключ |
+| `POST` | `/api/telegram/test` | `h_telegram_test` | ключ |
+| `GET` | `/api/trust` | `h_trust` | ключ |
+| `POST` | `/api/verify/action` | `h_verify_action` | ключ |
+| `POST` | `/api/verify/freeze` | `h_verify_freeze` | ключ |
+| `POST` | `/api/verify/fuzz` | `h_verify_fuzz` | ключ |
+| `POST` | `/api/verify/module` | `h_verify_module` | ключ |
+| `POST` | `/api/verify/replay` | `h_verify_replay` | ключ |
+| `POST` | `/api/verify/shadow` | `h_verify_shadow` | ключ |
+| `POST` | `/api/verify/stage` | `h_verify_stage` | ключ |
+| `GET` | `/api/verify/state` | `h_verify_state` | ключ |
+| `POST` | `/api/wifi` | `h_wifi` | ключ |
+| `GET` | `/api/ws-token` | `h_ws_token` | ключ |
+| `GET` | `/ws` | `h_ws` | — |

@@ -1,5 +1,6 @@
 # ESP-IDF build output
 build/
+build-*/
 sdkconfig
 sdkconfig.old
 *.bin
@@ -26,3 +27,6 @@ desktop.ini
 .cache/
 __pycache__/
 *.pyc
+.pytest_cache/
+test-results/
+playwright-report/

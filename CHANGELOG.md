@@ -34,9 +34,28 @@
 - **Тесты:** 100 тестов, 0 сбоев в QEMU; добавлены сценарии разрыва между
   прогонами, бинарного канала, окна актуатора, STUCK, CROSSCHECK,
   антидребезга и rearm.
-- **Сборка:** main `0x2AEF70`, test `0x44810`.
-- **CI:** workflow опубликован, все три job зелёные; branch protection
-  требует эти checks для merge, force-push и удаление `main` запрещены.
+- **Сборка:** main `0x2AEF90`, test `0x44840`.
+- **CI:** workflow опубликован, все три базовых job зелёные; branch
+  protection требует эти checks для merge, force-push и удаление `main`
+  запрещены.
+- **Статический анализ:** cppcheck (`warning,performance,portability`) с
+  `--error-exitcode=1` и списком подтверждённых подавлений; CodeQL для
+  Python-инструментов. Исправлены найденные замечания: формат `%lu`,
+  неинициализированные буферы, границы шага рецепта, защита `median()`.
+- **PWA E2E:** 6 сценариев Playwright на моках API (телеметрия, авария,
+  API-ключ, POST /api/start, навигация, manifest/offline). Тест выявил и
+  исправил ошибку: кубовая температура не обновлялась из `/api/state`.
+- **Матрица конфигураций:** профили `minimal` и `full` в
+  `tools/config_profiles/`, обе сборки проверяются в CI.
+- **CLI и конфигуратор:** `tools/automatika_cli.py` — mDNS-поиск,
+  health/state/safety/power/start/stop, конфиг `~/.automatika.json`,
+  опциональное окно Tkinter.
+- **Документация:** генерация `docs/developer/C_API.md` (337 функций) и
+  `API_ROUTES.md` (74 маршрута) из исходников с проверкой в CI; быстрый
+  старт на EN/DE/ES/FR; процедура `docs/service/SAFETY_VERIFICATION.md`.
+- **Release:** workflow по тегу `v*` собирает прошивку и тесты, формирует
+  SPDX-совместимый `sbom.spdx.json`, `build-info.json`, `SHA256SUMS.txt`
+  и публикует GitHub Release.
 - **Версия:** V0.8 beta.
 
 ## V0.7 beta

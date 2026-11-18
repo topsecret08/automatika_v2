@@ -1,0 +1,10 @@
+# cppcheck: только подтверждённые ложные срабатывания.
+# Формат: id:file
+
+# Cppcheck не разбирает ассемблерные метки _binary_*_start/end,
+# которыми ESP-IDF EMBED_FILES подключает статику PWA.
+syntaxError:main/web/http_handlers.c
+syntaxError:main/web/web_server.c
+
+# IPSTR приходит из lwIP; без полного набора -D макрос неизвестен.
+unknownMacro:main/web/qr_wifi.c

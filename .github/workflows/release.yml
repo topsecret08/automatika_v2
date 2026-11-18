@@ -1,0 +1,83 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build and publish
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reproducible timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - name: Build firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py build
+          idf.py size | tee build/size.txt
+
+      - name: Build and run Unity tests in QEMU
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py -C test set-target esp32s3
+          idf.py -C test build
+          python "$IDF_PATH/tools/idf_tools.py" install qemu-xtensa
+          python test/qemu/run_qemu_tests.py --build-dir test/build
+
+      - name: Generate SBOM and build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/gen_release_metadata.py \
+            --firmware build/automatika_v2.bin \
+            --firmware build/bootloader/bootloader.bin \
+            --firmware build/partition_table/partition-table.bin \
+            --firmware build/assets.bin \
+            --test-app test/build/automatika_test.bin \
+            --sbom sbom.spdx.json \
+            --manifest build-info.json
+
+      - name: Pack artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="automatika-${GITHUB_REF_NAME}"
+          mkdir -p dist
+          cp build/automatika_v2.bin build/automatika_v2.elf build/automatika_v2.map \
+             build/bootloader/bootloader.bin \
+             build/partition_table/partition-table.bin \
+             build/ota_data_initial.bin build/assets.bin build/size.txt dist/
+          cp test/build/automatika_test.bin dist/
+          cp sbom.spdx.json build-info.json dist/
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+          (cd dist && zip -r "../${NAME}.zip" .)
+          echo "NAME=${NAME}" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.NAME }}.zip
+            sbom.spdx.json
+            build-info.json
+          generate_release_notes: true

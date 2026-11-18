@@ -235,7 +235,7 @@ async function pollState() {
     const response = await api('/api/state');
     if (!response.ok) return;
     const data = await response.json();
-    if (typeof data.tc !== 'undefined') state.tc = data.cube;
+    if (typeof data.cube !== 'undefined') state.tc = data.cube;
     if (typeof data.col !== 'undefined') state.ts = data.col;
     if (typeof data.power !== 'undefined') state.power = data.power;
     if (typeof data.power_auto !== 'undefined') state.powerAuto = data.power_auto;

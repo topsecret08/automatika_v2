@@ -219,6 +219,8 @@ esp_err_t ctrl_dose_init(void) {
         events_log(EVENT_WARNING,
                    "Doser pump disabled: STEP/ENABLE GPIO not configured");
     } else {
+        // step_ok/en_ok гарантируют, что оба вывода реальные (>=0).
+        // cppcheck-suppress signConversion
         uint64_t mask = (1ULL << PUMP_STEP_GPIO) | (1ULL << PUMP_EN_GPIO);
         gpio_config_t io = {
             .pin_bit_mask = mask,

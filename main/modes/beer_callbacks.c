@@ -52,9 +52,11 @@ void cb_beer_save_step(void *ctx) {
 void cb_beer_del_step(void *ctx) {
     (void)ctx;
     beer_recipe_t *r = beer_recipe_get(s_edit_idx);
-    if (!r || s_edit_step < 0) return;
-    for (int i = s_edit_step; i < r->step_count - 1; i++)
+    if (!r || s_edit_step < 0 || s_edit_step >= r->step_count) return;
+    for (int i = s_edit_step; i < r->step_count - 1; i++) {
+        // cppcheck-suppress negativeIndex
         r->steps[i] = r->steps[i + 1];
+    }
     r->step_count--;
     extern void ui_beer_editor_steps(int);
     ui_beer_editor_steps(s_edit_idx);

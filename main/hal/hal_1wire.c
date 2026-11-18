@@ -244,7 +244,7 @@ float hal_1wire_read(int idx) {
     xSemaphoreTake(s_cache_mtx, portMAX_DELAY);
     float v = cache_fresh(idx, now) ? s_calibrated[idx] : -127.0f;
     if (cache_fresh(idx, now)) {
-        float peers[MAX_SENSORS];
+        float peers[MAX_SENSORS] = {0};
         int pn = 0;
         for (int j = 0; j < count && pn < MAX_SENSORS; j++) {
             if (j != idx && cache_fresh(j, now) && s_calibrated[j] > -50.0f)

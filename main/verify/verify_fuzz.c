@@ -7,6 +7,7 @@
 
 static float median(float *v, int n) {
     float tmp[FUZZ_N];
+    if (!v || n <= 0 || n > FUZZ_N) return 0.0f;
     for (int i = 0; i < n; i++) tmp[i] = v[i];
     for (int i = 0; i < n; i++) {
         for (int j = i + 1; j < n; j++) {
