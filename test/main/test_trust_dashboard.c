@@ -21,5 +21,5 @@ TEST_CASE("trust dashboard critical below 0.3", "[trust]") {
     size_t n = trust_dashboard_snapshot(e, 4);
     TEST_ASSERT_EQUAL_UINT32(1, n);
     TEST_ASSERT_EQUAL_UINT8(2, e[0].status);
-    TEST_ASSERT_EQUAL_INT64(0, e[0].last_good_us);
+    TEST_ASSERT_TRUE(e[0].last_good_us == 0);
 }

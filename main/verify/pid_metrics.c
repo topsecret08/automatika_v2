@@ -16,7 +16,7 @@ esp_err_t pid_compute_metrics(const float *sp, const float *y, int n,
     }
 
     out->overshoot_pct = (amp > 0.0f)
-        ? fmaxf(0.0f, (y_max - amp) / amp * 100.0f)
+        ? fmaxf(0.0f, (y_max - sp[n - 1]) / amp * 100.0f)
         : 0.0f;
 
     // Settling: последний выход за 5 % от амплитуды.

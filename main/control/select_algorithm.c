@@ -40,9 +40,10 @@ algo_result_t algo_evaluate(const algo_config_t *cfg, float trend,
         return ALGO_RESULT_NORMAL;
 
     case ALGO_ADAPTIVE:
-        if (trend > cfg->trend_pause_c_per_min &&
-            (t_fix <= 0.0f || t_stage > t_fix - hysteresis)) {
-            return ALGO_RESULT_PAUSE;
+        if (trend > cfg->trend_pause_c_per_min) {
+            if (t_fix <= 0.0f || t_stage > t_fix - hysteresis)
+                return ALGO_RESULT_PAUSE;
+            return ALGO_RESULT_NORMAL;
         }
         if (trend > cfg->trend_decrement_c_per_min) return ALGO_RESULT_DECREMENT;
         return ALGO_RESULT_NORMAL;

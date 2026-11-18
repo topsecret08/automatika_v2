@@ -32,7 +32,13 @@ ctest --test-dir test/host/build --output-on-failure
 
 Покрывает duty mapping, Finglai `sqrt(P)`, калибровку, GPIO и блокировки
 нагрева. Unity-тесты `test/` собираются в ESP-IDF и запускаются на
-устройстве.
+устройстве или в QEMU:
+
+```bash
+python test/qemu/run_qemu_tests.py --build-dir test/build
+```
+
+Последний прогон QEMU: **82 tests, 0 failures**.
 
 ## Запуск
 
@@ -65,5 +71,5 @@ GPIO и файловой системы. Их проверка требует и
 
 Проверено на этой итерации (реальная сборка ESP-IDF 5.3.2, esp32s3):
 
-- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2AD8A0`);
-- тестовый проект: `test/` — OK, образ `0x41460`.
+- продуктивная прошивка: `idf.py build` — OK, образ ≈2,80 МБ (`0x2AD880`);
+- тестовый проект: `test/` — OK, образ `0x414A0`.

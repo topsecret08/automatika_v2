@@ -65,7 +65,7 @@ static float linear_slope(const TempFilter *f, int *out_n) {
         num += dx * (y[i] - mean_y);
         den += dx * dx;
     }
-    return (den > 0.0f) ? -num / den : 0.0f;        /* минус: свежий = x=0 */
+    return (den > 0.0f) ? num / den : 0.0f;        /* минус: свежий = x=0 */
 }
 
 float temp_filter_update(TempFilter *f, float new_sample) {
@@ -76,9 +76,9 @@ float temp_filter_update(TempFilter *f, float new_sample) {
         if (f->bad_count >= 3) {
             temp_filter_reset(f);
             f->bad_count = 3;
+            f->value = NAN;
+            f->rising = false;
         }
-        f->value = NAN;
-        f->rising = false;
         return NAN;
     }
     f->bad_count = 0;
@@ -117,7 +117,8 @@ bool temp_filter_is_rising(TempFilter *f, float delta_threshold) {
         if (!f->rising && (f->value - f->trend_start) >= thr)
             f->rising = true;
     } else if (f->trend_active) {
-        if ((f->trend_start - f->value) >= f->drop_delta) {
+        if ((f->trend_start - f->value) >= f->drop_delta ||
+            f->slope < -f->trend_threshold) {
             f->trend_active = false;
             f->rising = false;
         }

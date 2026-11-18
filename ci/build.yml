@@ -60,7 +60,7 @@ jobs:
           if-no-files-found: error
 
   esp-tests:
-    name: ESP-IDF test app build
+    name: ESP-IDF Unity tests in QEMU
     runs-on: ubuntu-latest
     container: espressif/idf:v5.3.2
     steps:
@@ -74,6 +74,20 @@ jobs:
           . "$IDF_PATH/export.sh"
           idf.py -C test set-target esp32s3
           idf.py -C test build
+
+      - name: Install QEMU
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          python "$IDF_PATH/tools/idf_tools.py" install qemu-xtensa
+
+      - name: Run Unity tests in QEMU
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          python test/qemu/run_qemu_tests.py --build-dir test/build
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4

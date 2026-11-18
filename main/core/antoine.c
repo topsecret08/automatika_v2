@@ -33,8 +33,6 @@ bool antoine_inverse(const antoine_set_t *sets, int n,
         if (dT > 50.0f) dT = 50.0f;
         if (dT < -50.0f) dT = -50.0f;
         t -= dT;
-        if (t < s->Tmin) t = s->Tmin + 0.01f;
-        if (t > s->Tmax) t = s->Tmax - 0.01f;
         if (fabsf(dT) < 0.001f) break;
     }
 

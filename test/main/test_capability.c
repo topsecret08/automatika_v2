@@ -13,7 +13,7 @@ TEST_CASE("capability parser grants declared capabilities", "[capability]") {
 TEST_CASE("capability deny by default", "[capability]") {
     cap_set_t cs;
     TEST_ASSERT_TRUE(cap_parse_requires("-- no capabilities", &cs));
-    TEST_ASSERT_EQUAL_UINT64(0, cs.granted);
+    TEST_ASSERT_TRUE(cs.granted == 0);
     TEST_ASSERT_FALSE(cap_check(&cs, CAP_SENSOR_READ_CUBE, "sensor.read"));
 }
 

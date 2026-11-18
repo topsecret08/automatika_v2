@@ -100,6 +100,8 @@ idf.py -C test build
 idf.py -C test -p COM5 flash monitor
 ```
 
+В QEMU (ESP32-S3) тестовый образ проходит: **82 tests, 0 failures**.
+
 > **Что уже есть:** OTA с автоматическим откатом, миграции NVS,
 > WebSocket-телеметрия, Telegram, датчик уровня, BMP280, расходомер,
 > PID-автотюнинг, периодический отбор HEADS/BODY/TAILS, сессия, реестр
@@ -503,7 +505,7 @@ curl -H "X-API-Key: $KEY" http://192.168.1.50/api/ota
 (для отладки).
 
 Разделы — `partitions.csv`: `factory`, `ota_0`, `ota_1` по **3 МБ**. В ТЗ
-указаны слоты по 2 МБ, но образ V0.6 beta занимает ~2,80 МБ (`0x2AD8A0`),
+указаны слоты по 2 МБ, но образ V0.6 beta занимает ~2,80 МБ (`0x2AD880`),
 поэтому 2 МБ физически не хватает; 3 МБ дают ~12 % запаса. Уменьшать слоты
 можно только после `idf.py size` с образом < 2 МБ (см. комментарий в
 `partitions.csv`).
@@ -1379,7 +1381,8 @@ Workflow — `ci/build.yml` (и копия `.github/workflows/build.yml`):
 
 - `host-tests` — собирает и запускает `test/host` через CMake/CTest;
 - `firmware` — собирает прошивку на `espressif/idf:v5.3.2`;
-- `esp-tests` — собирает Unity-тестовое приложение.
+- `esp-tests` — собирает Unity-приложение и запускает его в QEMU
+  (`test/qemu/run_qemu_tests.py`), ожидая `0 Failures`.
 
 GitHub не принимает файлы в `.github/workflows/` от токена без права
 `workflow`:
@@ -1444,7 +1447,7 @@ SQLite **не скачивается**: он лежит локально в `com
 | `assets` | data/littlefs | `0x920000` | **1 МБ** (V0.6 beta: скрипты) |
 | `storage` | data/spiffs | `0xA20000` | ~5,9 МБ |
 
-Текущий бинарник (V0.6 beta): **0x2AD8A0 (~2,80 МБ)**, свободно ~11 % раздела.
+Текущий бинарник (V0.6 beta): **0x2AD880 (~2,80 МБ)**, свободно ~11 % раздела.
 
 ### Полезные команды
 

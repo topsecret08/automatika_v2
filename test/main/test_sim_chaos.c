@@ -36,5 +36,5 @@ TEST_CASE("chaos probe schedules and scores", "[sim]") {
     }
     TEST_ASSERT_TRUE(injected >= 55 && injected <= 65);
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.0f, chaos_probe_safe_rate(&cp));
-    TEST_ASSERT_EQUAL_UINT64(500, chaos_probe_avg_ms(&cp));
+    TEST_ASSERT_TRUE(chaos_probe_avg_ms(&cp) == 500);
 }
