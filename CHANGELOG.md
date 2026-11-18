@@ -35,7 +35,8 @@
   прогонами, бинарного канала, окна актуатора, STUCK, CROSSCHECK,
   антидребезга и rearm.
 - **Сборка:** main `0x2AEF70`, test `0x44810`.
-- **CI:** workflow опубликован, все три job зелёные.
+- **CI:** workflow опубликован, все три job зелёные; branch protection
+  требует эти checks для merge, force-push и удаление `main` запрещены.
 - **Версия:** V0.8 beta.
 
 ## V0.7 beta

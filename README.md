@@ -1544,10 +1544,10 @@ Workflow `build` опубликован в `.github/workflows/build.yml` и за
 - `esp-tests` — собирает Unity-приложение и запускает его в QEMU
   (`test/qemu/run_qemu_tests.py`), ожидая `0 Failures`.
 
-Текущий статус — зелёный по всем трём job. Для merge-gate включите
-branch protection: **Settings → Branches → Require status checks**, выбрав
-`host logic tests`, `firmware (esp32s3)` и `ESP-IDF Unity tests in QEMU`.
-Файл также продублирован в `ci/build.yml`.
+Текущий статус — зелёный по всем трём job. Branch protection включён:
+обязательные checks `host logic tests`, `firmware (esp32s3)` и
+`ESP-IDF Unity tests in QEMU`, direct push разрешён, force-push и удаление
+ветки запрещены. Файл также продублирован в `ci/build.yml`.
 
 На Windows перед сборкой желательно задать кодировку Python, иначе `idf.py`
 может упасть на чтении кириллического `sdkconfig`:
