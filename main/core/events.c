@@ -1,4 +1,5 @@
 #include "events.h"
+#include "mem_attr.h"
 #include "config.h"
 #include "storage.h"
 #include "esp_timer.h"
@@ -10,7 +11,7 @@
 #include <string.h>
 
 #define MAX_EVENTS 200
-static event_t ring[MAX_EVENTS];
+static LARGE_BSS_ATTR event_t ring[MAX_EVENTS];
 static size_t ring_head = 0, ring_count = 0, ring_total = 0;
 static SemaphoreHandle_t mtx;
 

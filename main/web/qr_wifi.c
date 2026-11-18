@@ -1,4 +1,5 @@
 #include "qr_wifi.h"
+#include "core/mem_attr.h"
 #include "api_auth.h"
 #include "ui/ui_builder.h"
 #include "ui/ui_theme.h"
@@ -63,7 +64,7 @@ void qr_show_custom(const char *title, const char *payload) {
     }
 
     lv_obj_t *canvas = lv_canvas_create(scr);
-    static lv_color_t cbuf[200 * 200];
+    static LARGE_BSS_ATTR lv_color_t cbuf[200 * 200];
     lv_canvas_set_buffer(canvas, cbuf, 200, 200, LV_IMG_CF_TRUE_COLOR);
     qr_draw_to_canvas(canvas, modules, size);
     lv_obj_align(canvas, LV_ALIGN_TOP_MID, 0, 70);

@@ -1,4 +1,5 @@
 #include "cache_manager.h"
+#include "core/mem_attr.h"
 #include "core/events.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
@@ -6,7 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-static snapshot_t s_snaps[SNAPSHOT_MAX];
+static LARGE_BSS_ATTR snapshot_t s_snaps[SNAPSHOT_MAX];
 static int        s_snap_count = 0;
 
 typedef struct {

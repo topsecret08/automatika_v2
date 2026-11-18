@@ -518,7 +518,8 @@ function renderDashboard() {
 
     <section class="section">
       <div class="card chart-card" id="chart-card" role="button" tabindex="0"
-           aria-label="Открыть журнал температур" title="Журнал температур">
+           aria-label="Открыть журнал температур" aria-haspopup="dialog"
+           aria-expanded="false" title="Журнал температур">
         <div class="chart-head">
           <span class="card-row-title">Динамика</span>
           <span class="chart-legend">
@@ -1168,6 +1169,7 @@ function formatTempTime(seconds) {
 }
 
 let tempLogLimit = 400;
+let tempModalLastFocus = null;
 
 function ensureTempModal() {
   let modal = document.getElementById('temp-modal');
@@ -1175,7 +1177,7 @@ function ensureTempModal() {
 
   document.body.insertAdjacentHTML('beforeend', `
     <div id="temp-modal" class="temp-modal" role="dialog" aria-modal="true"
-         aria-labelledby="temp-title">
+         aria-hidden="true" aria-labelledby="temp-title">
       <div class="temp-sheet">
         <div class="temp-head">
           <div>
@@ -1204,6 +1206,11 @@ function ensureTempModal() {
     modal.classList.remove('open');
     modal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
+    document.getElementById('chart-card')?.setAttribute('aria-expanded', 'false');
+    if (tempModalLastFocus && typeof tempModalLastFocus.focus === 'function') {
+      tempModalLastFocus.focus();
+    }
+    tempModalLastFocus = null;
   };
   const refresh = async () => {
     await fetchTempEvents();
@@ -1217,7 +1224,25 @@ function ensureTempModal() {
     if (event.target === modal) close();
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && modal.classList.contains('open')) close();
+    if (!modal.classList.contains('open')) return;
+    if (event.key === 'Escape') {
+      close();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(modal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )).filter((element) => !element.disabled && element.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
   document.getElementById('temp-refresh')?.addEventListener('click', refresh);
   document.getElementById('temp-more')?.addEventListener('click', () => {
@@ -1303,10 +1328,13 @@ async function openTempLog() {
   await fetchTempEvents();
   chartAnomalies = computeTempAnomalies(chartData);
   const modal = ensureTempModal();
+  tempModalLastFocus = document.activeElement;
   renderTempLog();
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
+  document.getElementById('chart-card')?.setAttribute('aria-expanded', 'true');
+  document.getElementById('temp-close')?.focus();
   if (uplot) uplot.redraw();
 }
 
@@ -1487,6 +1515,15 @@ function renderCalibration() {
   if (!app) return;
 
   app.innerHTML = `
+    <section class="section">
+      <div class="card task-list">
+        <a class="task-row" href="/?page=autotune" data-page-link="autotune">
+          <span class="task-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg></span>
+          <span class="body grow">PID-автотюн</span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </a>
+      </div>
+    </section>
     <section class="section">
       <div class="section-title">Регулирование</div>
       <form id="control-form" class="card">
@@ -1851,6 +1888,15 @@ async function renderSelection() {
   if (!app) return;
 
   app.innerHTML = `
+    <section class="section">
+      <div class="card task-list">
+        <a class="task-row" href="/?page=selection-params" data-page-link="selection-params">
+          <span class="task-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M13.4 10.6 19 5"/><path d="M4 18a8 8 0 1 1 16 0"/></svg></span>
+          <span class="body grow">Параметры отбора</span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </a>
+      </div>
+    </section>
     <section class="section">
       <div class="section-title">Отбор · вариант</div>
       <div class="card">
@@ -2374,12 +2420,12 @@ const HW_TEMP_ROLES = [
   ['tank', 'Бак/брожение']
 ];
 
-function hwSelect(role, value, count) {
+function hwSelect(role, label, value, count) {
   const options = ['<option value="-1">нет</option>'];
   for (let i = 0; i < count; i++) {
     options.push(`<option value="${i}" ${i === value ? 'selected' : ''}>Датчик ${i}</option>`);
   }
-  return `<select class="input" id="hw-temp-${role}">${options.join('')}</select>`;
+  return `<select class="input" id="hw-temp-${role}" aria-label="${label}">${options.join('')}</select>`;
 }
 
 async function renderHardware() {
@@ -2396,7 +2442,7 @@ async function renderHardware() {
     const tempRows = HW_TEMP_ROLES.map(([role, label]) => `
       <div class="card-row">
         <span class="card-row-title">${label}</span>
-        ${hwSelect(role, Number(data.temp?.[role] ?? -1), count)}
+        ${hwSelect(role, label, Number(data.temp?.[role] ?? -1), count)}
       </div>`).join('');
 
     const devRows = HW_DEVICES.map(([key, label]) => `

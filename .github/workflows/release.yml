@@ -38,6 +38,9 @@ jobs:
           idf.py set-target esp32s3
           idf.py build
           idf.py size | tee build/size.txt
+          python tools/check_build_size.py \
+            --map build/automatika_v2.map \
+            --bin build/automatika_v2.bin
 
       - name: Build and run Unity tests in QEMU
         shell: bash

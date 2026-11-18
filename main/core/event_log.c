@@ -1,10 +1,11 @@
 #include "event_log.h"
+#include "mem_attr.h"
 #include "events.h"
 
 #include <stdio.h>
 #include <string.h>
 
-static char s_out[EVENT_LOG_JSON_MAX];
+static LARGE_BSS_ATTR char s_out[EVENT_LOG_JSON_MAX];
 
 static void json_escape_append(char *dst, size_t max, size_t *off, const char *src) {
     for (const char *p = src; p && *p && *off + 7 < max; p++) {
@@ -43,7 +44,7 @@ static int copy_recent(event_t *buf, int max) {
 }
 
 const char *event_log_dump_json(int limit) {
-    static event_t batch[EVENTS_RING_MAX];
+    static LARGE_BSS_ATTR event_t batch[EVENTS_RING_MAX];
 
     if (limit <= 0 || limit > EVENTS_RING_MAX) limit = 64;
 

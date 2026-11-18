@@ -12,6 +12,7 @@ export const MENU = {
     tasks: [
       { id: 'dashboard', label: 'Дашборд', page: 'dashboard', icon: 'grid' },
       { id: 'fraction', label: 'Текущая фракция', page: 'fraction', icon: 'layers' },
+      { id: 'selection', label: 'Вариант отбора', page: 'selection', icon: 'layers' },
     ],
   },
   prepare: {
@@ -19,12 +20,9 @@ export const MENU = {
     icon: 'sliders',
     tasks: [
       { id: 'profiles', label: 'Профили', page: 'profiles', icon: 'folder' },
-      { id: 'calibration', label: 'Калибровка насоса', page: 'calibration', icon: 'gauge' },
       { id: 'hardware', label: 'Оборудование', page: 'hardware', icon: 'tool' },
-      { id: 'autotune', label: 'PID-автотюн', page: 'autotune', icon: 'sliders' },
+      { id: 'calibration', label: 'Калибровка', page: 'calibration', icon: 'gauge' },
       { id: 'sensors', label: 'Проверка датчиков', page: 'sensors', icon: 'thermometer' },
-      { id: 'selection', label: 'Вариант отбора', page: 'selection', icon: 'layers' },
-      { id: 'selection-params', label: 'Параметры отбора', page: 'selection-params', icon: 'gauge' },
     ],
   },
   diagnose: {
