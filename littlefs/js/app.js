@@ -51,6 +51,12 @@ const state = {
   regulatorError: '',
   rate: 0,
   level: 0,
+  pressure: 0,
+  vacuum: 0,
+  flow: -1,
+  scaleMl: -1,
+  jacket: -1,
+  tank: -1,
   stage: 0,
   running: 0,
   paused: 0,
@@ -72,6 +78,7 @@ let chartData = [];
 let chartAnomalies = [];
 let tempEvents = [];
 let tempSaveTick = 0;
+let hardwareProfile = null;
 let currentPage = 'dashboard';
 
 const TEMP_HISTORY_MAX = 7200;          // ~2 часа при 1 Гц
@@ -260,6 +267,13 @@ async function pollState() {
     if (typeof data.service !== 'undefined') state.service = !!data.service;
     if (typeof data.estop_healthy !== 'undefined') state.estopHealthy = !!data.estop_healthy;
     if (typeof data.level_required_fault !== 'undefined') state.levelRequiredFault = !!data.level_required_fault;
+    if (typeof data.pressure !== 'undefined') state.pressure = Number(data.pressure);
+    if (typeof data.vacuum !== 'undefined') state.vacuum = Number(data.vacuum);
+    if (typeof data.flow !== 'undefined') state.flow = Number(data.flow);
+    if (typeof data.level !== 'undefined') state.level = Number(data.level);
+    if (typeof data.scale_ml !== 'undefined') state.scaleMl = Number(data.scale_ml);
+    if (typeof data.jacket !== 'undefined') state.jacket = Number(data.jacket);
+    if (typeof data.tank !== 'undefined') state.tank = Number(data.tank);
     if (typeof data.regulator_error !== 'undefined') state.regulatorError = data.regulator_error;
     if (typeof data.stage !== 'undefined') state.stage = data.stage;
     if (typeof data.running !== 'undefined') state.running = data.running;
@@ -434,6 +448,11 @@ function renderDashboard() {
       </div>
     </section>
 
+    <section class="section" id="sensor-section" hidden>
+      <div class="section-title">Датчики</div>
+      <div id="sensor-tiles" class="kpi-grid"></div>
+    </section>
+
     <section class="section">
       <div class="card">
         <div class="row">
@@ -601,6 +620,8 @@ function renderDashboard() {
 
   initChart();
   renderLiveValues();
+  buildSensorTiles();
+  if (!hardwareProfile) loadHardwareProfile();
 
   const chartCard = $('#chart-card');
   if (chartCard) {
@@ -667,6 +688,8 @@ function renderLiveValues() {
 
   const volume = $('#volume-value');
   if (volume) volume.textContent = String(Math.round(volumeMl()));
+
+  updateSensorTiles();
 
   const stageLabel = $('#stage-label');
   if (stageLabel) stageLabel.textContent = STAGE_NAMES[state.stage] || '—';
@@ -829,26 +852,98 @@ function renderParamValues() {
   }
 }
 
-function openParamEditor(name) {
-  const def = paramDef(name);
-  if (!def) return;
-  if (!def.editable) {
+let paramEditorName = null;
+let paramEditorLastFocus = null;
+
+function ensureParamModal() {
+  let modal = document.getElementById('param-modal');
+  if (modal) return modal;
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="param-modal" class="temp-modal param-editor" role="dialog"
+         aria-modal="true" aria-hidden="true" aria-labelledby="param-title">
+      <div class="temp-sheet">
+        <div class="temp-head">
+          <div>
+            <div id="param-title" class="temp-title">Параметр</div>
+            <div id="param-sub" class="temp-sub"></div>
+          </div>
+          <button id="param-close" class="temp-close" type="button"
+                  aria-label="Закрыть">✕</button>
+        </div>
+        <div class="param-value-row">
+          <button id="param-minus" class="btn btn-secondary" type="button"
+                  aria-label="Уменьшить">−</button>
+          <input id="param-input" class="input param-input" type="number"
+                 inputmode="decimal">
+          <button id="param-plus" class="btn btn-secondary" type="button"
+                  aria-label="Увеличить">+</button>
+        </div>
+        <div id="param-hint" class="hint"></div>
+        <div class="temp-actions">
+          <button id="param-save" class="btn btn-primary" type="button">Сохранить</button>
+          <button id="param-cancel" class="btn btn-secondary" type="button">Отмена</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  modal = document.getElementById('param-modal');
+  const close = () => {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    if (paramEditorLastFocus && paramEditorLastFocus.focus) {
+      paramEditorLastFocus.focus();
+    }
+    paramEditorLastFocus = null;
+  };
+
+  document.getElementById('param-close')?.addEventListener('click', close);
+  document.getElementById('param-cancel')?.addEventListener('click', close);
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) close();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal.classList.contains('open')) close();
+  });
+
+  const adjust = (delta) => {
+    const input = document.getElementById('param-input');
+    const def = paramDef(paramEditorName);
+    if (!input || !def) return;
+    const step = Number(def.step || 1);
+    let value = Number(input.value || 0) + delta * step;
+    value = Math.min(Number(def.max), Math.max(Number(def.min), value));
+    input.value = String(Number(value.toFixed(3)));
+  };
+  document.getElementById('param-minus')?.addEventListener(
+    'click', () => adjust(-1));
+  document.getElementById('param-plus')?.addEventListener(
+    'click', () => adjust(1));
+  document.getElementById('param-save')?.addEventListener('click', saveParamEditor);
+
+  return modal;
+}
+
+async function saveParamEditor() {
+  const def = paramDef(paramEditorName);
+  const input = document.getElementById('param-input');
+  if (!def || !input) return;
+  let value = Number(input.value);
+  if (!Number.isFinite(value)) {
     haptic('error');
-    toast('Нельзя изменить во время работы');
+    toast('Введите число');
     return;
   }
+  value = Math.min(Number(def.max), Math.max(Number(def.min), value));
+  input.value = String(Number(value.toFixed(3)));
 
-  const initial = Number(def.value || 0);
-  const entered = prompt(
-    `${def.label} (${def.unit})\nДиапазон: ${def.min}…${def.max}`,
-    String(initial)
-  );
-  if (entered === null || entered === '' || isNaN(+entered)) return;
-
-  api('/api/param', {
-    method: 'POST',
-    body: JSON.stringify({ name, value: +entered })
-  }).then(async (response) => {
+  try {
+    const response = await api('/api/param', {
+      method: 'POST',
+      body: JSON.stringify({ name: paramEditorName, value })
+    });
     if (response.status === 403) {
       haptic('error');
       toast('Заблокировано во время работы');
@@ -858,12 +953,50 @@ function openParamEditor(name) {
     if (!response.ok) throw new Error(String(response.status));
     haptic('light');
     toast('Параметр сохранён');
+    document.getElementById('param-modal')?.classList.remove('open');
+    document.getElementById('param-modal')?.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    if (paramEditorLastFocus && paramEditorLastFocus.focus) {
+      paramEditorLastFocus.focus();
+    }
+    paramEditorLastFocus = null;
     await loadParamDefs();
     pollSelection();
-  }).catch(() => {
+  } catch (_) {
     haptic('error');
     toast('Не удалось сохранить параметр');
-  });
+  }
+}
+
+function openParamEditor(name) {
+  const def = paramDef(name);
+  if (!def) return;
+  if (!def.editable) {
+    haptic('error');
+    toast('Нельзя изменить во время работы');
+    return;
+  }
+
+  paramEditorName = name;
+  const modal = ensureParamModal();
+  const input = document.getElementById('param-input');
+  document.getElementById('param-title').textContent = def.label;
+  document.getElementById('param-sub').textContent =
+    `${def.unit || ''} · диапазон ${def.min}…${def.max}`;
+  document.getElementById('param-hint').textContent =
+    'Значение можно изменить во время процесса.';
+  input.min = String(def.min);
+  input.max = String(def.max);
+  input.step = String(def.step || 0.1);
+  input.value = String(Number(def.value || 0));
+  input.setAttribute('aria-label', def.label);
+
+  paramEditorLastFocus = document.activeElement;
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+  input.focus();
+  input.select();
 }
 
 window.editParam = openParamEditor;
@@ -933,8 +1066,8 @@ function initChart() {
 
     uplot = new uPlot({
       width,
-      height: 140,
-      padding: [8, 8, 0, 0],
+      height: 104,
+      padding: [6, 8, 0, 0],
       legend: { show: false },
       cursor: { drag: { x: true, y: false }, points: { show: false } },
       hooks: { draw: [drawChartAnomalies] },
@@ -2437,6 +2570,7 @@ async function renderHardware() {
     const response = await api('/api/hardware');
     if (!response.ok) throw new Error(String(response.status));
     const data = await response.json();
+    hardwareProfile = data;
     const count = Number(data.onewire_count || 0);
 
     const tempRows = HW_TEMP_ROLES.map(([role, label]) => `
@@ -2494,6 +2628,61 @@ async function renderHardware() {
     });
   } catch (_) {
     app.innerHTML = '<div class="empty">Нет связи с устройством</div>';
+  }
+}
+
+const HW_SENSOR_TILES = [
+  { key: 'pressure', flag: 'pressure', label: 'Давление', unit: 'бар', digits: 2 },
+  { key: 'vacuum', flag: 'vacuum', label: 'Вакуум', unit: 'мбар', digits: 0 },
+  { key: 'flow', flag: 'flow', label: 'Поток', unit: 'л/мин', digits: 1 },
+  { key: 'level', flag: 'level', label: 'Уровень', unit: '%', digits: 0 },
+  { key: 'scaleMl', flag: 'scale', label: 'Вес', unit: 'мл', digits: 0 },
+  { key: 'jacket', role: 'jacket', label: 'Рубашка', unit: '°C', digits: 1 },
+  { key: 'tank', role: 'tank', label: 'Бак', unit: '°C', digits: 1 }
+];
+
+function sensorTileDefs() {
+  if (!hardwareProfile) return [];
+  const devices = hardwareProfile.devices || {};
+  const temp = hardwareProfile.temp || {};
+  return HW_SENSOR_TILES.filter((tile) => {
+    if (tile.flag) return !!devices[tile.flag];
+    if (tile.role) return Number(temp[tile.role]) >= 0;
+    return false;
+  });
+}
+
+async function loadHardwareProfile() {
+  try {
+    const response = await api('/api/hardware');
+    if (!response.ok) return;
+    hardwareProfile = await response.json();
+    buildSensorTiles();
+  } catch (_) {}
+}
+
+function buildSensorTiles() {
+  const section = $('#sensor-section');
+  const host = $('#sensor-tiles');
+  if (!section || !host) return;
+  const defs = sensorTileDefs();
+  section.hidden = defs.length === 0;
+  host.innerHTML = defs.map((tile) => `
+    <div class="kpi">
+      <div class="kpi-label">${tile.label}</div>
+      <div class="kpi-value"><span data-sensor="${tile.key}">—</span><span class="kpi-unit">${tile.unit}</span></div>
+    </div>`).join('');
+  updateSensorTiles();
+}
+
+function updateSensorTiles() {
+  for (const tile of sensorTileDefs()) {
+    const node = document.querySelector(`[data-sensor="${tile.key}"]`);
+    if (!node) continue;
+    const value = Number(state[tile.key]);
+    node.textContent = Number.isFinite(value) && value >= 0
+      ? value.toFixed(tile.digits)
+      : '—';
   }
 }
 
@@ -3026,6 +3215,7 @@ window.addEventListener('appinstalled', () => {
 // ------------------------------------------------------------------
 function init() {
   loadTempHistory();
+  loadHardwareProfile();
   window.addEventListener('pagehide', saveTempHistory);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) saveTempHistory();

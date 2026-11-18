@@ -447,12 +447,12 @@
 /* ------------------------------------------------------------------ */
 /* График                                                              */
 /* ------------------------------------------------------------------ */
-.chart-card { padding: var(--space-16); }
+.chart-card { padding: var(--space-12); }
 .chart-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-4);
 }
 .chart-legend {
   display: flex;
@@ -473,7 +473,7 @@
 .chart-wrap {
   position: relative;
   width: 100%;
-  height: 140px;
+  height: 104px;
 }
 .chart-wrap canvas {
   width: 100%;
@@ -875,4 +875,22 @@ select:focus-visible, textarea:focus-visible {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+
+/* Редактор параметра */
+.param-editor .temp-sheet { width: min(420px, 100%); }
+.param-value-row {
+  display: grid;
+  grid-template-columns: var(--tap-target) minmax(0, 1fr) var(--tap-target);
+  gap: var(--space-8);
+  align-items: center;
+  margin: var(--space-12) 0;
+}
+.param-input {
+  font-size: 30px;
+  font-weight: 700;
+  text-align: center;
+  min-height: 56px;
+  font-variant-numeric: tabular-nums;
 }

@@ -51,6 +51,8 @@
 #include "control/pid_autotune.h"
 #include "control/reflux.h"
 #include "level/level_sensor.h"
+#include "control/ctrl_scale.h"
+#include "core/hw_profile.h"
 #include "ota/ota_manager.h"
 #include "ota/secure_ota.h"
 #include "script/lua_engine.h"
@@ -69,6 +71,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -141,12 +144,33 @@ static esp_err_t h_state(httpd_req_t *r) {
     process_state_t snap;
     state_snapshot(&snap);
     process_state_t *s = &snap;
-    char json[1280];
+
+    float flow = hw_has_device(HW_DEV_FLOW) ? flow_get_lpm() : -1.0f;
+    float level = (hw_has_device(HW_DEV_LEVEL) && level_is_available())
+                      ? level_get_percent() : -1.0f;
+    float scale_ml = (hw_has_device(HW_DEV_SCALE) && scale_is_ready())
+                         ? scale_get_total_ml() : -1.0f;
+    float jacket = hw_temp_available(HW_TEMP_JACKET)
+                       ? hw_temp_read(HW_TEMP_JACKET) : -1.0f;
+    float tank = hw_temp_available(HW_TEMP_TANK)
+                     ? hw_temp_read(HW_TEMP_TANK) : -1.0f;
+    if (!isfinite(flow)) flow = -1.0f;
+    if (!isfinite(level)) level = -1.0f;
+    if (!isfinite(scale_ml)) scale_ml = -1.0f;
+    if (!isfinite(jacket)) jacket = -1.0f;
+    if (!isfinite(tank)) tank = -1.0f;
+    int cube_idx = hw_temp_index(HW_TEMP_CUBE);
+    float slope = cube_idx >= 0 ? hal_1wire_slope(cube_idx) : 0.0f;
+    int rising = cube_idx >= 0 ? (hal_1wire_rising(cube_idx) ? 1 : 0) : 0;
+
+    char json[1792];
     snprintf(json, sizeof(json),
         "{\"type\":%d,\"stage\":%d,\"cube\":%.2f,\"col\":%.2f,"
         "\"power\":%.1f,\"power_auto\":%.1f,\"power_manual\":%d,"
         "\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
         "\"pressure\":%.2f,\"vacuum\":%.0f,\"running\":%d,"
+        "\"flow\":%.2f,\"level\":%.0f,\"scale_ml\":%.0f,"
+        "\"jacket\":%.1f,\"tank\":%.1f,"
         "\"paused\":%d,\"elapsed\":%u,\"safety\":%d,"
         "\"estop\":%d,\"estop_healthy\":%d,\"service\":%d,"
         "\"level_required_fault\":%d,"
@@ -163,12 +187,15 @@ static esp_err_t h_state(httpd_req_t *r) {
         ctrl_heater_manual_active() ? 1 : 0,
         s->heads_collected_ml, s->body_collected_ml,
         s->tails_collected_ml, s->pressure_bar, s->vacuum_mbar,
-        s->is_running ? 1 : 0, s->is_paused ? 1 : 0, (unsigned)s->elapsed_sec,
+        s->is_running ? 1 : 0,
+        (double)flow, (double)level, (double)scale_ml,
+        (double)jacket, (double)tank,
+        s->is_paused ? 1 : 0, (unsigned)s->elapsed_sec,
         ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0,
         estop_is_healthy() ? 1 : 0,
         control_config_service_enabled() ? 1 : 0,
         level_is_required_fault() ? 1 : 0,
-        hal_1wire_slope(0), hal_1wire_rising(0) ? 1 : 0,
+        (double)slope, rising,
         mode_get() ? mode_get()->id : "none",
         (int)control_config_get_mode(),
         (int)control_config_get_output_device(),

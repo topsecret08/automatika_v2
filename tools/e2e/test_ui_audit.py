@@ -86,3 +86,37 @@ def test_modal_focus_and_escape(make_page, base_url):
         "!document.querySelector('#temp-modal').classList.contains('open')"
     )
     assert page.locator("#chart-card").get_attribute("aria-expanded") == "false"
+
+
+def test_dynamic_sensor_tiles(make_page, base_url):
+    page = make_page()
+    page.goto(base_url + "/?page=dashboard")
+    page.wait_for_selector('[data-sensor="pressure"]')
+    assert page.locator('[data-sensor="flow"]').count() == 1
+    assert page.locator('[data-sensor="level"]').count() == 0
+    assert page.locator('[data-sensor="vacuum"]').count() == 0
+
+
+def test_parameter_editor_opens_and_closes(make_page, base_url):
+    page = make_page()
+    page.goto(base_url + "/?page=dashboard")
+    page.wait_for_selector('[data-param="reflux"]')
+    page.locator('[data-param="reflux"]').click()
+    page.wait_for_selector("#param-modal.open")
+    assert page.locator("#param-input").input_value()
+    page.keyboard.press("Escape")
+    page.wait_for_function(
+        "!document.querySelector('#param-modal').classList.contains('open')"
+    )
+
+
+def test_dark_theme_is_default(context, base_url):
+    page = context.new_page()
+    page.goto(base_url + "/?page=dashboard")
+    page.wait_for_selector("#chart-card")
+    result = page.evaluate("""() => ({
+      bg: getComputedStyle(document.body).backgroundColor,
+      scheme: document.querySelector('meta[name="color-scheme"]')?.content
+    })""")
+    assert result["scheme"] == "dark"
+    assert result["bg"] in ("rgb(11, 15, 20)", "rgba(11, 15, 20, 1)")
