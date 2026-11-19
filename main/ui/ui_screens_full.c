@@ -39,7 +39,7 @@ void ui_calc_sugar(void) {
     static ui_slider_t sl = {"Объём", 5, 100, 1, &s_sugar_vol, " л", NULL};
     ui_build_slider(c, &sl);
     float sugar = s_sugar_vol * 0.375f;
-    float yeast = sugar * 0.02f;
+    float yeast = sugar * 20.0f; /* граммы: 20 г на кг сахара (sugar в кг) */
     char buf[256];
     snprintf(buf, sizeof(buf),
         "Сахар: %.2f кг\nДрожжи: %.0f г\nВода: %.0f л\nВыход: ~%.2f л",
@@ -81,8 +81,8 @@ void ui_calc_yield(void) {
 static float s_abv_og=1.050f, s_abv_fg=1.010f;
 void ui_calc_abv_ibu_srm(void) {
     lv_obj_t *c = ui_make_page("ABV/IBU/SRM");
-    static ui_slider_t sl1 = {"OG", 10, 1100, 1, &s_abv_og, "", NULL};
-    static ui_slider_t sl2 = {"FG", 1000, 1030, 1, &s_abv_fg, "", NULL};
+    static ui_slider_t sl1 = {"OG", 1.000f, 1.120f, 0.001f, &s_abv_og, "", NULL};
+    static ui_slider_t sl2 = {"FG", 1.000f, 1.030f, 0.001f, &s_abv_fg, "", NULL};
     ui_build_slider(c, &sl1); ui_build_slider(c, &sl2);
     float abv = (s_abv_og - s_abv_fg) * 131.25f;
     char buf[128];
