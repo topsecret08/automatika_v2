@@ -23,6 +23,9 @@
 #include "ai/tinyml_predict.h"
 #include "control/ctrl_autolearn.h"
 #include "hal/hal_usb.h"
+#include "control/ctrl_sensor_calib.h"
+#include "control/valve_calibration.h"
+#include "core/valve_config.h"
 #include "core/session_recovery.h"
 #include "core/trust_dashboard.h"
 #include "core/session_manager.h"
@@ -2329,6 +2332,64 @@ static esp_err_t h_maint_db(httpd_req_t *r) {
     return send_err(r, "400 Bad Request", "{\"error\":\"unknown op\"}");
 }
 
+static esp_err_t h_calib_state(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+
+    cJSON *sens = cJSON_AddObjectToObject(root, "sensors");
+    const sensor_calib_t *sc = sensor_calib_get();
+    if (sens && sc) {
+        cJSON_AddNumberToObject(sens, "state", (int)sc->state);
+        cJSON_AddBoolToObject(sens, "saved", sc->saved);
+        cJSON_AddNumberToObject(sens, "reference", sc->reference_temp);
+        cJSON_AddStringToObject(sens, "error", sc->error);
+        cJSON *offs = cJSON_AddArrayToObject(sens, "offsets");
+        int n = hal_1wire_count();
+        if (n > MAX_TEMP_SENSORS) n = MAX_TEMP_SENSORS;
+        for (int i = 0; offs && i < n; i++) {
+            cJSON_AddItemToArray(offs, cJSON_CreateNumber(sc->offset[i]));
+        }
+    }
+
+    cJSON *sg = cJSON_AddObjectToObject(root, "scale");
+    const scale_t *scale = scale_get();
+    if (sg && scale) {
+        cJSON_AddNumberToObject(sg, "state", (int)scale->state);
+        cJSON_AddBoolToObject(sg, "ready", scale_is_ready());
+        cJSON_AddBoolToObject(sg, "stable", scale->stable);
+        cJSON_AddNumberToObject(sg, "grams", scale->grams_filtered);
+        cJSON_AddNumberToObject(sg, "total_ml", scale->total_ml);
+        cJSON_AddNumberToObject(sg, "flow_ml_min", scale->flow_ml_per_min);
+        cJSON_AddNumberToObject(sg, "density", scale->density);
+        cJSON_AddBoolToObject(sg, "auto_tare", scale->auto_tare);
+    }
+
+    cJSON *valves = cJSON_AddArrayToObject(root, "valves");
+    for (int i = 0; valves && i < VALVE_COUNT; i++) {
+        const valve_calib_session_t *v = valve_calib_get(i);
+        if (!v) continue;
+        cJSON *o = cJSON_CreateObject();
+        if (!o) continue;
+        cJSON_AddNumberToObject(o, "idx", i);
+        cJSON_AddBoolToObject(o, "active", v->active);
+        cJSON_AddNumberToObject(o, "open_count", (double)v->open_count);
+        cJSON_AddNumberToObject(o, "total_open_ms", (double)v->total_open_ms);
+        cJSON_AddNumberToObject(o, "measured_ml", v->measured_ml);
+        cJSON_AddNumberToObject(o, "ml_per_hour", v->ml_per_hour);
+        cJSON_AddNumberToObject(o, "ml_per_open", v->ml_per_open);
+        cJSON_AddItemToArray(valves, o);
+    }
+
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (!json) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    esp_err_t err = send_json(r, json);
+    free(json);
+    return err;
+}
+
 static esp_err_t h_usb_status(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[48];
@@ -2790,6 +2851,7 @@ void web_api_register(httpd_handle_t srv) {
 { .uri="/api/maint/reset",         .method=HTTP_POST, .handler=h_maint_reset },
 { .uri="/api/maint/db",            .method=HTTP_POST, .handler=h_maint_db },
 { .uri="/api/usb/status",          .method=HTTP_GET,  .handler=h_usb_status },
+{ .uri="/api/calib/state",         .method=HTTP_GET,  .handler=h_calib_state },
 { .uri="/api/menu/toggle",         .method=HTTP_POST, .handler=h_menu_toggle },
         { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },
         { .uri="/api/verify/shadow",       .method=HTTP_POST, .handler=h_verify_shadow },
