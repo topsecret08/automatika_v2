@@ -19,6 +19,10 @@
 #include "ai/anomaly.h"
 #include "ai/action_predictor.h"
 #include "ai/cache_manager.h"
+#include "ai/page_predictor.h"
+#include "ai/tinyml_predict.h"
+#include "control/ctrl_autolearn.h"
+#include "hal/hal_usb.h"
 #include "core/session_recovery.h"
 #include "core/trust_dashboard.h"
 #include "core/session_manager.h"
@@ -2244,6 +2248,94 @@ static esp_err_t h_ai_status(httpd_req_t *r) {
     return err;
 }
 
+static esp_err_t h_maint_reset(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+
+    char body[96];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+    const cJSON *t = cJSON_GetObjectItemCaseSensitive(root, "target");
+    const char *target = cJSON_IsString(t) ? t->valuestring : NULL;
+    if (!target) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request", "{\"error\":\"target required\"}");
+    }
+
+    if (strcmp(target, "ai") == 0) {
+        predictor_reset();
+        action_predictor_reset();
+        anomaly_reset_model();
+    } else if (strcmp(target, "autolearn") == 0) {
+        autolearn_reset();
+    } else if (strcmp(target, "tinyml") == 0) {
+        tiny_ml_reset();
+    } else {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request", "{\"error\":\"unknown target\"}");
+    }
+    events_log(EVENT_USER_ACTION, "Web: reset %s", target);
+    cJSON_Delete(root);
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_maint_db(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+
+    char body[96];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+    const cJSON *o = cJSON_GetObjectItemCaseSensitive(root, "op");
+    const char *op = cJSON_IsString(o) ? o->valuestring : NULL;
+    if (!op) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request", "{\"error\":\"op required\"}");
+    }
+    if (!db_is_ready()) {
+        cJSON_Delete(root);
+        return send_err(r, "409 Conflict", "{\"error\":\"db not ready\"}");
+    }
+
+    if (strcmp(op, "backup") == 0 || strcmp(op, "vacuum") == 0) {
+        bool ok = strcmp(op, "backup") == 0 ? db_backup("/sdcard/backups/db_auto.db") : db_vacuum();
+        events_log(EVENT_USER_ACTION, "Web: db %s %s", op, ok ? "ok" : "failed");
+        cJSON_Delete(root);
+        return ok ? send_json(r, "{\"ok\":true}")
+                  : send_err(r, "500 Internal Server Error", "{\"error\":\"db op failed\"}");
+    }
+    if (strcmp(op, "stats") == 0) {
+        char text[256];
+        db_stats(text, sizeof(text));
+        cJSON_Delete(root);
+        cJSON *out = cJSON_CreateObject();
+        if (!out) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+        cJSON_AddStringToObject(out, "text", text);
+        char *json = cJSON_PrintUnformatted(out);
+        cJSON_Delete(out);
+        if (!json) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+        esp_err_t err = send_json(r, json);
+        free(json);
+        return err;
+    }
+
+    cJSON_Delete(root);
+    return send_err(r, "400 Bad Request", "{\"error\":\"unknown op\"}");
+}
+
+static esp_err_t h_usb_status(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    char json[48];
+    snprintf(json, sizeof(json), "{\"mounted\":%d}", hal_usb_is_mounted() ? 1 : 0);
+    return send_json(r, json);
+}
+
 static esp_err_t h_menu_toggles(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -2695,6 +2787,9 @@ void web_api_register(httpd_handle_t srv) {
 { .uri="/api/menu/toggles",        .method=HTTP_GET,  .handler=h_menu_toggles },
 { .uri="/api/history/processes",   .method=HTTP_GET,  .handler=h_history_processes },
 { .uri="/api/ai/status",           .method=HTTP_GET,  .handler=h_ai_status },
+{ .uri="/api/maint/reset",         .method=HTTP_POST, .handler=h_maint_reset },
+{ .uri="/api/maint/db",            .method=HTTP_POST, .handler=h_maint_db },
+{ .uri="/api/usb/status",          .method=HTTP_GET,  .handler=h_usb_status },
 { .uri="/api/menu/toggle",         .method=HTTP_POST, .handler=h_menu_toggle },
         { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },
         { .uri="/api/verify/shadow",       .method=HTTP_POST, .handler=h_verify_shadow },

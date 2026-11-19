@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 84.
+Всего маршрутов: 87.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -34,6 +34,8 @@
 | `GET` | `/api/history/processes` | `h_history_processes` | ключ |
 | `GET` | `/api/i18n` | `h_i18n` | ключ |
 | `POST` | `/api/i18n` | `h_i18n` | ключ |
+| `POST` | `/api/maint/db` | `h_maint_db` | ключ |
+| `POST` | `/api/maint/reset` | `h_maint_reset` | ключ |
 | `POST` | `/api/menu/toggle` | `h_menu_toggle` | ключ |
 | `GET` | `/api/menu/toggles` | `h_menu_toggles` | ключ |
 | `POST` | `/api/mqtt` | `h_mqtt` | ключ |
@@ -79,6 +81,7 @@
 | `POST` | `/api/telegram` | `h_telegram` | ключ |
 | `POST` | `/api/telegram/test` | `h_telegram_test` | ключ |
 | `GET` | `/api/trust` | `h_trust` | ключ |
+| `GET` | `/api/usb/status` | `h_usb_status` | ключ |
 | `POST` | `/api/verify/action` | `h_verify_action` | ключ |
 | `POST` | `/api/verify/freeze` | `h_verify_freeze` | ключ |
 | `POST` | `/api/verify/fuzz` | `h_verify_fuzz` | ключ |
