@@ -2,6 +2,7 @@ package com.automatika.autopilot
 
 import com.automatika.autopilot.data.ControllerParser
 import com.automatika.autopilot.data.HttpControllerApi
+import com.automatika.autopilot.ui.processTypeName
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -10,6 +11,40 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ControllerParserTest {
+
+    @Test
+    fun parsesProcessHistoryAndNamesTheType() {
+        val json = JSONArray(
+            "[{\"id\":3,\"type\":2,\"started_ms\":1000,\"ended_ms\":4000,\"duration_sec\":3.0," +
+                "\"heads_ml\":120,\"body_ml\":860,\"tails_ml\":40,\"rating\":4,\"recipe_id\":\"r1\"}]"
+        )
+        val rows = ControllerParser.processes(json)
+        assertEquals(1, rows.size)
+        assertEquals(3L, rows[0].id)
+        assertEquals(860.0, rows[0].bodyMl, 1e-9)
+        assertEquals("Ректификация", processTypeName(rows[0].type))
+        assertEquals("Тип 42", processTypeName(42))
+    }
+
+    @Test
+    fun parsesAiStatus() {
+        val json = JSONObject(
+            "{\"db_ready\":true,\"anomaly\":{\"error\":0.5,\"threshold\":2.0,\"is_anomaly\":false," +
+                "\"since_ms\":0,\"severity\":0,\"samples\":120},\"action_accuracy\":0.8,\"cache_hit_rate\":0.25}"
+        )
+        val s = ControllerParser.aiStatus(json)
+        assertTrue(s.dbReady)
+        assertEquals(120L, s.anomalySamples)
+        assertEquals(0.8, s.actionAccuracy, 1e-9)
+        assertFalse(s.isAnomaly)
+    }
+
+    @Test
+    fun aiStatusWithoutValuesIsNaN() {
+        val s = ControllerParser.aiStatus(JSONObject("{}"))
+        assertTrue(s.actionAccuracy.isNaN())
+        assertFalse(s.dbReady)
+    }
 
     @Test
     fun parsesMenuTogglesAsDeviceSendsThem() {

@@ -55,6 +55,9 @@ sealed class MenuOutcome {
     object ResetAlarm : MenuOutcome()
     data class Editor(val path: String, val title: String) : MenuOutcome()
     data class Calc(val kind: CalcKind) : MenuOutcome()
+    object Graph : MenuOutcome()
+    object History : MenuOutcome()
+    object AiStatus : MenuOutcome()
     object OnDeviceOnly : MenuOutcome()
 }
 
@@ -86,6 +89,9 @@ object MenuActions {
         if (item.type == MenuType.SUBMENU) return MenuOutcome.Open
         startByCallback[item.action]?.let { return MenuOutcome.Start(it) }
         calcByCallback[item.action]?.let { return MenuOutcome.Calc(it) }
+        if (item.action == "cb_graph") return MenuOutcome.Graph
+        if (item.action == "cb_graph_history") return MenuOutcome.History
+        if (item.action == "cb_ai_status") return MenuOutcome.AiStatus
         return when (item.action) {
             "cb_safety_reset" -> MenuOutcome.ResetAlarm
             "cb_settings_hw" -> MenuOutcome.Editor("/api/hardware", item.title)

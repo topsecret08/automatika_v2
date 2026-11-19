@@ -52,7 +52,18 @@ class MenuTreeTest {
 
     @Test
     fun unsupportedItemsAreMarkedAsDeviceOnly() {
-        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(child("menu.mon", "mon.graph")))
+        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(child("menu.mon", "mon.stats")))
+    }
+
+    @Test
+    fun historyAndAiStatusOpenInApp() {
+        assertEquals(MenuOutcome.History, MenuActions.resolve(child("menu.mon", "mon.hist")))
+        assertEquals(MenuOutcome.AiStatus, MenuActions.resolve(child("menu.ai", "ai.status")))
+    }
+
+    @Test
+    fun realtimeGraphOpensInApp() {
+        assertEquals(MenuOutcome.Graph, MenuActions.resolve(child("menu.mon", "mon.graph")))
     }
 
     @Test
