@@ -2397,6 +2397,22 @@ static esp_err_t h_usb_status(httpd_req_t *r) {
     return send_json(r, json);
 }
 
+static esp_err_t h_calib_scale_tare(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    /* Тара сбрасывает накопленный объём отбора: во время процесса запрещена. */
+    if (state_get()->is_running) return send_err(r, "409 Conflict", "{\"error\":\"process running\"}");
+    scale_tare_now();
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_calib_sensors_abort(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    sensor_calib_abort();
+    return send_json(r, "{\"ok\":true}");
+}
+
 static esp_err_t h_menu_toggles(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -2853,6 +2869,8 @@ void web_api_register(httpd_handle_t srv) {
 { .uri="/api/usb/status",          .method=HTTP_GET,  .handler=h_usb_status },
 { .uri="/api/calib/state",         .method=HTTP_GET,  .handler=h_calib_state },
 { .uri="/api/menu/toggle",         .method=HTTP_POST, .handler=h_menu_toggle },
+{ .uri="/api/calib/scale/tare",    .method=HTTP_POST, .handler=h_calib_scale_tare },
+{ .uri="/api/calib/sensors/abort", .method=HTTP_POST, .handler=h_calib_sensors_abort },
         { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },
         { .uri="/api/verify/shadow",       .method=HTTP_POST, .handler=h_verify_shadow },
         { .uri="/api/verify/stage",        .method=HTTP_POST, .handler=h_verify_stage },
