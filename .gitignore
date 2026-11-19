@@ -7,6 +7,13 @@ sdkconfig.old
 *.elf
 *.map
 
+# Android (APK собирается в CI, см. .github/workflows/android.yml)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+
 # PyInstaller (Automatika.exe собирается в CI, см. .github/workflows/app.yml)
 dist/
 *.spec

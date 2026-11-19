@@ -1668,6 +1668,17 @@ Workflow `windows-app` (`.github/workflows/app.yml`) собирает `Automatik
 и `SHA256SUMS-app.txt` к релизу тега `v*`. Для уже опубликованного релиза его
 можно запустить вручную с параметром `tag`.
 
+### Автоматика Autopilot для Android
+
+Приложение `android/` — управление аппаратом с телефона: состояние, запуск и
+остановка процесса, сброс аварии. Если контроллер не подключён, работает
+**демо-режим** с симулированным процессом. Подключение — по адресу контроллера и
+API-ключу из настроек приложения.
+
+APK собирается в CI (workflow `android-app`) и прикрепляется к релизу
+`v*` как `Autopilot-<тег>.apk`. Установка и инструкция —
+[`docs/user/AUTOPILOT_APP.md`](docs/user/AUTOPILOT_APP.md).
+
 ### CLI и поиск устройства
 
 ```bash
@@ -1710,6 +1721,8 @@ python -m tools.configurator
   [BEGINNER_GUIDE](docs/user/BEGINNER_GUIDE.md);
 - приложение для Windows (установка, обновление одной кнопкой, ошибки):
   [APP](docs/user/APP.md);
+- Автоматика Autopilot для Android (установка, подключение, демо-режим):
+  [AUTOPILOT_APP](docs/user/AUTOPILOT_APP.md);
 - краткий старт: [RU](docs/user/QUICK_START.md),
   [EN](docs/user/QUICK_START.en.md), [DE](docs/user/QUICK_START.de.md),
   [ES](docs/user/QUICK_START.es.md), [FR](docs/user/QUICK_START.fr.md).
