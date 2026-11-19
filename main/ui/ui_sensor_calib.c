@@ -266,7 +266,7 @@ void ui_sensor_calib_list(void) {
         lv_obj_t *dot = lv_obj_create(row);
         lv_obj_set_size(dot, 10, 10);
         lv_obj_set_style_bg_color(dot,
-            cal->calibrated ? lv_color_hex(0x34C759) : lv_color_hex(0xFF9500), 0);
+            cal->calibrated ? lv_color_hex(0x2ECC71) : lv_color_hex(0xF5A524), 0);
         lv_obj_set_style_radius(dot, 5, 0);
         lv_obj_set_style_border_width(dot, 0, 0);
         lv_obj_align(dot, LV_ALIGN_TOP_RIGHT, 0, 0);

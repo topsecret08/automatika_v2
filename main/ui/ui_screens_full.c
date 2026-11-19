@@ -182,7 +182,7 @@ void ui_settings_restore(void)  { ui_show_resume_dialog(); }
 void ui_settings_reset(void)    { lv_obj_t *c = ui_make_page("Полный сброс");
     lv_obj_t *l = lv_label_create(c);
     lv_label_set_text(l, "⚠ ВНИМАНИЕ\n\nБудут сброшены:\nНастройки\nКалибровки\nAI");
-    lv_obj_set_style_text_color(l, lv_color_hex(0xFF3B30), 0); }
+    lv_obj_set_style_text_color(l, lv_color_hex(0xD93B3B), 0); }
 
 // Диагностика
 void ui_diag_overview(void) {
