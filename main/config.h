@@ -342,6 +342,10 @@
 #define SAFETY_RELAY_GPIO           -1
 #define SAFETY_RELAY_TIMEOUT_MS      1000
 
+// Линия DONE внешнего сторожевого таймера (TPL5010 и аналоги), -1 — не установлен.
+// Интервал таймера задаётся его внешним резистором и должен быть больше 100 мс.
+#define EXT_WDT_DONE_GPIO            -1
+
 // Начальные параметры расчёта остатка спирта (abv/cfg в NVS).
 #define ABV_VOLUME_START_ML           20000.0f
 #define ABV_START_PERCENT             40.0f

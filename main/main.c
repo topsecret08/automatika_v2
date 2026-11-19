@@ -49,6 +49,7 @@
 #include "hal/hal_relay.h"
 #include "hal/hal_actuator_readback.h"
 #include "hal/hal_safety_relay.h"
+#include "hal/hal_ext_watchdog.h"
 #include "hal/hal_display.h"
 #include "hal/hal_hx711.h"
 #include "hal/hal_usb.h"
@@ -249,6 +250,7 @@ void app_main(void) {
 #endif
 #if !defined(CONFIG_SAFETY_RELAY_ENABLE) || CONFIG_SAFETY_RELAY_ENABLE
     hal_safety_relay_init(SAFETY_RELAY_GPIO, SAFETY_RELAY_TIMEOUT_MS);
+    hal_ext_watchdog_init(EXT_WDT_DONE_GPIO);
 #endif
 
     ctrl_safety_init();
