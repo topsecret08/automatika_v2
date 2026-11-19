@@ -40,6 +40,37 @@ object ControllerParser {
         ).takeIf { it.key.isNotBlank() }
     }
 
+    /** /api/history/processes: массив процессов из базы. */
+    fun processes(json: JSONArray): List<ProcessRecord> = (0 until json.length()).mapNotNull { index ->
+        val item = json.optJSONObject(index) ?: return@mapNotNull null
+        ProcessRecord(
+            id = item.optLong("id", 0L),
+            type = item.optInt("type", 0),
+            startedMs = item.optLong("started_ms", 0L),
+            endedMs = item.optLong("ended_ms", 0L),
+            durationSec = item.optDouble("duration_sec", 0.0),
+            headsMl = item.optDouble("heads_ml", 0.0),
+            bodyMl = item.optDouble("body_ml", 0.0),
+            tailsMl = item.optDouble("tails_ml", 0.0),
+            rating = item.optInt("rating", 0),
+            recipeId = item.optString("recipe_id", ""),
+        )
+    }
+
+    /** /api/ai/status: аномалии, точность предсказаний, попадания кэша. */
+    fun aiStatus(json: JSONObject): AiStatus {
+        val anomaly = json.optJSONObject("anomaly") ?: JSONObject()
+        return AiStatus(
+            dbReady = json.optBoolean("db_ready", false),
+            anomalyError = anomaly.optDouble("error", Double.NaN),
+            anomalyThreshold = anomaly.optDouble("threshold", Double.NaN),
+            isAnomaly = anomaly.optBoolean("is_anomaly", false),
+            anomalySamples = anomaly.optLong("samples", 0L),
+            actionAccuracy = json.optDouble("action_accuracy", Double.NaN),
+            cacheHitRate = json.optDouble("cache_hit_rate", Double.NaN),
+        )
+    }
+
     fun health(json: JSONObject): ControllerHealth = ControllerHealth(
         version = json.optString("version", "?"),
         uptimeSec = json.optLong("uptime_s", 0L),

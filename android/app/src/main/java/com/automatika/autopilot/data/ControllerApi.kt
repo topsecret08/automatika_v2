@@ -21,6 +21,31 @@ data class ControllerState(
 
 data class ControllerHealth(val version: String, val uptimeSec: Long)
 
+/** Процесс из истории (/api/history/processes). Времена в миллисекундах от старта контроллера. */
+data class ProcessRecord(
+    val id: Long,
+    val type: Int,
+    val startedMs: Long,
+    val endedMs: Long,
+    val durationSec: Double,
+    val headsMl: Double,
+    val bodyMl: Double,
+    val tailsMl: Double,
+    val rating: Int,
+    val recipeId: String,
+)
+
+/** Состояние ИИ (/api/ai/status). NaN, если контроллер не прислал значение. */
+data class AiStatus(
+    val dbReady: Boolean,
+    val anomalyError: Double,
+    val anomalyThreshold: Double,
+    val isAnomaly: Boolean,
+    val anomalySamples: Long,
+    val actionAccuracy: Double,
+    val cacheHitRate: Double,
+)
+
 /** Тумблер меню контроллера. key совпадает с nvs_key в menu_tree.c. */
 data class ToggleSetting(val key: String, val title: String, val value: Boolean, val editable: Boolean)
 
