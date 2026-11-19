@@ -28,7 +28,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+          # Контейнер espressif/idf работает не от владельца репозитория:
+          # без safe.directory git молча выдаёт пустой вывод, и ESP-IDF падает.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          EPOCH="$(git log -1 --format=%ct)"
+          test -n "$EPOCH"
+          echo "SOURCE_DATE_EPOCH=$EPOCH" >> "$GITHUB_ENV"
 
       - name: Build firmware
         shell: bash
