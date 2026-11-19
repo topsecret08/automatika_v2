@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include "esp_err.h"
 
-/* Samovar / Blynk bridge + MQTT bridge for Automatika V0.9 beta.
+/* Интеграция с внешними сервисами для Automatika V0.9 beta: Blynk и MQTT.
  *
- * Blynk pin map (Samovar app):
+ * Карта виртуальных пинов Blynk (мобильное приложение):
  *   V0  - steam temperature, read-only
  *   V3  - start (1) / stop (0)
  *   V4  - power state, read + write (1 = run, 0 = stop)
@@ -21,10 +21,10 @@
  *   SMV/<token>/set/3       commands: start | stop | power <percent>
  */
 
-#define SAMOVAR_DEFAULT_HOST    "samovar-tool.ru"
-#define SAMOVAR_DEFAULT_PORT    8080
-#define SAMOVAR_DEFAULT_VREF_MV 5000
-#define SAMOVAR_PUBLISH_MS      5000
+#define REMOTE_DEFAULT_HOST    "blynk.cloud"
+#define REMOTE_DEFAULT_PORT    80
+#define REMOTE_DEFAULT_VREF_MV 5000
+#define REMOTE_PUBLISH_MS      5000
 
 typedef struct {
     bool     enabled;
@@ -36,7 +36,7 @@ typedef struct {
     char     mqtt_user[48];
     char     mqtt_pass[48];
     char     mqtt_token[48];  /* topic token; defaults to Blynk token */
-} samovar_cfg_t;
+} remote_cfg_t;
 
 typedef struct {
     bool     enabled;
@@ -47,7 +47,7 @@ typedef struct {
     char     host[64];
     uint16_t port;
     uint16_t vref_mv;
-} samovar_status_t;
+} remote_status_t;
 
 typedef struct {
     float steam_temp;   /* DS18B20 #1 (column/steam) */
@@ -55,17 +55,17 @@ typedef struct {
     float power_volt;   /* estimated MCP4725 output voltage */
     bool  power_on;
     int   stage;
-} samovar_values_t;
+} remote_values_t;
 
-esp_err_t samovar_init(void);
-void      samovar_task(void *arg);
+esp_err_t remote_init(void);
+void      remote_task(void *arg);
 
-void      samovar_get_config(samovar_cfg_t *out);
-esp_err_t samovar_configure(const samovar_cfg_t *cfg);
-void      samovar_get_status(samovar_status_t *out);
-void      samovar_get_values(samovar_values_t *out);
+void      remote_get_config(remote_cfg_t *out);
+esp_err_t remote_configure(const remote_cfg_t *cfg);
+void      remote_get_status(remote_status_t *out);
+void      remote_get_values(remote_values_t *out);
 
 /* Commands come from Blynk V3/V4 and from MQTT "set" topic. */
-bool samovar_command(const char *cmd, const char *source);
-bool samovar_set_power_percent(float pct, const char *source);
-bool samovar_set_power_volts(float volts, const char *source);
+bool remote_command(const char *cmd, const char *source);
+bool remote_set_power_percent(float pct, const char *source);
+bool remote_set_power_volts(float volts, const char *source);

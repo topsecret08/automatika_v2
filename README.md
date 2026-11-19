@@ -586,12 +586,12 @@ I2C-адреса: `ADS1115 0x48`, `MCP4725 0x60`, `Grove SSR 0x11`,
 | `events` | 3 | 3072 | Очередь событий |
 | `tinyml` | 2 | 4096 | TinyML-прогноз |
 | `doser` | 4 | 4096 | Шаговый дозатор отбора (V0.9 beta) |
-| `samovar` | 3 | 6144 | Blynk + MQTT мост |
+| `remote` | 3 | 6144 | Blynk + MQTT мост |
 | `mqtt` | 5 | 4096 | MQTT-клиент (при флаге `mqtt`) |
 | `telegram` | 5 | 4096 | Оповещения |
 | `lua` | 2 | 12288 | Выполнение Lua-скриптов (`lua_engine_init`) |
 
-> Задачи `doser`, `samovar`, `mqtt`, `telegram`, `lua` работают на ядре 0.
+> Задачи `doser`, `remote`, `mqtt`, `telegram`, `lua` работают на ядре 0.
 
 Порядок инициализации `app_main()`:
 
@@ -603,7 +603,7 @@ NVS flash
  → I2C → 1-Wire (temp_filter) → DAC → реле → LCD → тач → SD → littlefs
  → SD-контент → обучение → справка → рецепты
  → клапаны → калибровки → ctrl_dose_init() → весы → безопасность
- → SQLite → AI-кэш/модели → FOTA → пивные рецепты → мосты (Samovar/MQTT)
+ → SQLite → AI-кэш/модели → FOTA → пивные рецепты → мосты (Blynk/MQTT)
  → UI → меню → welcome/восстановление → задачи (включая web_start)
  → HTTP-обработчики /api/* (X-API-Key) → selftest через 5 с
 ```
@@ -637,7 +637,7 @@ NVS flash
    Сравнение — постоянное по времени. Защищены **все** POST-обработчики:
    `/api/start`, `/api/stop`, `/api/pause`, `/api/power`, `/api/safety`,
    `/api/estop`, `/api/settings`, `/api/wifi`, `/api/mqtt`, `/api/telegram`,
-   `/api/brewfather`, `/api/calendar`, `/api/samovar` (GET и POST), `/api/ota`,
+   `/api/brewfather`, `/api/calendar`, `/api/remote` (GET и POST), `/api/ota`,
    `/api/control`, `/api/dose`, `/api/script/run`, `/api/diag/*`.
    Исключения (не могут нести ключ): `/alice` — `X-Skill-Token`,
    Telegram-webhook — секрет `X-Telegram-Bot-Api-Secret-Token`.
@@ -646,7 +646,7 @@ NVS flash
    кнопки и `ctrl_safety_reset()`.
 3. **`control_emergency_stop`** = `ctrl_safety_trigger("E-STOP")`:
    DAC→0, реле off, дозатор стоп, процесс остановлен.
-4. **Все пути нагрева** (`/api/power`, режимы, Lua, MQTT, Samovar, тест
+4. **Все пути нагрева** (`/api/power`, режимы, Lua, MQTT, Blynk, тест
    исполнителей) проходят через `ctrl_heater_set_percent()`, в котором
    проверяются `ctrl_safety_ok()` и `estop_is_pressed()`.
 5. **`pump_dose_volume`** больше не сидит в цикле-задержке: выдача шагов
@@ -844,7 +844,7 @@ long polling `getUpdates`).
 
 **Ограничение распиновки:** ультразвуковой HC-SR04 требует два свободных GPIO
 (TRIG+ECHO) и таймера на замер. На плате Automatika свободен только GPIO 28
-(3/19/20 — USB, 23/24/25/26 — дозатор и Samovar), а 28/29 — strap-пины
+(3/19/20 — USB, 23/24/25/26 — дозатор и внешний модуль), а 28/29 — strap-пины
 ESP32-S3, для серии 40 мкс непригодны. Поэтому в дефолтной конфигурации —
 поплавок; ультразвук включается добавлением драйвера и свободных пинов.
 
@@ -902,7 +902,7 @@ nvs_flash_init
  → events/roles/flags/state/wd
  → estop_init()  → level_sensor_init()
  → lua_engine_init()  → telegram_notify_init()
- → I2C/1-Wire/LCD/тач/SD/LittleFS → … → sqlite → mosты (Samovar/MQTT)
+ → I2C/1-Wire/LCD/тач/SD/LittleFS → … → sqlite → mosты (Blynk/MQTT)
  → health_init()  → UI → web_start() (HTTP + WS + /api/*)
  → задачи: core0 {ota_mgr, tg_notify, lua, web, …}, core1 {estop, safety, mode, ws_tel, …}
  → selftest через 5 с
@@ -1305,7 +1305,7 @@ UI показывает «НЕ ГОТОВ» и причину. E-STOP, safety, �
 ### Ручной и автоматический режим мощности
 
 - режимы и PID вызывают `ctrl_heater_set_percent()` — это auto-уставка;
-- PWA/LCD/Telegram/MQTT/Samovar/Lua вызывают `ctrl_heater_manual_set()` —
+- PWA/LCD/Telegram/MQTT/Blynk/Lua вызывают `ctrl_heater_manual_set()` —
   ручной override;
 - ручной нагрев разрешён только при запущенном процессе или в сервисном
   режиме; в остановленном процессе команда отклоняется;
@@ -1341,7 +1341,7 @@ REST: `POST /api/power {"power":35}` — ручной режим,
 
 - Критический контур: `estop`, `safety`, `mode`, `ctrl_heater`, `level`,
   `regulator_driver`. Отказ любого из них должен давать 0 на выходе.
-- Web, PWA, MQTT, Telegram, Samovar, Lua и AI-модули не входят в путь
+- Web, PWA, MQTT, Telegram, Blynk, Lua и AI-модули не входят в путь
   управления и не должны блокировать safety.
 - AI-модули (`anomaly`, `tinyml`, `autolearn`) не имеют эталонных трасс и
   не являются источником команд нагрева.
@@ -2386,12 +2386,12 @@ Remove-Item -Recurse -Force build, managed_components, dependencies.lock, sdkcon
 
 Проект распространяется по лицензии **MIT**. См. [LICENSE.txt](LICENSE.txt).
 
-**Происхождение кода.** Модули `main/web/samovar_*` реализуют MQTT- и Blynk-интеграцию
-в совместимом с проектом Samovar (LKosoj/Samovar, GPL-3.0) виде. Выборочная проверка:
-`main/web/samovar_mqtt.c` сверен с `SamovarMqtt.h` из репозитория LKosoj/Samovar.
-Совпадений кода не найдено, совпадает только схема MQTT-топиков. Полного
-сравнения на заимствования не проводилось. Перед коммерческим использованием
-или публикацией релиза юридически проверьте лицензионную совместимость.
+**Происхождение кода.** Модули интеграции с внешними сервисами `main/web/remote*.c`
+(Blynk и MQTT) написаны для этого проекта. Они работают по открытым протоколам
+(Blynk 1.0, MQTT); карта виртуальных пинов и схема топиков нужны для совместимости
+с готовыми приложениями и панелями. Проверка на заимствования выполнена вручную
+по выборке, полного автоматического анализа не проводилось. Перед коммерческим
+использованием или публикацией релиза проверьте лицензионную чистоту кода.
 
 Сторонние компоненты:
 

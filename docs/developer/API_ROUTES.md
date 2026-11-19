@@ -45,10 +45,10 @@
 | `DELETE` | `/api/profiles` | `h_profiles` | ключ |
 | `GET` | `/api/profiles` | `h_profiles` | ключ |
 | `POST` | `/api/profiles` | `h_profiles` | ключ |
+| `GET` | `/api/remote` | `h_remote` | ключ |
+| `POST` | `/api/remote` | `h_remote` | ключ |
 | `GET` | `/api/safety` | `h_safety` | ключ |
 | `POST` | `/api/safety` | `h_safety` | ключ |
-| `GET` | `/api/samovar` | `h_samovar` | ключ |
-| `POST` | `/api/samovar` | `h_samovar` | ключ |
 | `POST` | `/api/script/enable` | `h_script_enable` | ключ |
 | `POST` | `/api/script/run` | `h_script_run` | ключ |
 | `GET` | `/api/script/state` | `h_script_state` | ключ |

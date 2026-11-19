@@ -61,7 +61,7 @@
 #include "web/telegram_notify.h"
 #include "web/brewfather.h"
 #include "web/calendar.h"
-#include "web/samovar.h"
+#include "web/remote.h"
 #include "web/tg_backup.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
@@ -1034,7 +1034,7 @@ static esp_err_t h_calendar(httpd_req_t *r) {
 }
 
 // ============================================================
-// Samovar / Blynk + MQTT bridge
+// Remote / Blynk + MQTT bridge
 // ============================================================
 static void json_copy_str(char *dst, size_t max, const cJSON *v) {
     if (!cJSON_IsString(v) || !v->valuestring) return;
@@ -1042,9 +1042,9 @@ static void json_copy_str(char *dst, size_t max, const cJSON *v) {
     dst[max - 1] = '\0';
 }
 
-static void samovar_status_json(char *json, size_t max) {
-    samovar_status_t st;
-    samovar_get_status(&st);
+static void remote_status_json(char *json, size_t max) {
+    remote_status_t st;
+    remote_get_status(&st);
     snprintf(json, max,
         "{\"enabled\":%d,\"token_set\":%d,\"blynk\":%d,"
         "\"mqtt_configured\":%d,\"mqtt\":%d,"
@@ -1055,12 +1055,12 @@ static void samovar_status_json(char *json, size_t max) {
         st.host, (unsigned)st.port, (unsigned)st.vref_mv);
 }
 
-static esp_err_t h_samovar(httpd_req_t *r) {
+static esp_err_t h_remote(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
     if (r->method == HTTP_GET) {
         char json[512];
-        samovar_status_json(json, sizeof(json));
+        remote_status_json(json, sizeof(json));
         return send_json(r, json);
     }
 
@@ -1072,8 +1072,8 @@ static esp_err_t h_samovar(httpd_req_t *r) {
     if (!root)
         return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
 
-    samovar_cfg_t cfg;
-    samovar_get_config(&cfg);
+    remote_cfg_t cfg;
+    remote_get_config(&cfg);
 
     json_copy_str(cfg.host, sizeof(cfg.host),
                   cJSON_GetObjectItemCaseSensitive(root, "host"));
@@ -1100,7 +1100,7 @@ static esp_err_t h_samovar(httpd_req_t *r) {
     if (cJSON_IsNumber(v) && v->valueint > 0)
         cfg.vref_mv = (uint16_t)v->valueint;
 
-    esp_err_t err = samovar_configure(&cfg);
+    esp_err_t err = remote_configure(&cfg);
     cJSON_Delete(root);
 
     if (err != ESP_OK)
@@ -1108,7 +1108,7 @@ static esp_err_t h_samovar(httpd_req_t *r) {
                         "{\"error\":\"invalid config\"}");
 
     char json[512];
-    samovar_status_json(json, sizeof(json));
+    remote_status_json(json, sizeof(json));
     return send_json(r, json);
 }
 
@@ -2476,8 +2476,8 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/telegram", .method=HTTP_POST, .handler=h_telegram },
         { .uri="/api/brewfather", .method=HTTP_POST, .handler=h_brewfather },
         { .uri="/api/calendar", .method=HTTP_POST, .handler=h_calendar },
-        { .uri="/api/samovar",  .method=HTTP_GET,  .handler=h_samovar },
-        { .uri="/api/samovar",  .method=HTTP_POST, .handler=h_samovar },
+        { .uri="/api/remote",  .method=HTTP_GET,  .handler=h_remote },
+        { .uri="/api/remote",  .method=HTTP_POST, .handler=h_remote },
         { .uri="/api/ota",      .method=HTTP_POST, .handler=h_ota_post },
         { .uri="/ws",           .method=HTTP_GET,  .handler=h_ws, .is_websocket=true },
     };

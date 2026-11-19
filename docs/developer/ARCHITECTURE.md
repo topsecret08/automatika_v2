@@ -151,7 +151,7 @@ PSRAM (8 МБ) используется для буферов LCD, кэша и S
 2. HAL: 1-Wire, барометр, давление, поток, DAC, реле, LCD, touch.
 3. Регулирование и безопасность, сессии, рефлюкс.
 4. БД, кэш, предиктор, аномалии, TinyML, UI-preloader.
-5. OTA, Telegram, MQTT, Samovar.
+5. OTA, Telegram, MQTT, Blynk.
 6. Wi-Fi provisioning (SoftAP + mDNS).
 7. health, UI, меню, диалог восстановления сессии.
 8. Задачи Core 0 и Core 1.

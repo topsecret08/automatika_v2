@@ -98,7 +98,7 @@ idf_component_register(
         "web/qr_wifi.c" "web/brewfather.c" "web/calendar.c"
         "web/mqtt_client.c" "web/telegram_bot.c" "web/telegram_commands.c"
         "web/telegram_notify.c" "web/ws_telemetry.c"
-        "web/samovar.c" "web/samovar_blynk.c" "web/samovar_mqtt.c"
+        "web/remote.c" "web/remote_blynk.c" "web/remote_mqtt.c"
         "web/ws_handler.c" "web/http_handlers.c"
         "web/https_server.c"
         "ota/fota.c" "ota/ota_manager.c" "ota/ota_sd.c" "ota/ota_url.c"
