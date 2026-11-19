@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from . import release, store, usb
 from .core import DeviceClient, DeviceError, UploadCancelled, file_sha256
+from .theme import apply_theme
 
 CONTROL_FIELDS = [
     ("ctrl_mode", "Режим управления", "0"),
@@ -29,6 +30,7 @@ CONTROL_FIELDS = [
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
+        apply_theme(self)
         self.title("Automatika — конфигуратор")
         self.geometry("860x620")
         self.minsize(720, 520)
