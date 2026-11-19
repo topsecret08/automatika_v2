@@ -15,6 +15,10 @@
 #include "core/roles.h"
 #include "core/process_control.h"
 #include "core/menu_engine.h"
+#include "db/db_manager.h"
+#include "ai/anomaly.h"
+#include "ai/action_predictor.h"
+#include "ai/cache_manager.h"
 #include "core/session_recovery.h"
 #include "core/trust_dashboard.h"
 #include "core/session_manager.h"
@@ -2155,6 +2159,91 @@ static esp_err_t h_session_stop(httpd_req_t *r) {
     return send_json(r, json);
 }
 
+static esp_err_t h_history_processes(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    int limit = 20, offset = 0;
+    size_t qlen = httpd_req_get_url_query_len(r);
+    if (qlen > 0 && qlen < 64) {
+        char q[64];
+        if (httpd_req_get_url_query_str(r, q, sizeof(q)) == ESP_OK) {
+            char val[16];
+            if (httpd_query_key_value(q, "limit", val, sizeof(val)) == ESP_OK) {
+                int v = atoi(val);
+                if (v > 0 && v <= 50) limit = v;
+            }
+            if (httpd_query_key_value(q, "offset", val, sizeof(val)) == ESP_OK) {
+                int v = atoi(val);
+                if (v >= 0) offset = v;
+            }
+        }
+    }
+
+    cJSON *arr = cJSON_CreateArray();
+    if (!arr) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+
+    if (db_is_ready()) {
+        db_process_t *rows = calloc((size_t)limit, sizeof(*rows));
+        if (!rows) {
+            cJSON_Delete(arr);
+            return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+        }
+        int n = db_process_list(rows, limit, offset);
+        for (int i = 0; i < n; i++) {
+            const db_process_t *p = &rows[i];
+            cJSON *o = cJSON_CreateObject();
+            cJSON_AddNumberToObject(o, "id", (double)p->id);
+            cJSON_AddNumberToObject(o, "type", p->type);
+            cJSON_AddNumberToObject(o, "started_ms", (double)p->started_ms);
+            cJSON_AddNumberToObject(o, "ended_ms", (double)p->ended_ms);
+            cJSON_AddNumberToObject(o, "duration_sec", p->duration_sec);
+            cJSON_AddNumberToObject(o, "heads_ml", p->heads_ml);
+            cJSON_AddNumberToObject(o, "body_ml", p->body_ml);
+            cJSON_AddNumberToObject(o, "tails_ml", p->tails_ml);
+            cJSON_AddNumberToObject(o, "rating", p->rating);
+            cJSON_AddStringToObject(o, "recipe_id", p->recipe_id);
+            cJSON_AddItemToArray(arr, o);
+        }
+        free(rows);
+    }
+
+    char *json = cJSON_PrintUnformatted(arr);
+    cJSON_Delete(arr);
+    if (!json) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    esp_err_t err = send_json(r, json);
+    free(json);
+    return err;
+}
+
+static esp_err_t h_ai_status(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    cJSON_AddBoolToObject(root, "db_ready", db_is_ready());
+
+    cJSON *an = cJSON_AddObjectToObject(root, "anomaly");
+    const anomaly_state_t *a = anomaly_get();
+    if (a) {
+        cJSON_AddNumberToObject(an, "error", a->error);
+        cJSON_AddNumberToObject(an, "threshold", a->threshold);
+        cJSON_AddBoolToObject(an, "is_anomaly", a->is_anomaly);
+        cJSON_AddNumberToObject(an, "since_ms", (double)a->since_ms);
+        cJSON_AddNumberToObject(an, "severity", a->severity);
+    }
+    cJSON_AddNumberToObject(an, "samples", (double)anomaly_samples());
+
+    cJSON_AddNumberToObject(root, "action_accuracy", action_predictor_accuracy());
+    cJSON_AddNumberToObject(root, "cache_hit_rate", cache_hit_rate());
+
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (!json) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    esp_err_t err = send_json(r, json);
+    free(json);
+    return err;
+}
+
 static esp_err_t h_menu_toggles(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -2604,6 +2693,8 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/param",               .method=HTTP_GET,  .handler=h_param_get },
         { .uri="/api/param",               .method=HTTP_POST, .handler=h_param_post },
 { .uri="/api/menu/toggles",        .method=HTTP_GET,  .handler=h_menu_toggles },
+{ .uri="/api/history/processes",   .method=HTTP_GET,  .handler=h_history_processes },
+{ .uri="/api/ai/status",           .method=HTTP_GET,  .handler=h_ai_status },
 { .uri="/api/menu/toggle",         .method=HTTP_POST, .handler=h_menu_toggle },
         { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },
         { .uri="/api/verify/shadow",       .method=HTTP_POST, .handler=h_verify_shadow },

@@ -2,10 +2,11 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 82.
+Всего маршрутов: 84.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
+| `GET` | `/api/ai/status` | `h_ai_status` | ключ |
 | `GET` | `/api/alcohol` | `h_alcohol` | ключ |
 | `POST` | `/api/alcohol` | `h_alcohol` | ключ |
 | `GET` | `/api/autotune` | `h_autotune` | ключ |
@@ -30,6 +31,7 @@
 | `GET` | `/api/hardware` | `h_hardware` | ключ |
 | `POST` | `/api/hardware` | `h_hardware` | ключ |
 | `GET` | `/api/health` | `h_health` | — |
+| `GET` | `/api/history/processes` | `h_history_processes` | ключ |
 | `GET` | `/api/i18n` | `h_i18n` | ключ |
 | `POST` | `/api/i18n` | `h_i18n` | ключ |
 | `POST` | `/api/menu/toggle` | `h_menu_toggle` | ключ |
