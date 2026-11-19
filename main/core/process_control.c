@@ -3,6 +3,7 @@
 #include "core/estop.h"
 #include "esp_log.h"
 #include "core/hw_profile.h"
+#include "hal/hal_1wire.h"
 #include "core/state.h"
 #include "core/session_manager.h"
 #include "core/control_config.h"
@@ -16,6 +17,8 @@
 #include "verify/shadow.h"
 #include "modes/mode_base.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 // Соответствие строковых id режимов типам процесса. Дублирует таблицу
@@ -40,6 +43,27 @@ static const mode_map_t *find_mode(const char *id) {
         if (strcmp(MODES[i].id, id) == 0) return &MODES[i];
     }
     return NULL;
+}
+
+bool process_control_hw_ready(process_type_t type, char *reason, size_t reason_len) {
+    hw_mode_status_t hw;
+    hw_profile_check_mode(type, &hw);
+    if (!hw.ready) {
+        snprintf(reason, reason_len, "%s", hw.reason);
+        return false;
+    }
+
+    // Датчик куба на шине может быть, но не отвечать (обрыв, -127). Такое показание
+    // нельзя использовать для нагрева. PVK и брожение без куба не работают с этим датчиком.
+    int cube = hw_temp_index(HW_TEMP_CUBE);
+    if (cube >= 0 && type != PROCESS_PVK && type != PROCESS_FERMENT) {
+        float t = hal_1wire_read_fast(cube);
+        if (isnan(t) || t < -55.0f || t > 125.0f) {
+            snprintf(reason, reason_len, "датчик куба не отвечает");
+            return false;
+        }
+    }
+    return true;
 }
 
 esp_err_t process_control_start(const char *mode_id) {
@@ -71,11 +95,10 @@ esp_err_t process_control_start(const char *mode_id) {
 
     if (!m) return ESP_ERR_INVALID_ARG;
 
-    hw_mode_status_t hw;
-    hw_profile_check_mode(type, &hw);
-    if (!hw.ready) {
-        events_log(EVENT_WARNING, "Start rejected: %s", hw.reason);
-        ESP_LOGW("PROCESS", "mode %d unavailable: %s", (int)type, hw.reason);
+    char why[96];
+    if (!process_control_hw_ready(type, why, sizeof(why))) {
+        events_log(EVENT_WARNING, "Start rejected: %s", why);
+        ESP_LOGW("PROCESS", "mode %d unavailable: %s", (int)type, why);
         return ESP_ERR_INVALID_STATE;
     }
 

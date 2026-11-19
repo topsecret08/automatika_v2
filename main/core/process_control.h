@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "esp_err.h"
 #include "core/state.h"
 
@@ -23,3 +26,9 @@ void process_control_stop(void);
 
 // true, если процесс запущен и не на паузе.
 bool process_control_running(void);
+
+// Проверка оборудования перед стартом режима: карта оборудования (датчик куба
+// и др.) и правдоподобное показание датчика куба. Вызывать перед любым
+// установлением is_running, включая веб-API, MQTT, Alice, удалённый запуск и экран.
+// При отказе пишет причину в reason.
+bool process_control_hw_ready(process_type_t type, char *reason, size_t reason_len);

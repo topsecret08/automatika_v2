@@ -3,6 +3,7 @@
 
 #include "core/state.h"
 #include "core/events.h"
+#include "core/process_control.h"
 #include "core/watchdog.h"
 #include "control/ctrl_heater.h"
 #include "control/safety_gate.h"
@@ -166,6 +167,13 @@ static bool process_start(const char *source) {
             m = mode_from_type(type);
         }
         if (!m) return false;
+
+        char why[96];
+        if (!process_control_hw_ready(type, why, sizeof(why))) {
+            events_log(EVENT_WARNING, "Remote[%s]: START blocked: %s",
+                       source ? source : "?", why);
+            return false;
+        }
 
         mode_set(m);
         st->type = type;

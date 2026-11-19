@@ -13,6 +13,7 @@
 #include "core/nvs_migration.h"
 #include "core/profiles.h"
 #include "core/roles.h"
+#include "core/process_control.h"
 #include "core/session_recovery.h"
 #include "core/trust_dashboard.h"
 #include "core/session_manager.h"
@@ -267,6 +268,11 @@ static esp_err_t h_start(httpd_req_t *r) {
     }
 
     if (!m) return send_err(r, "400 Bad Request", "{\"error\":\"mode not available\"}");
+    char why[96], err[160];
+    if (!process_control_hw_ready(type, why, sizeof(why))) {
+        snprintf(err, sizeof(err), "{\"error\":\"%s\"}", why);
+        return send_err(r, "409 Conflict", err);
+    }
     if (!ctrl_safety_ok())
         return send_err(r, "409 Conflict", "{\"error\":\"safety lock active\"}");
     if (estop_is_pressed())

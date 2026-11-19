@@ -28,6 +28,7 @@
 #include "control/ctrl_scale.h"
 #include "core/control_config.h"
 #include "core/estop.h"
+#include "core/process_control.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
 #include "config.h"
@@ -41,6 +42,11 @@ extern int64_t g_current_process_id;
 // РЕЖИМЫ
 // ============================================================
 #define START_MODE(proc_type, mode_struct) do { \
+    char why_blocked[96]; \
+    if (!process_control_hw_ready(proc_type, why_blocked, sizeof(why_blocked))) { \
+        events_log(EVENT_WARNING, "Start blocked: %s", why_blocked); \
+        break; \
+    } \
     state_get()->type = proc_type; \
     state_get()->start_cube_temp = state_get()->cube_temp; \
     mode_set(&mode_struct); \

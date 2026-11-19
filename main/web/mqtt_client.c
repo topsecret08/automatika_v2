@@ -3,6 +3,7 @@
 #include "core/flags.h"
 #include "core/watchdog.h"
 #include "core/events.h"
+#include "core/process_control.h"
 #include "control/ctrl_heater.h"
 #include "control/safety_gate.h"
 #include "control/ctrl_safety.h"
@@ -63,6 +64,12 @@ static void mqtt_handle_cmd(const char *data, int len) {
     if (strncmp(cmd, "start", 5) == 0) {
         if (!ctrl_safety_ok()) {
             events_log(EVENT_WARNING, "MQTT start rejected: safety not OK");
+            return;
+        }
+        process_type_t mqtt_type = (st->type > PROCESS_IDLE) ? st->type : PROCESS_DISTILL;
+        char why[96];
+        if (!process_control_hw_ready(mqtt_type, why, sizeof(why))) {
+            events_log(EVENT_WARNING, "MQTT start rejected: %s", why);
             return;
         }
         if (!mode_get()) mode_set(mode_from_type(PROCESS_DISTILL));
