@@ -318,7 +318,6 @@ void app_main(void) {
     SPAWN(autolearn_task,     "autolearn", STACK_AUTOLEARN,   PRIO_AUTOLEARN,    CORE_NETWORK_AI);
     SPAWN(db_logger_task,     "dblog",     4096,              PRIO_EVENTS,       CORE_NETWORK_AI);
     SPAWN(hal_usb_task,       "usb",       3072,              2,                 CORE_NETWORK_AI);
-    SPAWN(fota_task,          "fota",      3072,              3,                 CORE_NETWORK_AI);
     SPAWN(wd_task,            "wd",        3072,              2,                 CORE_NETWORK_AI);
     SPAWN(ctrl_dose_task,     "doser",     4096,              PRIO_DOSER,        CORE_NETWORK_AI);
     SPAWN(ctrl_stepper_task,  "stepper",   STACK_STEPPER,     PRIO_STEPPER,      CORE_NETWORK_AI);

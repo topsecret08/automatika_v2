@@ -1444,6 +1444,10 @@ static esp_err_t h_ota_url(httpd_req_t *r) {
     if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
     const char *url = json_string(root, "url");
     char url_copy[192] = "";
+    if (url && strlen(url) >= sizeof(url_copy)) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request", "{\"error\":\"url too long\"}");
+    }
     if (url) {
         strncpy(url_copy, url, sizeof(url_copy) - 1);
     }
@@ -1479,6 +1483,10 @@ static esp_err_t h_ota_secure(httpd_req_t *r) {
     if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
     const char *url = json_string(root, "url");
     char url_copy[192] = "";
+    if (url && strlen(url) >= sizeof(url_copy)) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request", "{\"error\":\"url too long\"}");
+    }
     if (url) strncpy(url_copy, url, sizeof(url_copy) - 1);
     cJSON_Delete(root);
 

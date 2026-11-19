@@ -20,7 +20,7 @@
 | `test_capability.c` | Lua @requires, deny-by-default |
 | `test_sim_chaos.c` | RC-симулятор, ChaosProbe |
 | `test_loop_verify.c` | mismatch после 3 тактов, NO_RESPONSE 30 с, окно актуатора, разрыв между прогонами, бинарный канал, latency, STUCK, CROSSCHECK, NO_FEEDBACK, low confidence |
-| `test_readback_relay.c` | нормализация GPIO/CURRENT, бинарный канал, логика NC-реле, heartbeat и rearm |
+| `test_readback_relay.c` | нормализация GPIO/CURRENT, бинарный канал, логика NO-реле, heartbeat и rearm |
 | `test_stepper.c` | CRC8, кадры запроса/ответа, MOVE/RUN, пересчёт мл→шаги, тайм-аут |
 | `test_hw_profile.c` | минимальные наборы режимов, optional-устройства, роли датчиков |
 

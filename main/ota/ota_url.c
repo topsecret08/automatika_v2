@@ -28,6 +28,7 @@ esp_err_t fota_flash_from_url(const char *url) {
         vTaskDelay(pdMS_TO_TICKS(1000));
         esp_restart();
     } else {
+        p->in_progress = false;
         p->failed = true;
         events_log(EVENT_ERROR, "FOTA URL failed");
     }

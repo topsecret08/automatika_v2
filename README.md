@@ -48,7 +48,7 @@
 > больше не вытесняет журнал и не пишет на SD каждые 500 мс; результат
 > пишется в `verify_trace` (`channel='loop'`, `latency_us`, `flags`,
 > `aggregate`); `GET /api/safety` показывает состояние реле и loop_verify.
-> Сброс аварии снимает защёлку NC-реле (`hal_safety_relay_rearm()`), но
+> Сброс аварии снимает защёлку NO-реле (`hal_safety_relay_rearm()`), но
 > реле закрывается только со свежим heartbeat. UI-слайдер и
 > `/api/param power` переведены на `safety_gate_submit()`.
 
@@ -104,7 +104,7 @@
 | ChaosProbe | `main/core/chaos_probe.{h,c}` | политика + метрики, только тесты |
 | Активная верификация контура | `main/core/loop_verify.{h,c}`, `loop_verify_glue.c` | встроена в `mode_distill`; mismatch 3 такта, NO_RESPONSE 30 с, эскалация в safety |
 | Readback исполнителей | `main/hal/hal_actuator_readback.{h,c}` | GPIO/CURRENT, `NAN` = NO_FEEDBACK |
-| Fail-safe NC-реле | `main/hal/hal_safety_relay.{h,c}` | heartbeat от safety, старт разомкнут; защёлка снимается сбросом аварии |
+| Fail-safe NO-реле | `main/hal/hal_safety_relay.{h,c}` | heartbeat от safety, старт разомкнут; защёлка снимается сбросом аварии |
 
 #### Active Verification & Hardware Safety
 
@@ -128,11 +128,13 @@ lv_sensor_frame  lv_program_frame  lv_actuator_frame ◄── hal_actuator_read
                             ctrl_safety_trigger("LOOP_VERIFY")
 ```
 
-Реле аварийного разрыва — нормально замкнутый контакт, который удерживается
+**Обязательно замыкающий контакт (NO).** Нормально замкнутый (NC) контакт
+нельзя использовать: при обесточенной катушке он проводит ток, и при зависании
+или пропадании питания нагрев включится. Реле аварийного разрыва — замыкающий контакт (NO), который удерживается
 только heartbeat:
 
 ```
-L ──► контактор ──► NC-реле (SAFETY_RELAY_GPIO) ──► SSR/симистор ──► ТЭН
+L ──► контактор ──► NO-реле (SAFETY_RELAY_GPIO) ──► SSR/симистор ──► ТЭН
                         ▲
                         │ heartbeat каждые T/4
                    safety-задача (ctrl_safety)
@@ -169,7 +171,7 @@ E-STOP, а не заменяет его.
 | `ACT_READBACK_GPIO` | `-1` | вход обратной связи (GPIO backend) |
 | `ACT_READBACK_ADC_CHANNEL` | `0` | канал ADC (CURRENT backend) |
 | `ACT_READBACK_FULL_SCALE` | `32767.0` | нормировка тока в 0..100 % |
-| `SAFETY_RELAY_GPIO` | `-1` | выход NC-реле, `-1` = не установлено |
+| `SAFETY_RELAY_GPIO` | `-1` | выход NO-реле, `-1` = не установлено |
 | `SAFETY_RELAY_TIMEOUT_MS` | `1000` | окно heartbeat, опрос T/4 |
 
 **События и телеметрия:** агрегат публикует `LOOP_VERIFY` только при смене
@@ -377,7 +379,7 @@ ctest --test-dir test/host/build --output-on-failure
 - **Обратная связь исполнителей** `hal_actuator_readback`: backend
   NONE/GPIO/CURRENT, нормализация 0..100 %, `NAN` для канала без обратной
   связи, бинарный режим для контактора.
-- **Fail-safe NC-реле** `hal_safety_relay`: удерживается heartbeat от
+- **Fail-safe NO-реле** `hal_safety_relay`: удерживается heartbeat от
   safety-задачи, старт с разомкнутого; защёлка `force_open()` снимается
   только явным сбросом аварии.
 - **I2C-степпер** `ctrl_stepper`: дозатор и мешалка по протоколу с CRC8,
@@ -511,11 +513,11 @@ ctest --test-dir test/host/build --output-on-failure
 ### Fail-safe реле
 
 ```
-ТЭН ← контактор ← NC-реле (SAFETY_RELAY_GPIO) ← L
+ТЭН ← контактор ← NO-реле (SAFETY_RELAY_GPIO) ← L
                  ← SSR/симистор
 ```
 
-NC-реле удерживается только heartbeat от safety-задачи. Пропал heartbeat,
+NO-реле удерживается только heartbeat от safety-задачи. Пропал heartbeat,
 зависла задача или пропало питание — контакт размыкается без участия
 процессора. `SAFETY_RELAY_GPIO=-1` по умолчанию: реле не установлено.
 `force_open()` ставит защёлку, которую снимает только явный сброс аварии;
@@ -1345,7 +1347,7 @@ REST: `POST /api/power {"power":35}` — ручной режим,
   не являются источником команд нагрева.
 - HIL-стенда и автоматического fault injection пока нет; сценарии
   «отказ датчика», «зависание задачи», «обрыв I2C» выполняются по
-  стендовой процедуре. Readback исполнителей, NC-реле и Finglai SSVR
+  стендовой процедуре. Readback исполнителей, NO-реле и Finglai SSVR
   обязательно проверяются на реальной плате: без обратной связи
   `loop_verify` видит `ACT_NO_FEEDBACK`, а не факт срабатывания.
 - `verify_trace` пишется, но метрики MTBF/error rate/max latency и
@@ -1563,7 +1565,7 @@ automatika_v2/
     │                           loop_verify (активная проверка контура)
     ├── hal/                    I2C, 1-Wire, ADC/DAC, реле, дисплей,
     │                           тач, SD, USB, HX711, readback исполнителей,
-    │                           fail-safe NC-реле
+    │                           fail-safe NO-реле
     ├── control/                PID, нагрев, клапаны, безопасность,
     │                           весы, калибровки, прогнозы
     ├── modes/                  8 режимов и пивные рецепты
@@ -1573,7 +1575,6 @@ automatika_v2/
     ├── web/                    HTTP, REST, WebSocket, MQTT,
     │                           Telegram, Алиса, QR, календарь
     ├── ota/                    FOTA: SD, URL, QR, проверка, откат
-    ├── patches/                критические исправления
     └── third_party/            qrcodegen
 ```
 
@@ -1682,7 +1683,7 @@ python -m tools.configurator
 - [`docs/developer/API_ROUTES.md`](docs/developer/API_ROUTES.md) — HTTP-маршруты
   и авторизация;
 - [`docs/service/SAFETY_VERIFICATION.md`](docs/service/SAFETY_VERIFICATION.md) —
-  проверка E-STOP, NC-реле, readback, loop_verify, SSVR и OTA;
+  проверка E-STOP, NO-реле, readback, loop_verify, SSVR и OTA;
 - [`docs/hardware/I2C_STEPPER.md`](docs/hardware/I2C_STEPPER.md) — протокол,
   подключение и калибровка I2C-степпера;
 - краткий старт: [RU](docs/user/QUICK_START.md),
