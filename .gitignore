@@ -7,6 +7,10 @@ sdkconfig.old
 *.elf
 *.map
 
+# PyInstaller (Automatika.exe собирается в CI, см. .github/workflows/app.yml)
+dist/
+*.spec
+
 # ESP-IDF managed dependencies
 managed_components/
 dependencies.lock

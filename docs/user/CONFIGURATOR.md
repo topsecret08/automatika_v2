@@ -6,7 +6,8 @@
 
 ## Установка и запуск
 
-Готовый `Automatika.exe` собирается скриптом:
+Для обычного пользователя проще скачать готовый `Automatika-<версия>.exe` из
+релиза на GitHub: см. [`APP.md`](APP.md). Собрать самому можно скриптом:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\configurator\build_exe.ps1
