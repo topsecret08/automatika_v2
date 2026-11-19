@@ -61,17 +61,19 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
     val stack = remember { mutableStateListOf<MenuItem>() }
     var editor by remember { mutableStateOf<MenuOutcome.Editor?>(null) }
     var calc by remember { mutableStateOf<MenuOutcome.Calc?>(null) }
+    var graph by remember { mutableStateOf(false) }
     var appPage by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<Pair<MenuItem, MenuOutcome>?>(null) }
     var notice by remember { mutableStateOf("") }
 
     val currentEditor = editor
-    val atRoot = currentEditor == null && calc == null && !appPage && stack.isEmpty()
+    val atRoot = currentEditor == null && calc == null && !graph && !appPage && stack.isEmpty()
 
     fun back() {
         when {
             currentEditor != null -> editor = null
             calc != null -> calc = null
+            graph -> graph = false
             appPage -> appPage = false
             stack.isNotEmpty() -> stack.removeAt(stack.lastIndex)
         }
@@ -92,6 +94,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             is MenuOutcome.Start, MenuOutcome.ResetAlarm -> pending = item to outcome
             is MenuOutcome.Editor -> editor = outcome
             is MenuOutcome.Calc -> calc = outcome
+            MenuOutcome.Graph -> graph = true
             MenuOutcome.OnDeviceOnly -> notice = "«${item.title}» пока доступно только на дисплее контроллера."
         }
     }
@@ -101,6 +104,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
     val title = when {
         currentEditor != null -> currentEditor.title
         calc != null -> calc?.kind?.title ?: "Калькулятор"
+        graph -> "График"
         appPage -> "Приложение и подключение"
         stack.isNotEmpty() -> stack.last().title
         else -> "Главное меню"
@@ -133,6 +137,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             when {
                 currentEditor != null -> JsonEditorCard(currentEditor.title, currentEditor.path, vm)
                 calc != null -> calc?.let { CalculatorCard(it.kind) }
+                graph -> GraphCard(ui.state)
                 appPage -> AppPage(ui, vm)
                 stack.isEmpty() -> groupRootMenu(ROOT_MENU + APP_TILE).forEach { (section, items) ->
                     Text(section, style = MaterialTheme.typography.titleMedium)
