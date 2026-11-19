@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import hashlib
+import socket
 import sys
 import tempfile
 import types
 import unittest
+import urllib.error
 import zipfile
 from pathlib import Path
 from unittest import mock
 
 from tools.configurator import release, usb
-from tools.configurator.core import DeviceError
+from tools.configurator.core import DeviceError, describe_network_error
 
 
 def _write(path: Path, size: int = 16) -> Path:
@@ -21,6 +23,22 @@ def _write(path: Path, size: int = 16) -> Path:
 
 def _artifacts(root: Path) -> dict[str, Path]:
     return {name: _write(root / name) for name, _o, _l in usb.FLASH_PARTS}
+
+
+class NetworkErrorTest(unittest.TestCase):
+    def test_unknown_host_has_plain_message(self):
+        exc = urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))
+        text = describe_network_error(exc, "automatika.local")
+        self.assertIn("automatika.local не найдено в сети", text)
+        self.assertNotIn("getaddrinfo", text)
+
+    def test_timeout_and_refused(self):
+        self.assertIn("тайм-аут", describe_network_error(TimeoutError(), "10.0.0.5"))
+        refused = urllib.error.URLError(ConnectionRefusedError(10061, "refused"))
+        self.assertIn("отказало", describe_network_error(refused, "10.0.0.5"))
+
+    def test_other_errors_keep_text(self):
+        self.assertEqual(describe_network_error(OSError("boom")), "boom")
 
 
 class ParseInfoTest(unittest.TestCase):
