@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 
-// Чистая проверка: NC-реле закрыто только при свежем heartbeat.
+// Чистая проверка: NO-реле закрыто только при свежем heartbeat.
 static inline bool safety_relay_should_close(int64_t now_us,
                                              int64_t last_hb_us,
                                              uint32_t timeout_ms,

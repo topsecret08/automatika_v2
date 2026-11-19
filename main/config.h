@@ -337,7 +337,7 @@
 #define ACT_READBACK_ADC_CHANNEL     0
 #define ACT_READBACK_FULL_SCALE      32767.0f
 
-// Аппаратное fail-safe NC-реле: heartbeat от safety_gate.
+// Аппаратное fail-safe NO-реле: heartbeat от safety_gate.
 // -1 — реле не установлено.
 #define SAFETY_RELAY_GPIO           -1
 #define SAFETY_RELAY_TIMEOUT_MS      1000
