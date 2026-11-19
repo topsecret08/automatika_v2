@@ -1,58 +1,91 @@
 # Quick start (15 minutes)
 
-From unpacking to the first run. Full guide: [USER_GUIDE.md](USER_GUIDE.md);
-PWA installation: [PWA_INSTALL.md](PWA_INSTALL.md).
+From unpacking to the first run. Details are in
+[USER_GUIDE.md](USER_GUIDE.md); PWA installation is in
+[PWA_INSTALL.md](PWA_INSTALL.md).
+
+> The Russian version of this guide is the reference. If the two differ, follow
+> the Russian text. Button labels in the device interface are Russian by default
+> («Старт», «Стоп», «Система → API-ключ»); the English words here are translations.
 
 ## 1. What you need
 
-- Automatika device with firmware V0.9 beta.
-- Phone or laptop on 2.4 GHz Wi-Fi.
-- 220 V outlet with earth leakage protection and grounding.
-- Cooling water and at least 15 % of the cube volume filled.
+- An assembled Automatika device with firmware V0.9.5 beta.
+- A phone or laptop with 2.4 GHz Wi-Fi.
+- A grounded 220 V socket with an RCD (residual current device).
+- Cooling water and liquid for distillation (at least 15 % of the still volume).
 
-## 2. Hook-up
+## 2. Connection
 
-1. Connect cooling water inlet and outlet.
-2. Fill the cube above the minimum level.
-3. Close the lid and make sure **E-STOP is not pressed**.
-4. Power on: the main screen should appear.
+1. Connect the cooling (water in/out).
+2. Fill the still with liquid, not below the minimum level.
+3. Close the lid and check that E-STOP is **not** pressed.
+4. Switch the power on. The screen should show the splash screen and then the main screen.
 
-> Never heat an empty cube or run without cooling.
+> Do not switch the heater on without a filled still and cooling water flowing.
 
-## 3. Wi-Fi
+## 3. Connecting to Wi-Fi
 
-On first boot the device starts the **`Automatika-Setup`** access point.
+On the first start (or after a settings reset) the device opens an open access point
+**`Automatika-Setup`**.
 
-1. Join it from your phone.
-2. Open **ESP SoftAP Prov** or `esp_prov.py` from ESP-IDF.
-3. Enter your 2.4 GHz SSID and password.
-4. Wait for confirmation and reconnection.
+1. On your phone, open Wi-Fi and connect to `Automatika-Setup`.
+2. Run the **ESP SoftAP Prov** app (Espressif, Android/iPhone) or
+   `esp_prov.py` from ESP-IDF.
+3. Device: `Automatika-Setup`, transport `softap`.
+4. Enter the SSID and password of your **2.4 GHz** network.
+5. Wait for the success message. The device restarts Wi-Fi and joins your network.
 
-The setup AP has no password: do not leave it active in public places longer
-than needed.
+The access point has no password (provisioning with security level 0). Do not leave
+the device in setup mode in a crowded place longer than necessary.
 
-## 4. Web UI
+## 4. Open the web interface
 
-1. Open `http://automatika.local` (or the IP shown by your router).
-2. Go to **System → API key** and press **Generate**.
-3. The key is stored in this browser; until it exists the device allows only
-   the initial bootstrap.
-4. Return to **Work → Dashboard**; the status must show `Online`.
+1. In a browser open `http://automatika.local`
+   (if mDNS does not work, use the device IP from your router's client list).
+2. Go to **System → API key**.
+3. Press **"Generate"**. The key is created and saved in this browser. This is a
+   one-time operation: until a key exists, the device accepts the bootstrap; after
+   that only the current key is accepted.
+4. Go back to **Work → Dashboard**. The status should become `Online`.
 
-## 5. PWA (optional)
+> The firmware has no default key. If someone created a key before you, reset the
+> settings (see SERVICE_MANUAL.md) and repeat.
 
-1. Open `https://automatika.local` and accept the self-signed certificate.
-2. Chrome (Android): **Install** in the header.
-3. Safari (iPhone): **Share → Add to Home Screen**.
+## 5. Install the PWA (optional)
 
-## 6. First process
+1. Open `https://automatika.local`.
+2. Accept the self-signed certificate warning (or install `cert.pem` as a trusted
+   certificate — [PWA_INSTALL.md](PWA_INSTALL.md)).
+3. Chrome (Android): the **"Install"** button in the header or the menu →
+   "Install app".
+4. Safari (iPhone): "Share" → "Add to Home Screen".
 
-1. Confirm the cube and column are at room temperature and cooling flow is
-   above 0.5 l/min.
-2. Set manual power (30–40 %) and check that temperature rises.
-3. For automatic mode configure a profile and PID.
-4. **Stop** cuts heating; **Safety** only resets when the process is stopped,
-   E-STOP is released and the level is valid.
+After installation the app opens without an address bar, works as an offline shell,
+and has shortcuts to "Dashboard", "Log" and "Settings".
 
-> Safety: the E-STOP, the NC safety relay and active loop verification
-> complement the electrical installation; they do not replace it.
+## 6. First run of a process
+
+1. Check the readings: the still and column should be close to room temperature, and
+   the cooling flow should be above 0.5 l/min.
+2. Set the power manually (for example 30–40 %) and check that the temperature rises.
+3. For the automatic mode, set up a profile and PID (see
+   [USER_GUIDE.md](USER_GUIDE.md), section "Profiles and PID").
+4. Start: press **"Start"**, then choose the mode tile (rectification, distillation,
+   beer, PVK, NBK, vacuum distillation). Stop: **"Stop"**.
+5. Watch the log: the **"Log"** tab (needs the API key).
+
+## 7. If something goes wrong
+
+- Does not heat — [TROUBLESHOOTING.md](../service/TROUBLESHOOTING.md), §2.1.
+- No Wi-Fi — §2.5.
+- The PWA does not install — §2.6 and [PWA_INSTALL.md](PWA_INSTALL.md).
+- Alarm / E-STOP — switch the power off at once, then see
+  [SERVICE_MANUAL.md](../service/SERVICE_MANUAL.md).
+
+## 8. What next
+
+- [USER_GUIDE.md](USER_GUIDE.md) — daily work.
+- [FAQ.md](FAQ.md) — frequent questions.
+- [video_links.md](video_links.md) — video tutorial topics (no links yet).
+- [SERVICE_MANUAL.md](../service/SERVICE_MANUAL.md) — maintenance.

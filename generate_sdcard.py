@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 '''
-generate_sdcard.py — создаёт полную SD-карту Automatika V0.9 beta
+generate_sdcard.py — создаёт полную SD-карту Automatika V0.9.5 beta
 Запуск: python generate_sdcard.py
 '''
 
@@ -358,7 +358,7 @@ CALCS = {
 # ============================================================
 LANG = {
     "ru.json": {
-        "app_title": "Automatika V0.9 beta",
+        "app_title": "Automatika V0.9.5 beta",
         "menu": {
             "modes": "Режимы работы", "monitoring": "Мониторинг",
             "recipes": "Рецепты", "calcs": "Калькуляторы",
@@ -373,7 +373,7 @@ LANG = {
         }
     },
     "en.json": {
-        "app_title": "Automatika V0.9 beta",
+        "app_title": "Automatika V0.9.5 beta",
         "menu": {
             "modes": "Modes", "monitoring": "Monitoring",
             "recipes": "Recipes", "calcs": "Calculators",
@@ -388,7 +388,7 @@ LANG = {
         }
     },
     "de.json": {
-        "app_title": "Automatika V0.9 beta",
+        "app_title": "Automatika V0.9.5 beta",
         "menu": {
             "modes": "Betriebsarten", "monitoring": "Überwachung",
             "recipes": "Rezepte", "calcs": "Rechner",
@@ -408,7 +408,7 @@ LANG = {
 # ГЛАВНЫЙ БЛОК
 # ============================================================
 def main():
-    print("SD-карта Automatika V0.9 beta")
+    print("SD-карта Automatika V0.9.5 beta")
     print()
 
     print("Справка:")

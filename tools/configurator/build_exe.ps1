@@ -3,5 +3,6 @@
 $ErrorActionPreference = "Stop"
 python -m pip install -r tools/configurator/requirements.txt pyinstaller
 python -m PyInstaller --noconfirm --onefile --windowed --name Automatika `
+    --icon tools/automatika.ico --add-data "tools/automatika.ico;tools" `
     --paths . tools/automatika_app.py
 Write-Host "Готово: dist\Automatika.exe"

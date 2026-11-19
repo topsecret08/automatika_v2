@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -11,6 +12,10 @@ from tkinter import filedialog, messagebox, ttk
 from . import release, store, usb
 from .core import DeviceClient, DeviceError, UploadCancelled, file_sha256
 from .theme import apply_theme
+
+# Исходники: tools/automatika.ico. Собранный EXE: файл добавлен через --add-data в tools/.
+ICON_PATH = (Path(sys._MEIPASS) / "tools" if getattr(sys, "frozen", False)
+             else Path(__file__).resolve().parent.parent) / "automatika.ico"
 
 CONTROL_FIELDS = [
     ("ctrl_mode", "Режим управления", "0"),
@@ -31,6 +36,10 @@ class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         apply_theme(self)
+        try:
+            self.iconbitmap(default=str(ICON_PATH))
+        except tk.TclError:
+            pass
         self.title("Automatika — конфигуратор")
         self.geometry("860x620")
         self.minsize(720, 520)
@@ -156,7 +165,7 @@ class App(tk.Tk):
             self.port_box["values"] = [p.device for p in ports]
             if found is None:
                 self.qlog("Плата Automatika по USB не найдена. Проверьте кабель "
-                          "и что прошивка V0.9 beta или новее.")
+                          "и что прошивка V0.9.5 beta или новее.")
                 return
             port, info = found
             self.port_var.set(usb.guess_flash_port(ports, port.device))

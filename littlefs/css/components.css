@@ -690,6 +690,35 @@
   padding: 0 52px;
 }
 
+/* Выбор режима перед стартом */
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8);
+}
+.mode-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 112px;
+  padding: var(--space-12) var(--space-8);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--card-border);
+  background: var(--bg-card-solid);
+  color: var(--text-primary);
+  font: 600 13px/1.2 var(--font-stack);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mode-tile:active { background: #1a2433; }
+.mode-icon {
+  width: 48px;
+  height: 48px;
+  color: #c8d6e8;
+}
+.mode-icon svg { width: 48px; height: 48px; display: block; }
+
 /* Строка безопасности дашборда */
 .safety-line {
   display: flex;

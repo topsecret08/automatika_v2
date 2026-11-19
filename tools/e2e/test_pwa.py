@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 
@@ -14,7 +15,7 @@ def test_dashboard_renders_telemetry(make_page, base_url):
     )
     assert page.locator("#power-value").inner_text() == "42"
     assert page.locator("#tab-bar a").count() == 4
-    assert page.locator('[data-action="start"]').is_visible()
+    assert page.locator('#start-btn').is_visible()
 
 
 def test_alarm_banner_and_status(make_page, base_url):
@@ -44,14 +45,16 @@ def test_api_key_is_sent(make_page, base_url, api_requests):
 def test_start_posts_to_device(make_page, base_url, api_requests):
     page = make_page({"running": 0}, api_key="E2E-KEY-123")
     page.goto(base_url + "/?page=dashboard")
-    page.wait_for_selector('[data-action="start"]')
+    page.wait_for_selector('#start-btn')
 
-    page.locator('[data-action="start"]').click()
+    page.locator('#start-btn').click()
+    page.locator('#mode-picker [data-mode="rectify"]').click()
     page.wait_for_timeout(300)
 
     posts = [r for r in api_requests
              if r["path"] == "/api/start" and r["method"] == "POST"]
-    assert posts, "кнопка «Старт» не отправила POST /api/start"
+    assert posts, "выбор режима не отправил POST /api/start"
+    assert json.loads(posts[-1]["body"] or "{}").get("mode") == "rectify"
 
 
 def test_system_group_navigation(make_page, base_url):
