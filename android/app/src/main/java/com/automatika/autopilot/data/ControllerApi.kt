@@ -1,5 +1,6 @@
 package com.automatika.autopilot.data
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** Состояние контроллера, как его отдаёт GET /api/state. */
