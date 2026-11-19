@@ -119,10 +119,14 @@ class DemoController(
         if (path == PATH_EVENTS) {
             return JSONArray().put(JSONObject().put("ts_ms", 0).put("type", 2).put("name", "INFO").put("msg", "Демо-режим"))
         }
+        if (path == "/api/menu/toggles") {
+            return JSONArray().put(JSONObject().put("key", "auto92").put("title", "Авто-92+").put("value", 0).put("role", 2).put("editable", true))
+        }
         throw ControllerException("демо: нет массива для $path")
     }
 
     override suspend fun postJson(path: String, body: JSONObject): JSONObject {
+        if (path == "/api/menu/toggle") return JSONObject().put("ok", true)
         val doc = documents[path] ?: throw ControllerException("демо: запись в $path не поддерживается")
         val keys = body.keys()
         while (keys.hasNext()) {

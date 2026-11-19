@@ -12,6 +12,20 @@ import org.junit.Test
 class ControllerParserTest {
 
     @Test
+    fun parsesMenuTogglesAsDeviceSendsThem() {
+        val json = JSONArray(
+            "[{\"key\":\"auto92\",\"title\":\"Авто-92+\",\"value\":1,\"role\":2,\"editable\":true}," +
+                "{\"key\":\"wifi\",\"title\":\"Wi-Fi\",\"value\":0,\"role\":2,\"editable\":false}]"
+        )
+        val toggles = ControllerParser.toggles(json)
+        assertEquals(2, toggles.size)
+        assertEquals("auto92", toggles[0].key)
+        assertTrue(toggles[0].value)
+        assertTrue(toggles[0].editable)
+        assertFalse(toggles[1].editable)
+    }
+
+    @Test
     fun parsesEventsArrayAsDeviceSendsIt() {
         val json = JSONArray("[{\"ts_ms\":1,\"type\":2,\"name\":\"WARN\",\"msg\":\"sensor\"}]")
         assertEquals(listOf("WARN  sensor"), ControllerParser.events(json))

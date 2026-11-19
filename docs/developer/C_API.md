@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 351.
+Всего функций: 355.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -735,6 +735,32 @@ bool lv_escalation_changed(uint32_t aggregate, uint32_t detail, uint32_t *last_a
 
 Антидребезг эскалации: true только при смене агрегата или маски.
 Обновляет *last_aggregate/*last_detail.
+
+## `main/core/menu_engine.h`
+
+```c
+int menu_engine_list_toggles(const menu_item_t **out, int max);
+```
+
+Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
+
+```c
+const menu_item_t *menu_engine_find_toggle(const char *key);
+```
+
+Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
+
+```c
+bool menu_engine_toggle_get(const char *key, uint8_t *value);
+```
+
+Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
+
+```c
+bool menu_engine_toggle_set(const char *key, uint8_t value);
+```
+
+Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
 
 ## `main/core/process_control.h`
 

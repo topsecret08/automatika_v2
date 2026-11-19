@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 80.
+Всего маршрутов: 82.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -32,6 +32,8 @@
 | `GET` | `/api/health` | `h_health` | — |
 | `GET` | `/api/i18n` | `h_i18n` | ключ |
 | `POST` | `/api/i18n` | `h_i18n` | ключ |
+| `POST` | `/api/menu/toggle` | `h_menu_toggle` | ключ |
+| `GET` | `/api/menu/toggles` | `h_menu_toggles` | ключ |
 | `POST` | `/api/mqtt` | `h_mqtt` | ключ |
 | `GET` | `/api/ota` | `h_ota_get` | ключ |
 | `POST` | `/api/ota` | `h_ota_post` | ключ |

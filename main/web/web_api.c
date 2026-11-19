@@ -14,6 +14,7 @@
 #include "core/profiles.h"
 #include "core/roles.h"
 #include "core/process_control.h"
+#include "core/menu_engine.h"
 #include "core/session_recovery.h"
 #include "core/trust_dashboard.h"
 #include "core/session_manager.h"
@@ -2154,6 +2155,67 @@ static esp_err_t h_session_stop(httpd_req_t *r) {
     return send_json(r, json);
 }
 
+static esp_err_t h_menu_toggles(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    const menu_item_t *items[64];
+    int n = menu_engine_list_toggles(items, 64);
+    cJSON *arr = cJSON_CreateArray();
+    if (!arr) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    for (int i = 0; i < n; i++) {
+        const menu_item_t *it = items[i];
+        uint8_t v = 0;
+        menu_engine_toggle_get(it->nvs_key, &v);
+        cJSON *o = cJSON_CreateObject();
+        cJSON_AddStringToObject(o, "key", it->nvs_key);
+        cJSON_AddStringToObject(o, "title", it->title_ru ? it->title_ru : "");
+        cJSON_AddNumberToObject(o, "value", v);
+        cJSON_AddNumberToObject(o, "role", it->required_role);
+        cJSON_AddBoolToObject(o, "editable", roles_check(it->required_role));
+        cJSON_AddItemToArray(arr, o);
+    }
+    char *json = cJSON_PrintUnformatted(arr);
+    cJSON_Delete(arr);
+    if (!json) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    esp_err_t err = send_json(r, json);
+    free(json);
+    return err;
+}
+
+static esp_err_t h_menu_toggle(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+
+    char body[160];
+    int n = recv_body(r, body, sizeof(body));
+    if (n <= 0) return send_err(r, "400 Bad Request", "{\"error\":\"empty body\"}");
+
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"bad json\"}");
+
+    const cJSON *key = cJSON_GetObjectItemCaseSensitive(root, "key");
+    const cJSON *val = cJSON_GetObjectItemCaseSensitive(root, "value");
+    if (!cJSON_IsString(key) || !key->valuestring || !cJSON_IsNumber(val) ||
+        (val->valuedouble != 0.0 && val->valuedouble != 1.0)) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request", "{\"error\":\"key and value 0|1 required\"}");
+    }
+
+    const menu_item_t *it = menu_engine_find_toggle(key->valuestring);
+    if (!it) {
+        cJSON_Delete(root);
+        return send_err(r, "400 Bad Request", "{\"error\":\"unknown toggle\"}");
+    }
+    if (!roles_check(it->required_role)) {
+        cJSON_Delete(root);
+        return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    }
+
+    bool ok = menu_engine_toggle_set(it->nvs_key, val->valuedouble != 0.0 ? 1 : 0);
+    cJSON_Delete(root);
+    if (!ok) return send_err(r, "500 Internal Server Error", "{\"error\":\"nvs write\"}");
+    return send_json(r, "{\"ok\":true}");
+}
+
 static esp_err_t h_param_get(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     char json[2048];
@@ -2541,6 +2603,8 @@ void web_api_register(httpd_handle_t srv) {
         { .uri="/api/session/stop",        .method=HTTP_POST, .handler=h_session_stop },
         { .uri="/api/param",               .method=HTTP_GET,  .handler=h_param_get },
         { .uri="/api/param",               .method=HTTP_POST, .handler=h_param_post },
+{ .uri="/api/menu/toggles",        .method=HTTP_GET,  .handler=h_menu_toggles },
+{ .uri="/api/menu/toggle",         .method=HTTP_POST, .handler=h_menu_toggle },
         { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },
         { .uri="/api/verify/shadow",       .method=HTTP_POST, .handler=h_verify_shadow },
         { .uri="/api/verify/stage",        .method=HTTP_POST, .handler=h_verify_stage },
