@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 87.
+Всего маршрутов: 88.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -16,6 +16,7 @@
 | `POST` | `/api/beer` | `h_beer` | ключ |
 | `POST` | `/api/brewfather` | `h_brewfather` | ключ |
 | `POST` | `/api/calendar` | `h_calendar` | ключ |
+| `GET` | `/api/calib/state` | `h_calib_state` | ключ |
 | `GET` | `/api/config` | `h_config` | ключ |
 | `POST` | `/api/config` | `h_config` | ключ |
 | `POST` | `/api/config/clear-key` | `h_config_clear_key` | ключ |
