@@ -10,39 +10,39 @@ export const MENU = {
     label: 'Работа',
     icon: 'play',
     tasks: [
-      { id: 'dashboard', label: 'Дашборд', page: 'dashboard', icon: 'grid' },
-      { id: 'fraction', label: 'Текущая фракция', page: 'fraction', icon: 'layers' },
-      { id: 'selection', label: 'Вариант отбора', page: 'selection', icon: 'layers' },
+      { id: 'dashboard', label: 'Дашборд', sub: 'Управление процессом', page: 'dashboard', icon: 'grid' },
+      { id: 'fraction', label: 'Текущая фракция', sub: 'Этап и отбор', page: 'fraction', icon: 'layers' },
+      { id: 'selection', label: 'Вариант отбора', sub: 'Параметры клапана', page: 'selection', icon: 'layers' },
     ],
   },
   prepare: {
     label: 'Подготовка',
     icon: 'sliders',
     tasks: [
-      { id: 'profiles', label: 'Профили', page: 'profiles', icon: 'folder' },
-      { id: 'hardware', label: 'Оборудование', page: 'hardware', icon: 'tool' },
-      { id: 'calibration', label: 'Калибровка', page: 'calibration', icon: 'gauge' },
-      { id: 'sensors', label: 'Проверка датчиков', page: 'sensors', icon: 'thermometer' },
+      { id: 'profiles', label: 'Профили', sub: 'Рецепты и режимы', page: 'profiles', icon: 'folder' },
+      { id: 'hardware', label: 'Оборудование', sub: 'Роли датчиков и приводов', page: 'hardware', icon: 'tool' },
+      { id: 'calibration', label: 'Калибровка', sub: 'Датчики и давление', page: 'calibration', icon: 'gauge' },
+      { id: 'sensors', label: 'Проверка датчиков', sub: 'Показания и связь', page: 'sensors', icon: 'thermometer' },
     ],
   },
   diagnose: {
     label: 'Диагностика',
     icon: 'activity',
     tasks: [
-      { id: 'log', label: 'Журнал событий', page: 'log', icon: 'list' },
-      { id: 'actuators', label: 'Проверка приводов', page: 'actuators', icon: 'tool' },
-      { id: 'health', label: 'Состояние', page: 'health', icon: 'heart' },
-      { id: 'network', label: 'Сеть', page: 'network', icon: 'wifi' },
+      { id: 'log', label: 'Журнал событий', sub: 'История и аварии', page: 'log', icon: 'list' },
+      { id: 'actuators', label: 'Проверка приводов', sub: 'Тест клапанов и нагрева', page: 'actuators', icon: 'tool' },
+      { id: 'health', label: 'Состояние', sub: 'Память, питание, часы', page: 'health', icon: 'heart' },
+      { id: 'network', label: 'Сеть', sub: 'Wi-Fi и MQTT', page: 'network', icon: 'wifi' },
     ],
   },
   system: {
     label: 'Система',
     icon: 'gear',
     tasks: [
-      { id: 'ota', label: 'Обновление', page: 'ota', icon: 'download' },
-      { id: 'api', label: 'API-ключ', page: 'api', icon: 'key' },
-      { id: 'lang', label: 'Язык', page: 'lang', icon: 'globe' },
-      { id: 'about', label: 'О устройстве', page: 'about', icon: 'info' },
+      { id: 'ota', label: 'Обновление', sub: 'Прошивка и откат', page: 'ota', icon: 'download' },
+      { id: 'api', label: 'API-ключ', sub: 'Доступ к устройству', page: 'api', icon: 'key' },
+      { id: 'lang', label: 'Язык', sub: 'Интерфейс', page: 'lang', icon: 'globe' },
+      { id: 'about', label: 'О устройстве', sub: 'Версия и лицензии', page: 'about', icon: 'info' },
     ],
   },
 };
@@ -108,18 +108,19 @@ export function renderTabBar(activeGroup) {
 
 export function renderSubMenu(groupKey) {
   const group = MENU[groupKey] || MENU.work;
-  const rows = group.tasks.map((task) => `
-    <a class="task-row" href="/?page=${task.page}" data-page-link="${task.page}">
-      <span class="task-icon">${icon(task.icon)}</span>
-      <span class="body grow">${task.label}</span>
-      <span class="chevron" aria-hidden="true">›</span>
+  const tiles = group.tasks.map((task) => `
+    <a class="menu-tile" href="/?page=${task.page}" data-page-link="${task.page}">
+      <span class="tile-icon">${icon(task.icon)}</span>
+      <span class="tile-title">${task.label}</span>
+      <span class="tile-sub">${task.sub || ''}</span>
+      <span class="tile-chevron" aria-hidden="true">›</span>
     </a>
   `).join('');
 
   return `
     <section class="section">
       <div class="section-title">${group.label}</div>
-      <div class="card task-list">${rows}</div>
+      <div class="menu-tiles">${tiles}</div>
     </section>
     <p class="hint">
       Группы соответствуют задачам: «Работа» — ежедневное управление,

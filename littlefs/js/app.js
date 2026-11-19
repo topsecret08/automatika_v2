@@ -555,6 +555,13 @@ function renderDashboard() {
     </section>
 
     <section class="section">
+      <div id="safety-line" class="safety-line">
+        <span id="safety-text">Проверка защиты…</span>
+        <span class="safety-note" id="safety-note"></span>
+      </div>
+    </section>
+
+    <section class="section">
       <div class="btn-row">
         <button class="btn btn-primary" type="button" data-action="start">Старт</button>
         <button class="btn btn-secondary" type="button" data-action="pause">Пауза</button>
@@ -737,6 +744,18 @@ function renderLiveValues() {
     } else {
       banner.classList.add('hidden');
     }
+  }
+
+  const safetyLine = $('#safety-line');
+  if (safetyLine) {
+    const bad = !!state.estop || !state.safety;
+    safetyLine.classList.toggle('bad', bad);
+    $('#safety-text').textContent = state.estop
+      ? 'E-STOP активен'
+      : (!state.safety ? 'Защита сработала' : 'Защита в норме');
+    $('#safety-note').textContent = state.estop
+      ? 'Нагрев снят, проверьте причину'
+      : (!state.safety ? 'Проверьте журнал' : (state.powerManual ? 'Ручная мощность активна' : 'Аварийная кнопка отпущена'));
   }
 
   updateStatusOnly();
