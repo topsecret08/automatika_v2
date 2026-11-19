@@ -126,7 +126,10 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             when {
                 currentEditor != null -> JsonEditorCard(currentEditor.title, currentEditor.path, vm)
                 appPage -> AppPage(ui, vm)
-                stack.isEmpty() -> MenuTiles(ROOT_MENU + APP_TILE, role) { choose(it) }
+                stack.isEmpty() -> groupRootMenu(ROOT_MENU + APP_TILE).forEach { (section, items) ->
+                    Text(section, style = MaterialTheme.typography.titleMedium)
+                    MenuTiles(items, role) { choose(it) }
+                }
                 else -> MenuList(stack.last().children, role) { choose(it) }
             }
         }

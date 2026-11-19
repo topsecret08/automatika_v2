@@ -92,6 +92,30 @@ fun modeIconRes(action: String): Int? = when (action) {
     else -> null
 }
 
+/**
+ * Разделы главного меню приложения. Ключи — id пунктов из menu_tree.c.
+ * Состав дерева не меняется: группировка только для экрана приложения.
+ */
+private val MENU_SECTIONS: List<Pair<String, List<String>>> = listOf(
+    "Режимы" to listOf("menu.m", "menu.mon", "menu.f", "menu.rec", "menu.c", "menu.ab", "menu.tp"),
+    "Настройка" to listOf("app.page", "menu.s", "menu.v", "menu.ui", "menu.r", "menu.sc", "menu.al", "menu.tm", "menu.ex"),
+    "Диагностика" to listOf("menu.d", "menu.wd", "menu.db", "menu.usb", "menu.fo"),
+    "Справка" to listOf("menu.h", "menu.l", "menu.dm", "menu.ai", "menu.qr"),
+)
+
+/** Пункты главного меню по разделам. Пункт вне разделов попадает в «Прочее». */
+fun groupRootMenu(items: List<MenuItem>): List<Pair<String, List<MenuItem>>> {
+    val byId = items.associateBy { it.id }
+    val used = mutableSetOf<String>()
+    val groups = MENU_SECTIONS.map { (title, ids) ->
+        used += ids
+        title to ids.mapNotNull { byId[it] }
+    }.toMutableList()
+    val rest = items.filter { it.id !in used }
+    if (rest.isNotEmpty()) groups += "Прочее" to rest
+    return groups.filter { it.second.isNotEmpty() }
+}
+
 /** Цвета категорий меню, как colorCategory в menu_tree.c (0..10). */
 private val CategoryColors = listOf(
     Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFFFB8C00), Color(0xFF8E24AA),
