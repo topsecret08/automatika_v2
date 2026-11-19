@@ -1663,6 +1663,11 @@ Branch protection включён: обязательные checks — `host logi
 в `ci/build.yml`; release можно прогнать вручную без публикации
 (`workflow_dispatch`, `publish=false`).
 
+Workflow `windows-app` (`.github/workflows/app.yml`) собирает `Automatika.exe`
+на Windows, запускает тесты конфигуратора и прикрепляет `Automatika-<тег>.exe`
+и `SHA256SUMS-app.txt` к релизу тега `v*`. Для уже опубликованного релиза его
+можно запустить вручную с параметром `tag`.
+
 ### CLI и поиск устройства
 
 ```bash
@@ -1676,6 +1681,21 @@ python -m tools.configurator
 Подробности — [`docs/user/CLI.md`](docs/user/CLI.md) и
 [`docs/user/CONFIGURATOR.md`](docs/user/CONFIGURATOR.md).
 
+### Приложение Automatika для Windows
+
+`Automatika.exe` — приложение без установки. Оно находит плату по USB,
+прошивает её, обновляет до последней версии и получает API-ключ автоматически.
+
+1. Скачайте `Automatika-<версия>.exe` из
+   [последнего релиза](https://github.com/topsecret08/automatika_v2/releases/latest).
+2. Подключите плату USB-кабелем и запустите приложение.
+3. Вкладка **Быстрый старт** → **Найти плату** → **Обновить до последней версии**.
+
+Пошаговая инструкция, драйверы и решение типичных ошибок — в
+[`docs/user/APP.md`](docs/user/APP.md). Исходники — `tools/configurator/`,
+сборка — `tools/configurator/build_exe.ps1`; в CI `.exe` собирает workflow
+`windows-app`.
+
 ### Документация
 
 - [`docs/developer/C_API.md`](docs/developer/C_API.md) — C API из заголовков
@@ -1688,6 +1708,8 @@ python -m tools.configurator
   подключение и калибровка I2C-степпера;
 - пошагово для новичков (подключение, прошивка, настройка, работа):
   [BEGINNER_GUIDE](docs/user/BEGINNER_GUIDE.md);
+- приложение для Windows (установка, обновление одной кнопкой, ошибки):
+  [APP](docs/user/APP.md);
 - краткий старт: [RU](docs/user/QUICK_START.md),
   [EN](docs/user/QUICK_START.en.md), [DE](docs/user/QUICK_START.de.md),
   [ES](docs/user/QUICK_START.es.md), [FR](docs/user/QUICK_START.fr.md).
@@ -2093,7 +2115,7 @@ HTTP→HTTPS редирект **выключен** по умолчанию (`WEB
 
 | Уровень | Для кого | Файлы |
 |---|---|---|
-| **Пользователь** | владелец аппарата | [BEGINNER_GUIDE](docs/user/BEGINNER_GUIDE.md) (пошагово для новичков), [QUICK_START](docs/user/QUICK_START.md), [USER_GUIDE](docs/user/USER_GUIDE.md), [FAQ](docs/user/FAQ.md), [PWA_INSTALL](docs/user/PWA_INSTALL.md), [video_links](docs/user/video_links.md) |
+| **Пользователь** | владелец аппарата | [BEGINNER_GUIDE](docs/user/BEGINNER_GUIDE.md) (пошагово для новичков), [APP](docs/user/APP.md) (приложение для Windows), [QUICK_START](docs/user/QUICK_START.md), [USER_GUIDE](docs/user/USER_GUIDE.md), [FAQ](docs/user/FAQ.md), [PWA_INSTALL](docs/user/PWA_INSTALL.md), [video_links](docs/user/video_links.md) |
 | **Сервис** | монтажник, ремонт | [SERVICE_MANUAL](docs/service/SERVICE_MANUAL.md), [TROUBLESHOOTING](docs/service/TROUBLESHOOTING.md), [TEST_PROCEDURES](docs/service/TEST_PROCEDURES.md) |
 | **Разработчик** | программист | [API](docs/developer/API.md), [ARCHITECTURE](docs/developer/ARCHITECTURE.md), [BUILD](docs/developer/BUILD.md), [LVGL9_MIGRATION](docs/developer/LVGL9_MIGRATION.md) |
 | **Железо** | инженер | [pinout](docs/hardware/pinout.md), [bom.csv](docs/hardware/bom.csv), [wiring_diagram.svg](docs/hardware/wiring_diagram.svg), [pcb_layout.png](docs/hardware/pcb_layout.png) |

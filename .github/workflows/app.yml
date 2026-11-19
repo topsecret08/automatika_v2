@@ -1,0 +1,73 @@
+name: windows-app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза, в который прикрепить exe (например v0.9.0-beta). Пусто — только artifact."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    name: Automatika.exe (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r tools/configurator/requirements.txt pyinstaller
+
+      - name: Unit tests
+        run: python -m unittest discover -s tools/tests -t .
+
+      - name: Build Automatika.exe
+        run: >-
+          python -m PyInstaller --noconfirm --onefile --windowed
+          --name Automatika --paths . tools/automatika_app.py
+
+      - name: Name artifacts
+        shell: pwsh
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          $release = $env:INPUT_TAG
+          if (-not $release -and $env:GITHUB_REF_TYPE -eq 'tag') { $release = $env:GITHUB_REF_NAME }
+          $label = if ($release) { $release } else { "manual-$($env:GITHUB_SHA.Substring(0,7))" }
+          $exe = "Automatika-$label.exe"
+          Copy-Item dist/Automatika.exe $exe
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  $exe" | Set-Content -Encoding ascii SHA256SUMS-app.txt
+          "APP_EXE=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "RELEASE_TAG=$release" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: automatika-app-${{ github.sha }}
+          path: |
+            ${{ env.APP_EXE }}
+            SHA256SUMS-app.txt
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: env.RELEASE_TAG != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            ${{ env.APP_EXE }}
+            SHA256SUMS-app.txt
