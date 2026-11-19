@@ -15,6 +15,7 @@
 - [QUICK_START.md](user/QUICK_START.md) — от распаковки до первого запуска.
 - [PWA_INSTALL.md](user/PWA_INSTALL.md) — установка веб-интерфейса как приложения.
 - [FAQ.md](user/FAQ.md) — частые вопросы.
+- [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) - что не включено в управление, что значит degraded.
 - [TROUBLESHOOTING.md](service/TROUBLESHOOTING.md) — дерево диагностики.
 - [API.md](developer/API.md) — реальные эндпоинты прошивки.
 - [BUILD.md](developer/BUILD.md) — `idf.py build`, тесты, littlefs-образ.

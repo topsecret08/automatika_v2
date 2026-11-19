@@ -72,7 +72,7 @@ CH34x/CP210x (или USB-JTAG). Если плата программируетс
 В PowerShell:
 
 ```powershell
-Get-FileHash .\Automatika-v0.9.0-beta.exe -Algorithm SHA256
+Get-FileHash .\Automatika-v0.9.5-beta.exe -Algorithm SHA256
 ```
 
 Сравните строку `Hash` с первой колонкой в `SHA256SUMS-app.txt`. Они должны
