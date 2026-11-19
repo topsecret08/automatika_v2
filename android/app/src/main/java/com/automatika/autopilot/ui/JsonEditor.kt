@@ -51,7 +51,7 @@ fun JsonEditorCard(title: String, path: String, vm: AutopilotViewModel) {
         val body = JSONObject()
         for (key in source.keys().asSequence().toList()) {
             val old = source.get(key)
-            if (isReadOnly(old)) continue
+            if (isReadOnly(old) || FieldNames.isReadOnly(key)) continue
             val text = texts[key] ?: continue
             if (text == old.toString()) continue
             val value: Any? = when (old) {
@@ -99,12 +99,13 @@ fun JsonEditorCard(title: String, path: String, vm: AutopilotViewModel) {
                 for (key in doc.keys().asSequence().toList().sorted()) {
                     val old = doc.get(key)
                     when {
-                        isReadOnly(old) -> Text("$key: ${old.toString().take(120)} (только просмотр)")
+                        isReadOnly(old) || FieldNames.isReadOnly(key) ->
+                            Text("${FieldNames.label(key)}: ${texts[key].orEmpty()} (только чтение)")
                         old is Boolean -> Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(key, Modifier.padding(end = 8.dp))
+                            Text(FieldNames.label(key), Modifier.padding(end = 8.dp))
                             Switch(
                                 checked = texts[key] == "true",
                                 onCheckedChange = { texts[key] = it.toString() },
@@ -113,7 +114,7 @@ fun JsonEditorCard(title: String, path: String, vm: AutopilotViewModel) {
                         else -> OutlinedTextField(
                             value = texts[key].orEmpty(),
                             onValueChange = { texts[key] = it },
-                            label = { Text(key) },
+                            label = { Text(FieldNames.label(key)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
