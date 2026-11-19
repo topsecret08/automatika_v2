@@ -144,7 +144,8 @@ class DemoControllerTest {
 
     @Test
     fun eventsHaveEventsArray() = runBlocking {
-        val events = demo.getJson("/api/events").getJSONArray("events")
+        val events = demo.getArray("/api/events")
         assertTrue(events.length() > 0)
+        assertTrue(events.getJSONObject(0).has("msg"))
     }
 }
