@@ -21,6 +21,7 @@
 
 #define MAX_SENSORS   8
 #define NOISE_WIN     32
+#define DS18B20_CONVERSION_WAIT_MS 800  /* 12 бит: преобразование до 750 мс + запас */
 #define CACHE_TTL_US  3000000LL  // данные старше 3 с считаются недостоверными
 
 static const char *TAG = "1WIRE";
@@ -77,9 +78,21 @@ static void sensors_task(void *arg) {
 
         xSemaphoreTake(s_bus_mtx, portMAX_DELAY);
         esp_err_t err = ds18b20_trigger_temperature_conversion_for_all(s_bus);
+        xSemaphoreGive(s_bus_mtx);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "conversion trigger failed: %s", esp_err_to_name(err));
-        } else {
+            vTaskDelay(pdMS_TO_TICKS(DS18B20_CONVERSION_WAIT_MS));
+            continue;
+        }
+
+        /* Читать сразу после запуска нельзя: в 12-битном режиме
+         * преобразование ещё идёт, мы получили бы результат прошлого цикла,
+         * а частый повторный запуск не даёт ему завершиться. */
+        vTaskDelay(pdMS_TO_TICKS(DS18B20_CONVERSION_WAIT_MS));
+        WD_FEED("sensors");
+
+        xSemaphoreTake(s_bus_mtx, portMAX_DELAY);
+        {
             int64_t now = esp_timer_get_time();
             for (int i = 0; i < count; i++) {
                 float t;
@@ -116,7 +129,7 @@ static void sensors_task(void *arg) {
         xSemaphoreGive(s_bus_mtx);
 
         WD_FEED("sensors");
-        // 800 мс уходит на преобразование, ещё немного — на цикл.
+        // Цикл ≈ 900 мс: ожидание преобразования 800 мс выше, здесь — пауза.
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -165,7 +178,11 @@ esp_err_t hal_1wire_init(void) {
                 calibs[count] = (ds18b20_calib_t){ .offset = 0, .scale = 1.0f, .calibrated = false };
             }
 
-            ds18b20_set_resolution(devs[count], DS18B20_RESOLUTION_12B);
+            esp_err_t res_err = ds18b20_set_resolution(devs[count], DS18B20_RESOLUTION_12B);
+            if (res_err != ESP_OK) {
+                ESP_LOGW(TAG, "DS18B20 #%d: 12-bit resolution not set: %s",
+                         count, esp_err_to_name(res_err));
+            }
             count++;
         }
     }
