@@ -2,6 +2,7 @@ package com.automatika.autopilot.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -52,6 +53,10 @@ class HttpControllerApi(
 
     override suspend fun getJson(path: String): JSONObject =
         JSONObject(request("GET", path, null).ifBlank { "{}" })
+
+    /** Для эндпоинтов, которые отдают массив верхнего уровня, например /api/events. */
+    override suspend fun getArray(path: String): JSONArray =
+        JSONArray(request("GET", path, null).ifBlank { "[]" })
 
     override suspend fun postJson(path: String, body: JSONObject): JSONObject =
         JSONObject(request("POST", path, body.toString()).ifBlank { "{}" })

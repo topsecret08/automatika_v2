@@ -49,5 +49,6 @@ interface ControllerApi {
     suspend fun setPower(percent: Double?)
     suspend fun resetSafety()
     suspend fun getJson(path: String): JSONObject
+    suspend fun getArray(path: String): JSONArray
     suspend fun postJson(path: String, body: JSONObject): JSONObject
 }

@@ -2,6 +2,7 @@ package com.automatika.autopilot
 
 import com.automatika.autopilot.data.ControllerParser
 import com.automatika.autopilot.data.HttpControllerApi
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -9,6 +10,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ControllerParserTest {
+
+    @Test
+    fun parsesEventsArrayAsDeviceSendsIt() {
+        val json = JSONArray("[{\"ts_ms\":1,\"type\":2,\"name\":\"WARN\",\"msg\":\"sensor\"}]")
+        assertEquals(listOf("WARN  sensor"), ControllerParser.events(json))
+        assertEquals(emptyList<String>(), ControllerParser.events(JSONArray("[]")))
+    }
 
     @Test
     fun parsesDeviceStateJson() {

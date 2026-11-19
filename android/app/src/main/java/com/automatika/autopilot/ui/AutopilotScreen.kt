@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.automatika.autopilot.data.ControllerParser
 import com.automatika.autopilot.data.ControllerState
 import com.automatika.autopilot.data.ProcessMode
 
@@ -342,15 +343,8 @@ private fun EventsSection(vm: AutopilotViewModel) {
             Text("Журнал событий", style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = {
                 vm.execute { api ->
-                    val events = api.getJson("/api/events").optJSONArray("events")
-                    lines = if (events == null || events.length() == 0) {
-                        "Событий нет."
-                    } else {
-                        (0 until events.length()).joinToString("\n") { index ->
-                            val item = events.getJSONObject(index)
-                            "${item.optString("type")}  ${item.optString("msg")}"
-                        }
-                    }
+                    val events = ControllerParser.events(api.getArray("/api/events"))
+                    lines = if (events.isEmpty()) "Событий нет." else events.joinToString("\n")
                 }
             }) { Text("Обновить") }
             Text(lines)
