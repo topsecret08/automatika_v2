@@ -1,5 +1,6 @@
 package com.automatika.autopilot.data
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** Разбор JSON контроллера. Отсутствующие поля получают безопасные значения. */
@@ -19,6 +20,14 @@ object ControllerParser {
         mode = json.optString("mode", ""),
         elapsedSec = json.optInt("elapsed", 0),
     )
+
+    /** /api/events отдаёт массив {ts_ms, type, name, msg}; выводим "имя  текст". */
+    fun events(json: JSONArray): List<String> = (0 until json.length()).mapNotNull { index ->
+        val item = json.optJSONObject(index) ?: return@mapNotNull null
+        val name = item.optString("name", "")
+        val msg = item.optString("msg", "")
+        listOf(name, msg).filter { it.isNotBlank() }.joinToString("  ").ifBlank { null }
+    }
 
     fun health(json: JSONObject): ControllerHealth = ControllerHealth(
         version = json.optString("version", "?"),

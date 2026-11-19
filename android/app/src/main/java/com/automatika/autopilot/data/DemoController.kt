@@ -112,13 +112,14 @@ class DemoController(
         safetyOk = true
     }
 
-    override suspend fun getJson(path: String): JSONObject {
+    override suspend fun getJson(path: String): JSONObject =
+        JSONObject(documents[path]?.toString() ?: throw ControllerException("демо: нет данных для $path"))
+
+    override suspend fun getArray(path: String): JSONArray {
         if (path == PATH_EVENTS) {
-            return JSONObject().put("events", JSONArray().apply {
-                put(JSONObject().put("timestamp_ms", 0).put("type", "INFO").put("msg", "Демо-режим"))
-            })
+            return JSONArray().put(JSONObject().put("ts_ms", 0).put("type", 2).put("name", "INFO").put("msg", "Демо-режим"))
         }
-        return JSONObject(documents[path]?.toString() ?: throw ControllerException("демо: нет данных для $path"))
+        throw ControllerException("демо: нет массива для $path")
     }
 
     override suspend fun postJson(path: String, body: JSONObject): JSONObject {
