@@ -1,4 +1,4 @@
-#include "samovar_priv.h"
+#include "remote_priv.h"
 
 #include "esp_log.h"
 #include "mqtt_client.h"
@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *TAG = "SAMOVAR_MQTT";
+static const char *TAG = "REMOTE_MQTT";
 
 static esp_mqtt_client_handle_t s_client = NULL;
 static SemaphoreHandle_t        s_mtx = NULL;
@@ -85,7 +85,7 @@ static void mqtt_event_handler(void *arg, esp_event_base_t base,
         while (len > 0 && isspace((unsigned char)cmd[len - 1]))
             cmd[--len] = '\0';
 
-        if (len > 0) samovar_command(cmd, "mqtt");
+        if (len > 0) remote_command(cmd, "mqtt");
         break;
     }
 
@@ -131,7 +131,7 @@ static void start_client(void) {
     xSemaphoreGive(s_mtx);
 }
 
-void samovar_mqtt_configure(const samovar_cfg_t *cfg) {
+void remote_mqtt_configure(const remote_cfg_t *cfg) {
     if (!cfg) return;
     if (!s_mtx) s_mtx = xSemaphoreCreateMutex();
     if (!s_mtx) return;
@@ -171,7 +171,7 @@ void samovar_mqtt_configure(const samovar_cfg_t *cfg) {
     if (want) start_client();
 }
 
-bool samovar_mqtt_connected(void) { return s_connected; }
+bool remote_mqtt_connected(void) { return s_connected; }
 
 static bool publish_locked(const char *topic, const char *payload) {
     if (!s_connected || !s_client) return false;
@@ -179,7 +179,7 @@ static bool publish_locked(const char *topic, const char *payload) {
     return id >= 0;
 }
 
-void samovar_mqtt_publish_values(const samovar_values_t *v) {
+void remote_mqtt_publish_values(const remote_values_t *v) {
     if (!v || !s_mtx) return;
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
@@ -210,7 +210,7 @@ void samovar_mqtt_publish_values(const samovar_values_t *v) {
     xSemaphoreGive(s_mtx);
 }
 
-void samovar_mqtt_log(const char *msg) {
+void remote_mqtt_log(const char *msg) {
     if (!msg || !s_mtx) return;
 
     xSemaphoreTake(s_mtx, portMAX_DELAY);
@@ -225,7 +225,7 @@ void samovar_mqtt_log(const char *msg) {
     xSemaphoreGive(s_mtx);
 }
 
-void samovar_mqtt_stop(void) {
+void remote_mqtt_stop(void) {
     if (!s_mtx) return;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     if (s_client) {

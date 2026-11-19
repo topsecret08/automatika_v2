@@ -1,5 +1,5 @@
-#include "samovar.h"
-#include "samovar_priv.h"
+#include "remote.h"
+#include "remote_priv.h"
 
 #include "core/state.h"
 #include "core/events.h"
@@ -23,13 +23,14 @@
 #include <string.h>
 #include <strings.h>
 
-#define SAMOVAR_NS "samovar"
+#define REMOTE_NS "remote"
+#define REMOTE_NS_LEGACY "samovar"
 
-static const char *TAG = "SAMOVAR";
+static const char *TAG = "REMOTE";
 
 extern int64_t g_current_process_id;
 
-static samovar_cfg_t     s_cfg;
+static remote_cfg_t     s_cfg;
 static SemaphoreHandle_t s_cfg_mtx = NULL;
 static bool              s_initialized = false;
 
@@ -37,11 +38,11 @@ static bool              s_initialized = false;
 /* config                                                             */
 /* ------------------------------------------------------------------ */
 
-static void cfg_defaults(samovar_cfg_t *c) {
+static void cfg_defaults(remote_cfg_t *c) {
     memset(c, 0, sizeof(*c));
-    strncpy(c->host, SAMOVAR_DEFAULT_HOST, sizeof(c->host) - 1);
-    c->port = SAMOVAR_DEFAULT_PORT;
-    c->vref_mv = SAMOVAR_DEFAULT_VREF_MV;
+    strncpy(c->host, REMOTE_DEFAULT_HOST, sizeof(c->host) - 1);
+    c->port = REMOTE_DEFAULT_PORT;
+    c->vref_mv = REMOTE_DEFAULT_VREF_MV;
 }
 
 static void load_str(nvs_handle_t h, const char *key, char *dst, size_t max,
@@ -57,13 +58,16 @@ static void load_str(nvs_handle_t h, const char *key, char *dst, size_t max,
     }
 }
 
-static void cfg_load(samovar_cfg_t *c) {
+static void cfg_load(remote_cfg_t *c) {
     cfg_defaults(c);
 
     nvs_handle_t h;
-    if (nvs_open(SAMOVAR_NS, NVS_READONLY, &h) != ESP_OK) return;
+    /* Старое пространство имён V0.9 beta читаем, чтобы не потерять настройки
+     * уже работающих устройств; новые значения пишутся в REMOTE_NS. */
+    if (nvs_open(REMOTE_NS, NVS_READONLY, &h) != ESP_OK &&
+        nvs_open(REMOTE_NS_LEGACY, NVS_READONLY, &h) != ESP_OK) return;
 
-    load_str(h, "host", c->host, sizeof(c->host), SAMOVAR_DEFAULT_HOST);
+    load_str(h, "host", c->host, sizeof(c->host), REMOTE_DEFAULT_HOST);
     load_str(h, "token", c->token, sizeof(c->token), "");
     load_str(h, "muri", c->mqtt_uri, sizeof(c->mqtt_uri), "");
     load_str(h, "muser", c->mqtt_user, sizeof(c->mqtt_user), "");
@@ -82,9 +86,9 @@ static void cfg_load(samovar_cfg_t *c) {
     if (!c->token[0]) c->enabled = false;
 }
 
-static esp_err_t cfg_save(const samovar_cfg_t *c) {
+static esp_err_t cfg_save(const remote_cfg_t *c) {
     nvs_handle_t h;
-    esp_err_t err = nvs_open(SAMOVAR_NS, NVS_READWRITE, &h);
+    esp_err_t err = nvs_open(REMOTE_NS, NVS_READWRITE, &h);
     if (err != ESP_OK) return err;
 
     nvs_set_u8(h, "en", c->enabled ? 1 : 0);
@@ -106,7 +110,7 @@ static bool str_prefix(const char *s, const char *p) {
     return strncmp(s, p, strlen(p)) == 0;
 }
 
-static esp_err_t cfg_validate(const samovar_cfg_t *c) {
+static esp_err_t cfg_validate(const remote_cfg_t *c) {
     if (c->host[0] == '\0' || strlen(c->host) >= sizeof(c->host))
         return ESP_ERR_INVALID_ARG;
     if (c->port == 0)
@@ -128,7 +132,7 @@ static esp_err_t cfg_validate(const samovar_cfg_t *c) {
     return ESP_OK;
 }
 
-void samovar_get_config(samovar_cfg_t *out) {
+void remote_get_config(remote_cfg_t *out) {
     if (!out) return;
     if (!s_cfg_mtx) {
         *out = s_cfg;
@@ -145,7 +149,7 @@ void samovar_get_config(samovar_cfg_t *out) {
 
 static bool process_start(const char *source) {
     if (!ctrl_safety_ok()) {
-        events_log(EVENT_WARNING, "Samovar[%s]: START blocked by safety",
+        events_log(EVENT_WARNING, "Remote[%s]: START blocked by safety",
                    source ? source : "?");
         return false;
     }
@@ -171,14 +175,14 @@ static bool process_start(const char *source) {
 
         if (db_is_ready()) {
             g_current_process_id =
-                db_process_start((uint8_t)type, "samovar");
+                db_process_start((uint8_t)type, "remote");
             st->process_id = g_current_process_id;
         }
     } else {
         st->is_paused = false;
     }
 
-    events_log(EVENT_USER_ACTION, "Samovar[%s]: START",
+    events_log(EVENT_USER_ACTION, "Remote[%s]: START",
                source ? source : "?");
     return true;
 }
@@ -191,39 +195,39 @@ static bool process_stop(const char *source) {
     st->is_running = false;
     st->is_paused = false;
 
-    events_log(EVENT_USER_ACTION, "Samovar[%s]: STOP",
+    events_log(EVENT_USER_ACTION, "Remote[%s]: STOP",
                source ? source : "?");
     return true;
 }
 
-bool samovar_set_power_percent(float pct, const char *source) {
+bool remote_set_power_percent(float pct, const char *source) {
     if (pct < 0) pct = 0;
     if (pct > 100) pct = 100;
 
     if (pct > 0 && !ctrl_safety_ok()) {
-        events_log(EVENT_WARNING, "Samovar[%s]: power %.0f%% blocked by safety",
+        events_log(EVENT_WARNING, "Remote[%s]: power %.0f%% blocked by safety",
                    source ? source : "?", pct);
         return false;
     }
 
     safety_gate_submit("mqtt_power", pct);
-    events_log(EVENT_USER_ACTION, "Samovar[%s]: power %.0f%%",
+    events_log(EVENT_USER_ACTION, "Remote[%s]: power %.0f%%",
                source ? source : "?", pct);
     return true;
 }
 
-bool samovar_set_power_volts(float volts, const char *source) {
-    samovar_cfg_t c;
-    samovar_get_config(&c);
+bool remote_set_power_volts(float volts, const char *source) {
+    remote_cfg_t c;
+    remote_get_config(&c);
     float vref = (c.vref_mv > 0) ? (float)c.vref_mv : 5000.0f;
 
     if (volts < 0) volts = 0;
     if (volts > vref) volts = vref;
 
-    return samovar_set_power_percent(volts * 100.0f / vref, source);
+    return remote_set_power_percent(volts * 100.0f / vref, source);
 }
 
-bool samovar_command(const char *cmd, const char *source) {
+bool remote_command(const char *cmd, const char *source) {
     if (!cmd) return false;
 
     char buf[64];
@@ -248,11 +252,11 @@ bool samovar_command(const char *cmd, const char *source) {
         while (*p && (isspace((unsigned char)*p) || *p == ':' || *p == '='))
             p++;
         if (!*p) return false;
-        return samovar_set_power_percent(strtof(p, NULL), source);
+        return remote_set_power_percent(strtof(p, NULL), source);
     }
 
     if (isdigit((unsigned char)buf[0]) || buf[0] == '-' || buf[0] == '.')
-        return samovar_set_power_percent(strtof(buf, NULL), source);
+        return remote_set_power_percent(strtof(buf, NULL), source);
 
     return false;
 }
@@ -261,12 +265,12 @@ bool samovar_command(const char *cmd, const char *source) {
 /* values / task                                                      */
 /* ------------------------------------------------------------------ */
 
-void samovar_get_values(samovar_values_t *out) {
+void remote_get_values(remote_values_t *out) {
     if (!out) return;
 
     process_state_t *st = state_get();
-    samovar_cfg_t c;
-    samovar_get_config(&c);
+    remote_cfg_t c;
+    remote_get_config(&c);
 
     float cube = hal_1wire_read(0);
     float steam = hal_1wire_read(1);
@@ -282,7 +286,7 @@ void samovar_get_values(samovar_values_t *out) {
     out->stage = (int)st->stage;
 }
 
-esp_err_t samovar_init(void) {
+esp_err_t remote_init(void) {
     if (s_initialized) return ESP_OK;
 
     s_cfg_mtx = xSemaphoreCreateMutex();
@@ -291,11 +295,11 @@ esp_err_t samovar_init(void) {
     cfg_load(&s_cfg);
     s_initialized = true;
 
-    samovar_blynk_configure(&s_cfg);
-    samovar_mqtt_configure(&s_cfg);
+    remote_blynk_configure(&s_cfg);
+    remote_mqtt_configure(&s_cfg);
 
     events_log(EVENT_INFO,
-               "Samovar: %s, blynk %s:%u, token %s, mqtt %s",
+               "Remote: %s, blynk %s:%u, token %s, mqtt %s",
                s_cfg.enabled ? "ON" : "OFF", s_cfg.host, s_cfg.port,
                s_cfg.token[0] ? "set" : "none",
                s_cfg.mqtt_uri[0] ? "configured" : "off");
@@ -304,10 +308,10 @@ esp_err_t samovar_init(void) {
     return ESP_OK;
 }
 
-esp_err_t samovar_configure(const samovar_cfg_t *cfg) {
+esp_err_t remote_configure(const remote_cfg_t *cfg) {
     if (!cfg || !s_cfg_mtx) return ESP_ERR_INVALID_ARG;
 
-    samovar_cfg_t c = *cfg;
+    remote_cfg_t c = *cfg;
     if (!c.token[0]) c.enabled = false;
 
     esp_err_t err = cfg_validate(&c);
@@ -323,51 +327,51 @@ esp_err_t samovar_configure(const samovar_cfg_t *cfg) {
         return err;
     }
 
-    samovar_blynk_configure(&c);
-    samovar_mqtt_configure(&c);
+    remote_blynk_configure(&c);
+    remote_mqtt_configure(&c);
 
-    events_log(EVENT_INFO, "Samovar: config updated (enabled=%d, mqtt=%d)",
+    events_log(EVENT_INFO, "Remote: config updated (enabled=%d, mqtt=%d)",
                c.enabled, c.mqtt_uri[0] ? 1 : 0);
     return ESP_OK;
 }
 
-void samovar_get_status(samovar_status_t *out) {
+void remote_get_status(remote_status_t *out) {
     if (!out) return;
     memset(out, 0, sizeof(*out));
 
-    samovar_cfg_t c;
-    samovar_get_config(&c);
+    remote_cfg_t c;
+    remote_get_config(&c);
 
     out->enabled = c.enabled;
     out->token_set = c.token[0] != '\0';
-    out->blynk_connected = samovar_blynk_connected();
+    out->blynk_connected = remote_blynk_connected();
     out->mqtt_configured = c.mqtt_uri[0] != '\0';
-    out->mqtt_connected = samovar_mqtt_connected();
+    out->mqtt_connected = remote_mqtt_connected();
     strncpy(out->host, c.host, sizeof(out->host) - 1);
     out->port = c.port;
     out->vref_mv = c.vref_mv;
 }
 
-void samovar_task(void *arg) {
+void remote_task(void *arg) {
     (void)arg;
-    wd_register("samovar", 30000, false);
+    wd_register("remote", 30000, false);
 
     uint32_t last_pub = 0;
     int last_stage = -1;
     bool last_emergency = false;
 
     while (1) {
-        WD_FEED("samovar");
-        samovar_blynk_poll();
+        WD_FEED("remote");
+        remote_blynk_poll();
 
         uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-        if (last_pub == 0 || now - last_pub >= SAMOVAR_PUBLISH_MS) {
+        if (last_pub == 0 || now - last_pub >= REMOTE_PUBLISH_MS) {
             last_pub = now;
 
-            samovar_values_t v;
-            samovar_get_values(&v);
-            samovar_blynk_publish(&v);
-            samovar_mqtt_publish_values(&v);
+            remote_values_t v;
+            remote_get_values(&v);
+            remote_blynk_publish(&v);
+            remote_mqtt_publish_values(&v);
 
             process_state_t *st = state_get();
             if ((int)st->stage != last_stage) {
@@ -375,7 +379,7 @@ void samovar_task(void *arg) {
                 if (st->is_running) {
                     char msg[48];
                     snprintf(msg, sizeof(msg), "stage:%d", last_stage);
-                    samovar_mqtt_log(msg);
+                    remote_mqtt_log(msg);
                 }
             }
 
@@ -383,7 +387,7 @@ void samovar_task(void *arg) {
                 char msg[128];
                 snprintf(msg, sizeof(msg), "EMERGENCY:%s",
                          st->emergency_reason);
-                samovar_mqtt_log(msg);
+                remote_mqtt_log(msg);
             }
             last_emergency = st->emergency;
         }

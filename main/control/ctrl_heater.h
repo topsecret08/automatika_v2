@@ -8,7 +8,7 @@ void ctrl_heater_init(void);
 /* Автоматическая уставка от режима, PID или BANG-BANG. */
 void ctrl_heater_set_percent(float pct);
 
-/* Ручная уставка от PWA/LCD/Telegram/MQTT/Samovar/Lua. */
+/* Ручная уставка от PWA/LCD/Telegram/MQTT/внешние интеграции/Lua. */
 esp_err_t ctrl_heater_manual_set(float pct);
 void      ctrl_heater_set_auto(void);
 bool      ctrl_heater_manual_active(void);

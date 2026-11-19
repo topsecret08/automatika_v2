@@ -142,7 +142,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | POST | `/api/telegram/test` | 🔑 | тестовое уведомление |
 | POST | `/api/brewfather` | 🔑 | параметры интеграции |
 | POST | `/api/calendar` | 🔑 | параметры календаря |
-| GET/POST | `/api/samovar` | 🔓/🔑 | статус / настройка |
+| GET/POST | `/api/remote` | 🔓/🔑 | статус / настройка |
 | GET/POST | `/api/i18n` | 🔑 | `{"lang":"ru"|"en"}` |
 | POST | `/api/script/run` | 🔑 | запуск Lua-скрипта |
 | POST | `/api/script/enable` | 🔑 | `{"enabled":true}` (нужен сервисный режим) |

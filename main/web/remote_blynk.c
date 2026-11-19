@@ -1,4 +1,4 @@
-#include "samovar_priv.h"
+#include "remote_priv.h"
 
 #include "core/events.h"
 
@@ -30,7 +30,7 @@
 #define BLYNK_STATUS_SUCCESS    200
 #define BLYNK_STATUS_BAD_TOKEN  9
 
-/* Samovar virtual pins. */
+/* Remote virtual pins. */
 #define VPIN_STEAM_TEMP  0
 #define VPIN_COMMAND     3
 #define VPIN_POWER_STATE 4
@@ -42,9 +42,9 @@
 #define HEARTBEAT_US       (30LL * 1000000LL)
 #define RX_TIMEOUT_US      (90LL * 1000000LL)
 
-static const char *TAG = "SAMOVAR_BLYNK";
+static const char *TAG = "REMOTE_BLYNK";
 
-static samovar_cfg_t     s_cfg;
+static remote_cfg_t     s_cfg;
 static SemaphoreHandle_t s_mtx = NULL;
 static volatile bool     s_reload = false;
 
@@ -123,7 +123,7 @@ static void blynk_close(void) {
         close(s_sock);
         s_sock = -1;
     }
-    if (s_ready) events_log(EVENT_NETWORK, "Samovar Blynk: disconnected");
+    if (s_ready) events_log(EVENT_NETWORK, "Remote Blynk: disconnected");
     s_ready = false;
     s_login_sent = false;
     s_rx_len = 0;
@@ -185,7 +185,7 @@ static bool blynk_connect(const char *host, uint16_t port) {
 
     if (ok) {
         ESP_LOGI(TAG, "connected to %s:%u", host, (unsigned)port);
-        events_log(EVENT_NETWORK, "Samovar Blynk: connected to %s:%u",
+        events_log(EVENT_NETWORK, "Remote Blynk: connected to %s:%u",
                    host, (unsigned)port);
         s_fail_logged = false;
     } else if (!s_fail_logged) {
@@ -265,9 +265,9 @@ static void handle_hw(const uint8_t *p, uint16_t len) {
     float val = strtof(fields[2], NULL);
 
     if (pin == VPIN_COMMAND || pin == VPIN_POWER_STATE) {
-        samovar_command(val > 0.5f ? "start" : "stop", "blynk");
+        remote_command(val > 0.5f ? "start" : "stop", "blynk");
     } else if (pin == VPIN_POWER_VOLT) {
-        samovar_set_power_volts(val, "blynk");
+        remote_set_power_volts(val, "blynk");
     }
 }
 
@@ -279,12 +279,12 @@ static void handle_frame(uint8_t type, uint16_t id,
         if (len == BLYNK_STATUS_SUCCESS) {
             if (!s_ready) {
                 s_ready = true;
-                events_log(EVENT_NETWORK, "Samovar Blynk: ready");
+                events_log(EVENT_NETWORK, "Remote Blynk: ready");
                 ESP_LOGI(TAG, "login OK");
             }
         } else if (len == BLYNK_STATUS_BAD_TOKEN) {
             ESP_LOGE(TAG, "invalid auth token");
-            events_log(EVENT_ERROR, "Samovar: invalid auth token");
+            events_log(EVENT_ERROR, "Remote: invalid auth token");
             s_next_try_us = now_us() + 60LL * 1000000LL;
             blynk_close();
         } else {
@@ -358,7 +358,7 @@ static void drain_rx(void) {
 /* public (internal) API                                              */
 /* ------------------------------------------------------------------ */
 
-void samovar_blynk_configure(const samovar_cfg_t *cfg) {
+void remote_blynk_configure(const remote_cfg_t *cfg) {
     if (!cfg) return;
     if (!s_mtx) s_mtx = xSemaphoreCreateMutex();
     if (!s_mtx) return;
@@ -373,14 +373,14 @@ void samovar_blynk_configure(const samovar_cfg_t *cfg) {
     xSemaphoreGive(s_mtx);
 }
 
-bool samovar_blynk_connected(void) { return s_ready; }
+bool remote_blynk_connected(void) { return s_ready; }
 
-void samovar_blynk_disconnect(void) {
+void remote_blynk_disconnect(void) {
     blynk_close();
     s_next_try_us = 0;
 }
 
-void samovar_blynk_poll(void) {
+void remote_blynk_poll(void) {
     if (!s_mtx) return;
 
     if (s_reload) {
@@ -388,7 +388,7 @@ void samovar_blynk_poll(void) {
         blynk_close();
     }
 
-    samovar_cfg_t c;
+    remote_cfg_t c;
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     c = s_cfg;
     xSemaphoreGive(s_mtx);
@@ -464,7 +464,7 @@ static void temp_color(float t, int *r, int *g, int *b) {
     }
 }
 
-static void build_colors(const samovar_values_t *v, char *out, size_t max) {
+static void build_colors(const remote_values_t *v, char *out, size_t max) {
     int r1, g1, b1, r2, g2, b2, r3, g3, b3;
     temp_color(v->cube_temp, &r1, &g1, &b1);
     temp_color(v->steam_temp, &r2, &g2, &b2);
@@ -474,7 +474,7 @@ static void build_colors(const samovar_values_t *v, char *out, size_t max) {
              r1, g1, b1, r2, g2, b2, r3, g3, b3);
 }
 
-void samovar_blynk_publish(const samovar_values_t *v) {
+void remote_blynk_publish(const remote_values_t *v) {
     if (!v || !s_ready || s_sock < 0) return;
 
     char val[32];

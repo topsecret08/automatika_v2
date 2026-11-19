@@ -20,7 +20,7 @@
 
 ## 2. Некритический контур
 
-- Web/PWA, MQTT, Telegram, Samovar, Brewfather, календарь.
+- Web/PWA, MQTT, Telegram, Blynk, Brewfather, календарь.
 - Lua-скрипты (sandbox, лимит памяти/инструкций).
 - AI-модули (`anomaly`, `tinyml`, `autolearn`, `predictive`).
 - Графики, экспорт, уведомления.

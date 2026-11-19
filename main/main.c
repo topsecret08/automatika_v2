@@ -96,7 +96,7 @@
 #include "web/telegram_bot.h"
 #include "web/brewfather.h"
 #include "web/calendar.h"
-#include "web/samovar.h"
+#include "web/remote.h"
 #include "web/telegram_notify.h"
 #include "web/ws_telemetry.h"
 #include "web/tg_backup.h"
@@ -277,7 +277,7 @@ void app_main(void) {
     calendar_init();
     telegram_init();
     mqtt_init();
-    samovar_init();
+    remote_init();
 
     // Сеть: provisioning (SoftAP + captive portal), SNTP-задача и mDNS
     // запускаются после инициализации netif.
@@ -321,7 +321,7 @@ void app_main(void) {
     SPAWN(wd_task,            "wd",        3072,              2,                 CORE_NETWORK_AI);
     SPAWN(ctrl_dose_task,     "doser",     4096,              PRIO_DOSER,        CORE_NETWORK_AI);
     SPAWN(ctrl_stepper_task,  "stepper",   STACK_STEPPER,     PRIO_STEPPER,      CORE_NETWORK_AI);
-    SPAWN(samovar_task,       "samovar",   6144,              3,                 CORE_NETWORK_AI);
+    SPAWN(remote_task,       "remote",   6144,              3,                 CORE_NETWORK_AI);
     SPAWN(ota_manager_task,   "ota_mgr",   4096,              3,                 CORE_NETWORK_AI);
     SPAWN(telegram_notify_task, "tg_notify", 6144,            3,                 CORE_NETWORK_AI);
 
@@ -349,7 +349,7 @@ void app_main(void) {
     SPAWN(session_recovery_task, "session", 3072,             2,                 CORE_REALTIME_UI);
 
     ESP_LOGI(TAG, "=========== System started (dual-core) ===========");
-    ESP_LOGI(TAG, "  CORE 0: web, preloader, anomaly, autolearn, dblog, usb, fota, wd, doser, samovar, mqtt, telegram, lua");
+    ESP_LOGI(TAG, "  CORE 0: web, preloader, anomaly, autolearn, dblog, usb, fota, wd, doser, remote, mqtt, telegram, lua");
     ESP_LOGI(TAG, "  CORE 1: estop, safety, mode, ws_tel, ui, scale, heater, fps, vcalib, events, tinyml, sensors");
 
     vTaskDelay(pdMS_TO_TICKS(5000));
