@@ -8,7 +8,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import store
+from . import release, store, usb
 from .core import DeviceClient, DeviceError, UploadCancelled, file_sha256
 
 CONTROL_FIELDS = [
@@ -80,19 +80,157 @@ class App(tk.Tk):
 
         self.tabs = ttk.Notebook(self)
         self.tabs.pack(fill="both", expand=True, padx=10, pady=8)
+        self.tab_quick = ttk.Frame(self.tabs, padding=10)
         self.tab_device = ttk.Frame(self.tabs, padding=10)
         self.tab_fw = ttk.Frame(self.tabs, padding=10)
         self.tab_params = ttk.Frame(self.tabs, padding=10)
         self.tab_events = ttk.Frame(self.tabs, padding=10)
+        self.tabs.add(self.tab_quick, text="Быстрый старт")
         self.tabs.add(self.tab_device, text="Устройство")
         self.tabs.add(self.tab_fw, text="Прошивка")
         self.tabs.add(self.tab_params, text="Параметры")
         self.tabs.add(self.tab_events, text="События")
 
+        self._build_quick()
         self._build_device()
         self._build_firmware()
         self._build_params()
         self._build_events()
+
+    def _build_quick(self) -> None:
+        self.release_dir: Path | None = None
+        self.port_var = tk.StringVar()
+
+        row = ttk.Frame(self.tab_quick)
+        row.pack(fill="x")
+        ttk.Label(row, text="Порт прошивки").pack(side="left")
+        self.port_box = ttk.Combobox(row, textvariable=self.port_var, width=16,
+                                     state="readonly")
+        self.port_box.pack(side="left", padx=4)
+        ttk.Button(row, text="Обновить список", command=self.refresh_ports).pack(
+            side="left", padx=2)
+        ttk.Button(row, text="Найти плату", command=self.find_usb).pack(
+            side="left", padx=2)
+
+        buttons = ttk.Frame(self.tab_quick)
+        buttons.pack(fill="x", pady=10)
+        ttk.Button(buttons, text="Обновить до последней версии",
+                   command=self.quick_update).pack(side="left")
+        ttk.Button(buttons, text="Скачать последний релиз",
+                   command=self.download_release).pack(side="left", padx=6)
+
+        self.quick_log = tk.Text(self.tab_quick, height=14, wrap="word")
+        self.quick_log.pack(fill="both", expand=True)
+        self.refresh_ports(quiet=True)
+
+    def qlog(self, message: str) -> None:
+        self.quick_log.insert("end", message + "\n")
+        self.quick_log.see("end")
+
+    def _qlog_async(self, message: str) -> None:
+        self.after(0, lambda: self.qlog(message))
+
+    def refresh_ports(self, quiet: bool = False) -> None:
+        try:
+            ports = usb.list_ports()
+        except DeviceError as exc:
+            if not quiet:
+                messagebox.showerror("Automatika", str(exc))
+            return
+        devices = [p.device for p in ports]
+        self.port_box["values"] = devices
+        if devices and not self.port_var.get():
+            self.port_var.set(usb.guess_flash_port(ports))
+        if not quiet:
+            self.qlog("Портов найдено: " + (", ".join(devices) or "нет"))
+
+    def find_usb(self) -> None:
+        def work():
+            ports = usb.list_ports()
+            found = usb.find_device(ports)
+            return ports, found
+
+        def done(result):
+            ports, found = result
+            self.port_box["values"] = [p.device for p in ports]
+            if found is None:
+                self.qlog("Плата Automatika по USB не найдена. Проверьте кабель "
+                          "и что прошивка V0.9 beta или новее.")
+                return
+            port, info = found
+            self.port_var.set(usb.guess_flash_port(ports, port.device))
+            key = str(info.get("api_key", ""))
+            if key:
+                self.key_var.set(key)
+                store.remember(self.host_var.get().strip() or "automatika.local", key)
+            state = "запущен" if info.get("running") else "остановлен"
+            self.qlog(f"Плата на {port.device}: версия {info.get('version', '?')}, "
+                      f"процесс {state}, API-ключ "
+                      f"{'получен' if key else 'не задан'}.")
+
+        self._async(work, done)
+
+    def download_release(self) -> None:
+        def work():
+            return release.fetch_release_folder()
+
+        def done(result):
+            tag, folder = result
+            self.release_dir = folder
+            self.qlog(f"Релиз {tag} скачан и проверен: {folder}")
+
+        self._async(work, done)
+
+    def quick_update(self) -> None:
+        if not messagebox.askyesno(
+                "Automatika",
+                "Обновить прошивку до последней версии?\n\n"
+                "Процесс должен быть остановлен. Настройки и история сохранятся."):
+            return
+
+        def work():
+            ports = usb.list_ports()
+            found = usb.find_device(ports)
+            info = found[1] if found else None
+            cdc_device = found[0].device if found else ""
+            if info is not None:
+                usb.check_idle(info)
+                key = str(info.get("api_key", ""))
+                if key:
+                    self.after(0, lambda: self.key_var.set(key))
+            else:
+                state = self._client().state()
+                if state.get("running"):
+                    raise DeviceError("процесс запущен: остановите его перед обновлением")
+
+            folder = self.release_dir
+            if folder is None or not folder.is_dir():
+                self._qlog_async("Скачиваю последний релиз…")
+                _tag, folder = release.fetch_release_folder()
+                self.release_dir = folder
+                self._qlog_async(f"Релиз проверен: {folder}")
+
+            flash_port = self.port_var.get() or usb.guess_flash_port(ports, cdc_device)
+            if flash_port and flash_port != cdc_device:
+                self._qlog_async(f"Прошивка по USB через {flash_port} (загрузчик, "
+                                 "таблица разделов, приложение, веб-интерфейс)…")
+                usb.flash_usb(flash_port, folder, info=info,
+                              log=lambda line: self._qlog_async(line))
+                self._qlog_async("USB-прошивка завершена, плата перезагружается.")
+                return "usb"
+
+            self._qlog_async("Порта прошивки нет: обновляю приложение по Wi-Fi. "
+                             "Веб-интерфейс этим способом не обновляется.")
+            result = self._client().upload_firmware(
+                folder / "automatika_v2.bin", require_idle=True)
+            self._qlog_async(f"Отправлено {result.size} байт, SHA-256 {result.sha256}")
+            return "wifi"
+
+        def done(method):
+            self.qlog(f"Обновление завершено ({method}).")
+            self.refresh_device()
+
+        self._async(work, done)
 
     def _build_device(self) -> None:
         self.device_info = tk.Text(self.tab_device, height=14, wrap="word")

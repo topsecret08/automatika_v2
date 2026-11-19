@@ -1,6 +1,9 @@
 #include "hal_usb.h"
+#include "core/control_config.h"
 #include "core/events.h"
+#include "core/state.h"
 #include "core/storage.h"
+#include "version.h"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "tinyusb.h"
@@ -15,6 +18,11 @@ static const char *TAG = "USB";
 static usb_mode_t s_mode = USB_MODE_OFF;
 static bool s_mounted = false;
 
+#define CDC_LINE_MAX 64
+#define CDC_INFO_CMD "AUTOMATIKA?"
+static char s_cdc_line[CDC_LINE_MAX];
+static size_t s_cdc_len = 0;
+
 static void msc_event_cb(tinyusb_msc_event_t *event) {
     if (event->type == TINYUSB_MSC_EVENT_MOUNT_CHANGED) {
         s_mounted = event->mount_changed_data.is_mounted;
@@ -26,12 +34,38 @@ static void msc_event_cb(tinyusb_msc_event_t *event) {
     }
 }
 
+/* Ответ на «AUTOMATIKA?»: одна строка JSON. Нужен конфигуратору на ПК, чтобы
+ * найти плату среди COM-портов и взять API-ключ без ручного ввода. */
+static void cdc_send_info(int itf) {
+    char key[API_KEY_LEN] = {0};
+    if (control_config_api_has_key()) control_config_api_copy(key, sizeof(key));
+
+    char out[192];
+    int n = snprintf(out, sizeof(out),
+                     "{\"name\":\"Automatika\",\"version\":\"%s\",\"running\":%d,"
+                     "\"api_key\":\"%s\"}\n",
+                     FW_VERSION, state_get()->is_running ? 1 : 0, key);
+    if (n <= 0 || n >= (int)sizeof(out)) return;
+    tinyusb_cdcacm_write_queue(itf, (const uint8_t *)out, (size_t)n);
+    tinyusb_cdcacm_write_flush(itf, 0);
+}
+
 static void cdc_rx_cb(int itf, cdcacm_event_t *event) {
+    (void)event;
     uint8_t buf[64];
     size_t rx = 0;
-    if (tinyusb_cdcacm_read(itf, buf, sizeof(buf), &rx) == ESP_OK && rx > 0) {
-        tinyusb_cdcacm_write_queue(itf, buf, rx);
-        tinyusb_cdcacm_write_flush(itf, 0);
+    if (tinyusb_cdcacm_read(itf, buf, sizeof(buf), &rx) != ESP_OK) return;
+
+    for (size_t i = 0; i < rx; i++) {
+        char c = (char)buf[i];
+        if (c == '\r') continue;
+        if (c != '\n') {
+            if (s_cdc_len < sizeof(s_cdc_line) - 1) s_cdc_line[s_cdc_len++] = c;
+            continue;
+        }
+        s_cdc_line[s_cdc_len] = '\0';
+        if (strcmp(s_cdc_line, CDC_INFO_CMD) == 0) cdc_send_info(itf);
+        s_cdc_len = 0;
     }
 }
 
@@ -74,7 +108,12 @@ bool hal_usb_init(usb_mode_t mode) {
         .string_descriptor = str_desc,
         .external_phy = false,
     };
-    ESP_ERROR_CHECK(tinyusb_driver_install(&cfg));
+    esp_err_t err = tinyusb_driver_install(&cfg);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "tinyusb install failed: %s", esp_err_to_name(err));
+        events_log(EVENT_WARNING, "USB: init failed (%s)", esp_err_to_name(err));
+        return false;
+    }
 
     if (mode == USB_MODE_MSC || mode == USB_MODE_BOTH) {
         if (msc_storage_init() != ESP_OK) {
@@ -91,7 +130,11 @@ bool hal_usb_init(usb_mode_t mode) {
             .callback_line_state_changed = NULL,
             .callback_line_coding_changed = NULL,
         };
-        ESP_ERROR_CHECK(tusb_cdc_acm_init(&acm_cfg));
+        err = tusb_cdc_acm_init(&acm_cfg);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "CDC init failed: %s", esp_err_to_name(err));
+            events_log(EVENT_WARNING, "USB: CDC init failed (%s)", esp_err_to_name(err));
+        }
     }
 
     s_mode = mode;

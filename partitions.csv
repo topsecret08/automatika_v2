@@ -1,13 +1,11 @@
-# Automatika V0.5 alfa — таблица разделов (16 MB flash).
+# Таблица разделов Automatika V0.9 beta (flash 16 МБ).
 #
-# Почему OTA-слоты по 3 МБ, а не по 2 МБ из ТЗ:
-#   образ V0.5 alfa занимает ~2.78 МБ (0x2A6FB0) после -Os; в слот 2 МБ
-#   (0x200000) он не помещается. 3 МБ оставляют ~0.24 МиБ запаса на рост.
-#   Если образ удастся уложить в <2 МБ, слоты можно уменьшить до 0x200000:
-#   factory 0x20000, ota_0 0x220000, ota_1 0x420000, assets 0x620000,
-#   storage 0x720000 (проверив `idf.py size` перед релизом).
+# Слоты OTA по 3 МБ (0x300000): образ прошивки около 2.8 МБ.
+# factory, ota_0, ota_1 — образы приложения; otadata выбирает загрузочный.
+# nvs, otadata, phy_init — настройки и служебные данные; при прошивке по USB
+# не трогаются, кроме otadata (сбрасывается ota_data_initial.bin).
 #
-# factory — страховочный образ; otadata переключает ota_0/ota_1.
+# Смещения и размеры должны совпадать с tools/configurator/usb.py (FLASH_PARTS).
 # Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x6000,
 otadata,  data, ota,     0xf000,   0x2000,
