@@ -33,7 +33,7 @@ idf_component_register(
         "net/wifi_prov.c" "net/time_sync.c" "net/mdns_service.c"
         "hal/hal_i2c.c" "hal/i2c_stepper.c" "hal/hal_1wire.c" "hal/temp_filter.c" "hal/sensor_pipeline.c"
         "hal/sensor_trust.c" "hal/zone_consensus.c"
-        "hal/hal_actuator_readback.c" "hal/hal_safety_relay.c"
+        "hal/hal_actuator_readback.c" "hal/hal_safety_relay.c" "hal/hal_ext_watchdog.c"
         "hal/hal_adc.c" "hal/hal_dac.c"
         "hal/hal_relay.c" "hal/hal_display.c" "hal/hal_touch.c"
         "hal/hal_sd.c" "hal/hal_hx711.c" "hal/hal_usb.c"

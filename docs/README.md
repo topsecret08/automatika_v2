@@ -24,6 +24,15 @@
 - [bom.csv](hardware/bom.csv) — спецификация компонентов.
 - [PRODUCTION_MODULES.md](PRODUCTION_MODULES.md) — обзор production-модулей
   прошивки и отличий от исходного ТЗ.
+- [INDEPENDENT_WATCHDOG.md](hardware/INDEPENDENT_WATCHDOG.md) — аппаратная
+  защита нагрева от зависания МК (эталонная схема, испытания).
+- [THIRD_PARTY_NOTICES.md](legal/THIRD_PARTY_NOTICES.md) — сторонние компоненты
+  и их лицензии.
+- [LEGAL_REVIEW.md](legal/LEGAL_REVIEW.md) — материалы для юридической проверки.
+- [CODE_STRUCTURE.md](developer/CODE_STRUCTURE.md) — структура кода и план
+  упорядочивания.
+- Приложения: [APP.md](user/APP.md) (Windows), [AUTOPILOT_APP.md](user/AUTOPILOT_APP.md)
+  (Android), [CONFIGURATOR.md](user/CONFIGURATOR.md) (конфигуратор).
 
 > **Статус документации.** Схема и BOM описывают референсную сборку на
 > модулях, которые поддержаны кодом. Видео-туториалы пока не записаны —

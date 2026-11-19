@@ -10,6 +10,7 @@
 #include "core/events.h"
 #include "core/event_bus.h"
 #include "hal/hal_safety_relay.h"
+#include "hal/hal_ext_watchdog.h"
 #include "core/flags.h"
 #include "core/watchdog.h"
 #include "hal/hal_1wire.h"
@@ -138,6 +139,7 @@ void ctrl_safety_task(void *arg) {
 
     while (1) {
         WD_FEED("safety");
+        hal_ext_watchdog_kick();
 #if !defined(CONFIG_SAFETY_RELAY_ENABLE) || CONFIG_SAFETY_RELAY_ENABLE
         if (ctrl_safety_ok() && !estop_is_pressed())
             hal_safety_relay_heartbeat();
