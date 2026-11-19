@@ -10,6 +10,9 @@
 #include "ui_physical.h"
 #include "ui_gestures.h"
 #include "hal/hal_display.h"
+#include "core/process_control.h"
+#include "core/events.h"
+#include "core/state.h"
 #include "core/menu_engine.h"
 #include "core/menu_tree.h"
 #include "core/events.h"
@@ -38,6 +41,13 @@ static void cb_welcome_start(lv_event_t *e) {
 
 static void cb_resume_process(lv_event_t *e) {
     (void)e;
+    process_type_t t = state_get()->type;
+    if (t <= PROCESS_IDLE) t = PROCESS_DISTILL;
+    char why[96];
+    if (!process_control_hw_ready(t, why, sizeof(why))) {
+        events_log(EVENT_WARNING, "Resume blocked: %s", why);
+        return;
+    }
     state_get()->is_running = true;
     state_get()->is_paused = false;
     ui_show_process();

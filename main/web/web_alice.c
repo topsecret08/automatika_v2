@@ -7,9 +7,20 @@
 #include "control/ctrl_safety.h"
 #include "control/ctrl_dose.h"
 #include "modes/mode_base.h"
+#include "core/process_control.h"
 #include "cJSON.h"
 #include <stdio.h>
 #include <string.h>
+
+// Ответ для голосового помощника записывается в text, если оборудование не готово.
+static bool alice_hw_ready(char *text, size_t n) {
+    process_type_t t = state_get()->type;
+    if (t <= PROCESS_IDLE) t = PROCESS_DISTILL;
+    char why[96];
+    if (process_control_hw_ready(t, why, sizeof(why))) return true;
+    snprintf(text, n, "%s", why);
+    return false;
+}
 
 // Webhook Алисы не может нести X-API-Key (запрос формирует сервис
 // Яндекс), поэтому:
@@ -53,6 +64,8 @@ static esp_err_t h_alice(httpd_req_t *r) {
         if (strstr(c, "старт") || strstr(c, "запусти")) {
             if (!ctrl_safety_ok()) {
                 snprintf(text, sizeof(text), "Авария активна, запуск запрещён");
+            } else if (!alice_hw_ready(text, sizeof(text))) {
+                /* текст ответа уже записан в alice_hw_ready() */
             } else {
                 const process_mode_t *m = mode_get();
                 if (!m) m = mode_from_type(PROCESS_DISTILL);

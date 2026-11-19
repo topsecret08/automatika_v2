@@ -15,6 +15,29 @@ static hw_profile_t base_profile(void) {
     return p;
 }
 
+TEST_CASE("hw profile distill and beer need cube sensor", "[hw]") {
+    hw_profile_t p = base_profile();
+    hw_mode_status_t st;
+
+    p.temp[HW_TEMP_CUBE] = -1;
+    hw_profile_check(&p, 4, PROCESS_DISTILL, &st);
+    TEST_ASSERT_FALSE(st.ready);
+    hw_profile_check(&p, 4, PROCESS_BEER, &st);
+    TEST_ASSERT_FALSE(st.ready);
+
+    p.temp[HW_TEMP_CUBE] = 0;
+    hw_profile_check(&p, 4, PROCESS_DISTILL, &st);
+    TEST_ASSERT_TRUE(st.ready);
+}
+
+TEST_CASE("hw profile cube sensor missing from bus blocks start", "[hw]") {
+    hw_profile_t p = base_profile();
+    hw_mode_status_t st;
+
+    hw_profile_check(&p, 0, PROCESS_DISTILL, &st);
+    TEST_ASSERT_FALSE(st.ready);
+}
+
 TEST_CASE("hw profile rectify needs column", "[hw]") {
     hw_profile_t p = base_profile();
     hw_mode_status_t st;
