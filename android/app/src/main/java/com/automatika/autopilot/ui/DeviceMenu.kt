@@ -1,5 +1,6 @@
 package com.automatika.autopilot.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,10 +19,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.automatika.autopilot.R
 import com.automatika.autopilot.data.ProcessMode
 
 /** Роли как на дисплее контроллера (main/core/roles.h). */
@@ -76,6 +79,17 @@ object MenuActions {
             else -> MenuOutcome.OnDeviceOnly
         }
     }
+}
+
+/** Пиктограммы режимов из docs/design/mode-icons. Для остальных пунктов возвращает null. */
+fun modeIconRes(action: String): Int? = when (action) {
+    "cb_start_distill" -> R.drawable.ic_mode_distill
+    "cb_start_rectify" -> R.drawable.ic_mode_rectify
+    "cb_start_beer" -> R.drawable.ic_mode_beer
+    "cb_start_pvk" -> R.drawable.ic_mode_pvk
+    "cb_start_nbk" -> R.drawable.ic_mode_nbk
+    "cb_start_vacuum" -> R.drawable.ic_mode_vacuum
+    else -> null
 }
 
 /** Цвета категорий меню, как colorCategory в menu_tree.c (0..10). */
@@ -142,7 +156,16 @@ fun MenuList(items: List<MenuItem>, role: Int, onClick: (MenuItem) -> Unit) {
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(item.icon, fontSize = 20.sp, modifier = Modifier.size(32.dp, 24.dp))
+                val modeIcon = modeIconRes(item.action)
+                if (modeIcon != null) {
+                    Image(
+                        painter = painterResource(modeIcon),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                    )
+                } else {
+                    Text(item.icon, fontSize = 20.sp, modifier = Modifier.size(32.dp, 24.dp))
+                }
                 Spacer(Modifier.size(8.dp))
                 Text(item.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                 val hint = when {
