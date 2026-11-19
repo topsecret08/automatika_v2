@@ -26,18 +26,20 @@
                 "system font Text", "Inter", Roboto, sans-serif;
 
   /* Colors — Dark (основная тема) */
-  --bg-primary: #0b0f14;
-  --bg-card: rgba(28, 28, 30, 0.78);
-  --bg-card-solid: #161b22;
+  --bg-primary: #070b11;
+  --bg-bar: #0d131c;
+  --bg-card: #111a26;
+  --bg-card-solid: #111a26;
   --text-primary: #ffffff;
-  --text-secondary: rgba(235, 235, 245, 0.62);
-  --text-tertiary: rgba(235, 235, 245, 0.32);
-  --separator: rgba(84, 84, 88, 0.65);
-  --accent: #0a84ff;
+  --text-secondary: rgba(200, 214, 232, 0.72);
+  --text-tertiary: rgba(200, 214, 232, 0.42);
+  --separator: rgba(120, 150, 185, 0.22);
+  --card-border: rgba(120, 150, 185, 0.22);
+  --accent: #2f8cff;
   --accent-secondary: #5e5ce6;
-  --red: #ff453a;
-  --orange: #ff9f0a;
-  --green: #30d158;
+  --red: #d93b3b;
+  --orange: #f5a524;
+  --green: #2ecc71;
   --yellow: #ffd60a;
 
   /* Glass */

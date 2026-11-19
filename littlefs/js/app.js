@@ -417,32 +417,32 @@ function renderDashboard() {
     <div id="safety-banner" class="banner banner-danger hidden" role="alert"></div>
 
     <section class="section">
-      <div class="card hero-card">
-        <div class="hero-label">Пар (скорр.)</div>
-        <div class="hero-value"><span id="temp-steam">--.-</span><span class="hero-unit">°C</span></div>
-        <div class="hero-meta">
-          <span id="fraction-badge" class="badge badge-idle">—</span>
-          <span id="stage-label" class="badge badge-idle">Ожидание</span>
+      <div class="kpi-grid temp-grid">
+        <div class="kpi temp-card">
+          <div class="kpi-label">Пар</div>
+          <div class="kpi-value"><span id="temp-steam">--.-</span><span class="kpi-unit">°</span></div>
+          <div class="kpi-sub">Температура пара</div>
         </div>
+        <div class="kpi temp-card">
+          <div class="kpi-label">Куб</div>
+          <div class="kpi-value"><span id="temp-cube">--.-</span><span class="kpi-unit">°</span></div>
+          <div class="kpi-sub">Температура куба</div>
+        </div>
+      </div>
+      <div class="status-line">
+        <span id="fraction-badge" class="badge badge-idle">—</span>
+        <span id="stage-label" class="badge badge-idle">Ожидание</span>
       </div>
     </section>
 
     <section class="section">
       <div class="kpi-grid">
         <div class="kpi">
-          <div class="kpi-label">Куб</div>
-          <div class="kpi-value"><span id="temp-cube">--.-</span><span class="kpi-unit">°C</span></div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Мощность</div>
-          <div class="kpi-value"><span id="power-value">0</span><span class="kpi-unit">%</span></div>
-        </div>
-        <div class="kpi">
           <div class="kpi-label">Отбор</div>
           <div class="kpi-value"><span id="rate-value">--</span><span class="kpi-unit">мл/мин</span></div>
         </div>
         <div class="kpi">
-          <div class="kpi-label">Объём</div>
+          <div class="kpi-label">Собрано</div>
           <div class="kpi-value"><span id="volume-value">0</span><span class="kpi-unit">мл</span></div>
         </div>
       </div>
@@ -454,19 +454,22 @@ function renderDashboard() {
     </section>
 
     <section class="section">
-      <div class="card">
-        <div class="row">
-          <span class="card-row-title">Мощность нагрева</span>
-          <span id="power-slider-value" class="headline">0%</span>
+      <div class="card power-card">
+        <div class="power-head">
+          <span class="power-title">Мощность нагрева</span>
+          <span id="power-mode" class="mode-badge">Авто</span>
+        </div>
+        <div class="power-main">
+          <span id="power-value" class="power-value">0</span><span class="power-unit">%</span>
         </div>
         <div class="slider-row mt-8">
+          <button id="power-minus" class="step-btn" type="button" aria-label="Уменьшить мощность">−</button>
           <input id="power-slider" type="range" min="0" max="100" step="1" value="0"
                  aria-label="Мощность нагрева, проценты">
+          <button id="power-plus" class="step-btn" type="button" aria-label="Увеличить мощность">+</button>
         </div>
-        <div class="row mt-8">
-          <span id="power-mode" class="card-row-sub">Авто</span>
-          <button class="btn btn-secondary" type="button" id="power-auto">Авто</button>
-        </div>
+        <div class="slider-scale"><span>0</span><span>100 %</span></div>
+        <button class="btn btn-primary btn-block mt-8" type="button" id="power-auto">АВТО</button>
         <p id="power-hint" class="hint mt-8 hidden"></p>
       </div>
     </section>
@@ -605,6 +608,15 @@ function renderDashboard() {
     });
   }
 
+  for (const [id, delta] of [['#power-minus', -1], ['#power-plus', 1]]) {
+    $(id)?.addEventListener('click', () => {
+      const input = $('#power-slider');
+      if (!input || input.disabled) return;
+      input.value = String(Math.min(100, Math.max(0, Number(input.value) + delta)));
+      input.dispatchEvent(new Event('change'));
+    });
+  }
+
   $('#power-auto')?.addEventListener('click', async () => {
     try {
       const response = await postJson('/api/power', { mode: 'auto' });
@@ -652,7 +664,10 @@ function renderLiveValues() {
   if (power) power.textContent = String(Math.round(state.power || 0));
 
   const powerMode = $('#power-mode');
-  if (powerMode) powerMode.textContent = state.powerManual ? 'Ручной' : 'Авто';
+  if (powerMode) {
+    powerMode.textContent = state.powerManual ? 'Ручной режим' : 'Авто';
+    powerMode.classList.toggle('manual', !!state.powerManual);
+  }
 
   const powerHint = $('#power-hint');
   if (powerHint) {
@@ -675,6 +690,9 @@ function renderLiveValues() {
     if (!canManual) {
       powerSlider.value = String(Math.round(state.power || 0));
     }
+  }
+  for (const step of document.querySelectorAll('#power-minus, #power-plus')) {
+    step.disabled = !canManual;
   }
   if (powerHint && !state.regulatorReady && state.regulator !== 0) {
     // сообщение о неготовом регуляторе уже выше
