@@ -17,6 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGES = ("esptool", "pyserial", "pyinstaller")
 MARKERS = ("LICENSE", "COPYING", "NOTICE")
+# Пакеты, у которых лицензия не входит в установленный wheel (pyserial 3.5):
+# текст берётся из репозитория, из sdist той же версии.
+FALLBACK = {"pyserial": "docs/legal/third_party/pyserial-LICENSE.txt"}
 
 
 def collect(out: Path) -> dict[str, int]:
@@ -36,6 +39,9 @@ def collect(out: Path) -> dict[str, int]:
                 if source.is_file():
                     shutil.copy(source, out / f"{package}-{item.name}")
                     copied += 1
+        if copied == 0 and package in FALLBACK:
+            shutil.copy(ROOT / FALLBACK[package], out / f"{package}-LICENSE.txt")
+            copied = 1
         counts[package] = copied
     shutil.copy(ROOT / "docs" / "legal" / "THIRD_PARTY_NOTICES.md", out / "THIRD_PARTY_NOTICES.md")
     shutil.copy(ROOT / "docs" / "legal" / "fonts" / "Inter-LICENSE.txt", out / "Inter-LICENSE.txt")
