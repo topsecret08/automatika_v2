@@ -10,6 +10,7 @@ object ControllerParser {
         column = json.optDouble("col", Double.NaN),
         power = json.optDouble("power", 0.0),
         running = json.optInt("running", 0) != 0,
+        paused = json.optInt("paused", 0) != 0,
         safetyOk = json.optInt("safety", 1) != 0,
         estop = json.optInt("estop", 0) != 0,
         heads = json.optDouble("heads", 0.0),
