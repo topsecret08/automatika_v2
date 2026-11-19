@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -23,9 +25,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,33 +37,71 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.automatika.autopilot.data.ControllerState
 import com.automatika.autopilot.data.ProcessMode
 
-/** Разделы приложения; null — главный экран. */
-enum class Section(val title: String) {
-    MODES("Режимы и процесс"),
-    POWER("Мощность"),
-    CONFIG("Настройки контроллера"),
-    CONTROL("Регулирование"),
-    HARDWARE("Оборудование"),
-    EVENTS("Журнал событий"),
-    CONNECTION("Подключение"),
-}
+/** Пункт «Приложение»: подключение, роль, журнал и ручная мощность. Есть только в приложении. */
+private val APP_TILE = MenuItem(
+    id = "app.page",
+    icon = "📱",
+    title = "Приложение и подключение",
+    type = MenuType.SCREEN,
+    colorCategory = 10,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutopilotScreen(vm: AutopilotViewModel) {
     val ui by vm.ui.collectAsStateWithLifecycle()
-    var section by rememberSaveable { mutableStateOf<Section?>(null) }
+    val role = ui.settings.role
 
-    BackHandler(enabled = section != null) { section = null }
+    val stack = remember { mutableStateListOf<MenuItem>() }
+    var editor by remember { mutableStateOf<MenuOutcome.Editor?>(null) }
+    var appPage by remember { mutableStateOf(false) }
+    var pending by remember { mutableStateOf<Pair<MenuItem, MenuOutcome>?>(null) }
+    var notice by remember { mutableStateOf("") }
+
+    val currentEditor = editor
+    val atRoot = currentEditor == null && !appPage && stack.isEmpty()
+
+    fun back() {
+        when {
+            currentEditor != null -> editor = null
+            appPage -> appPage = false
+            stack.isNotEmpty() -> stack.removeAt(stack.lastIndex)
+        }
+    }
+
+    fun choose(item: MenuItem) {
+        notice = ""
+        if (item.id == APP_TILE.id) {
+            appPage = true
+            return
+        }
+        if (!MenuRules.isAvailable(item, role)) {
+            notice = "«${item.title}» доступно с ролью: ${Roles.name(item.requiredRole)}."
+            return
+        }
+        when (val outcome = MenuActions.resolve(item)) {
+            MenuOutcome.Open -> stack.add(item)
+            is MenuOutcome.Start, MenuOutcome.ResetAlarm -> pending = item to outcome
+            is MenuOutcome.Editor -> editor = outcome
+            MenuOutcome.OnDeviceOnly -> notice = "«${item.title}» пока доступно только на дисплее контроллера."
+        }
+    }
+
+    BackHandler(enabled = !atRoot) { back() }
+
+    val title = when {
+        currentEditor != null -> currentEditor.title
+        appPage -> "Приложение и подключение"
+        stack.isNotEmpty() -> stack.last().title
+        else -> "Главное меню"
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(section?.title ?: "Автоматика Autopilot") },
+                title = { Text(title) },
                 navigationIcon = {
-                    if (section != null) {
-                        TextButton(onClick = { section = null }) { Text("←") }
-                    }
+                    if (!atRoot) TextButton(onClick = { back() }) { Text("←") }
                 },
             )
         },
@@ -69,88 +109,137 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
         Column(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
+                .padding(12.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             LinkBanner(ui)
-            when (section) {
-                null -> Dashboard(ui, vm) { section = it }
-                Section.MODES -> ModesSection(ui, vm)
-                Section.POWER -> PowerSection(ui, vm)
-                Section.CONFIG -> JsonEditorCard(Section.CONFIG.title, "/api/config", vm)
-                Section.CONTROL -> JsonEditorCard(Section.CONTROL.title, "/api/control", vm)
-                Section.HARDWARE -> JsonEditorCard(Section.HARDWARE.title, "/api/hardware", vm)
-                Section.EVENTS -> EventsSection(vm)
-                Section.CONNECTION -> SettingsCard(settings = ui.settings, onSave = vm::saveSettings)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Dashboard(ui: UiState, vm: AutopilotViewModel, onOpen: (Section) -> Unit) {
-    StatusCard(ui.state)
-    ControlsCard(
-        state = ui.state,
-        busy = ui.busy,
-        onStart = { vm.start() },
-        onPause = vm::pause,
-        onStop = vm::stop,
-        onReset = vm::resetSafety,
-    )
-    if (ui.message.isNotBlank()) {
-        Text(ui.message, style = MaterialTheme.typography.bodyMedium)
-    }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Разделы", style = MaterialTheme.typography.titleMedium)
-            Section.entries.forEach { item ->
-                OutlinedButton(onClick = { onOpen(item) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(item.title)
+            StatusStrip(ui, vm)
+            if (notice.isNotBlank()) {
+                Card(Modifier.fillMaxWidth()) {
+                    Text(notice, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            when {
+                currentEditor != null -> JsonEditorCard(currentEditor.title, currentEditor.path, vm)
+                appPage -> AppPage(ui, vm)
+                stack.isEmpty() -> MenuTiles(ROOT_MENU + APP_TILE, role) { choose(it) }
+                else -> MenuList(stack.last().children, role) { choose(it) }
+            }
         }
+    }
+
+    pending?.let { (item, outcome) ->
+        AlertDialog(
+            onDismissRequest = { pending = null },
+            title = { Text(item.title) },
+            text = {
+                Text(
+                    when (outcome) {
+                        is MenuOutcome.Start -> "Запустить процесс «${outcome.mode.title}»?"
+                        else -> "Сбросить аварию? Проверьте, что E-STOP отпущен и уровень жидкости в норме."
+                    },
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    when (outcome) {
+                        is MenuOutcome.Start -> vm.start(outcome.mode.id)
+                        MenuOutcome.ResetAlarm -> vm.resetSafety()
+                        else -> Unit
+                    }
+                    pending = null
+                }) { Text("Да") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pending = null }) { Text("Отмена") }
+            },
+        )
     }
 }
 
 @Composable
-private fun ModesSection(ui: UiState, vm: AutopilotViewModel) {
+private fun LinkBanner(ui: UiState) {
+    val live = ui.link == Link.LIVE
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (live) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.tertiaryContainer,
+        ),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                if (live) "Подключено к контроллеру (${ui.version})" else "ДЕМО-РЕЖИМ",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            if (ui.message.isNotBlank()) {
+                Text(ui.message, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+/** Строка состояния как на главном экране дисплея: температуры, мощность, процесс, пауза и стоп. */
+@Composable
+private fun StatusStrip(ui: UiState, vm: AutopilotViewModel) {
     val state = ui.state
     val running = state?.running == true
     val alarm = state != null && (!state.safetyOk || state.estop)
     Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Куб ${fmt(state?.cube)} °C")
+                Text("Царга ${fmt(state?.column)} °C")
+                Text("Мощность ${fmt(state?.power)} %")
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(processText(state, alarm), style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { vm.pause() },
+                        enabled = !ui.busy && running && state?.paused != true,
+                    ) { Text("Пауза") }
+                    Button(onClick = { vm.stop() }, enabled = !ui.busy && running) { Text("Стоп") }
+                }
+            }
+        }
+    }
+}
+
+private fun processText(state: ControllerState?, alarm: Boolean): String = when {
+    state == null -> "Нет данных"
+    alarm -> "АВАРИЯ: сбросьте в меню «Сброс аварии»"
+    !state.running -> "Процесс остановлен"
+    state.paused -> "Пауза, ${state.elapsedSec} с"
+    else -> "${ProcessMode.entries.firstOrNull { it.id == state.mode }?.title ?: state.mode}, ${state.elapsedSec} с"
+}
+
+/** Раздел «Приложение»: подключение, роль, ручная мощность и журнал. */
+@Composable
+private fun AppPage(ui: UiState, vm: AutopilotViewModel) {
+    RoleCard(ui.settings) { role -> vm.saveSettings(ui.settings.copy(role = role)) }
+    PowerSection(ui, vm)
+    SettingsCard(settings = ui.settings, onSave = vm::saveSettings)
+    EventsSection(vm)
+}
+
+@Composable
+private fun RoleCard(settings: Settings, onRole: (Int) -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Роль", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Текущий режим: ${ProcessMode.entries.firstOrNull { it.id == state?.mode }?.title ?: "—"}",
-                style = MaterialTheme.typography.titleMedium,
+                "Роль скрывает пункты меню, как на дисплее. Контроллер проверяет свои права отдельно.",
+                style = MaterialTheme.typography.bodySmall,
             )
-            val processText = when {
-                !running -> "Процесс остановлен"
-                state?.paused == true -> "Процесс идёт (пауза)"
-                else -> "Процесс идёт"
-            }
-            Text(processText)
-            ProcessMode.entries.forEach { mode ->
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(mode.title)
-                    Button(
-                        onClick = { vm.start(mode.id) },
-                        enabled = !ui.busy && !running && !alarm,
-                    ) { Text("Запустить") }
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = vm::pause, enabled = !ui.busy && running && state?.paused != true) {
-                    Text("Пауза")
-                }
-                OutlinedButton(onClick = vm::stop, enabled = !ui.busy && running) { Text("Стоп") }
-                OutlinedButton(onClick = vm::resetSafety, enabled = !ui.busy && alarm) {
-                    Text("Сброс аварии")
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(Roles.OPERATOR, Roles.ENGINEER, Roles.ADMIN).forEach { role ->
+                    if (settings.role == role) {
+                        Button(onClick = { onRole(role) }) { Text(Roles.name(role)) }
+                    } else {
+                        OutlinedButton(onClick = { onRole(role) }) { Text(Roles.name(role)) }
+                    }
                 }
             }
         }
@@ -164,7 +253,7 @@ private fun PowerSection(ui: UiState, vm: AutopilotViewModel) {
     val running = ui.state?.running == true
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Мощность сейчас: ${"%.0f".format(current)} %", style = MaterialTheme.typography.titleMedium)
+            Text("Ручная мощность", style = MaterialTheme.typography.titleMedium)
             Text("Цель: ${"%.0f".format(target)} %")
             Slider(
                 value = target,
@@ -174,10 +263,9 @@ private fun PowerSection(ui: UiState, vm: AutopilotViewModel) {
                 enabled = running && !ui.busy,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { vm.setPower(target.toDouble()) },
-                    enabled = running && !ui.busy,
-                ) { Text("Применить") }
+                Button(onClick = { vm.setPower(target.toDouble()) }, enabled = running && !ui.busy) {
+                    Text("Применить")
+                }
                 OutlinedButton(onClick = { vm.setPower(null) }, enabled = running && !ui.busy) {
                     Text("Авто")
                 }
@@ -194,6 +282,7 @@ private fun EventsSection(vm: AutopilotViewModel) {
     var lines by remember { mutableStateOf("Нажмите «Обновить».") }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Журнал событий", style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = {
                 vm.execute { api ->
                     val events = api.getJson("/api/events").optJSONArray("events")
@@ -208,104 +297,6 @@ private fun EventsSection(vm: AutopilotViewModel) {
                 }
             }) { Text("Обновить") }
             Text(lines)
-        }
-    }
-}
-
-@Composable
-private fun LinkBanner(ui: UiState) {
-    val live = ui.link == Link.LIVE
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = if (live) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.tertiaryContainer,
-        ),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                if (live) "Подключено к контроллеру (${ui.version})" else "ДЕМО-РЕЖИМ",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            if (ui.message.isNotBlank()) {
-                Text(ui.message, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatusCard(state: ControllerState?) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Состояние", style = MaterialTheme.typography.titleMedium)
-            if (state == null) {
-                Text("Нет данных")
-            } else {
-                StateRows(state)
-            }
-        }
-    }
-}
-
-@Composable
-private fun StateRows(state: ControllerState) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Куб")
-            Text("${fmt(state.cube)} °C")
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Царга")
-            Text("${fmt(state.column)} °C")
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Мощность")
-            Text("${fmt(state.power)} %")
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Головы / тело / хвосты")
-            Text("${fmt(state.heads)} / ${fmt(state.body)} / ${fmt(state.tails)} мл")
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Процесс")
-            Text(
-                when {
-                    !state.running -> "остановлен"
-                    state.paused -> "пауза, ${state.elapsedSec} с"
-                    else -> "идёт, ${state.elapsedSec} с"
-                },
-            )
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Безопасность")
-            Text(if (state.safetyOk && !state.estop) "в норме" else "АВАРИЯ")
-        }
-    }
-}
-
-@Composable
-private fun ControlsCard(
-    state: ControllerState?,
-    busy: Boolean,
-    onStart: () -> Unit,
-    onPause: () -> Unit,
-    onStop: () -> Unit,
-    onReset: () -> Unit,
-) {
-    val running = state?.running == true
-    val alarm = state != null && (!state.safetyOk || state.estop)
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Управление", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onStart, enabled = !busy && !running && !alarm) { Text("Старт") }
-                OutlinedButton(onClick = onPause, enabled = !busy && running && state?.paused != true) {
-                    Text("Пауза")
-                }
-                OutlinedButton(onClick = onStop, enabled = !busy && running) { Text("Стоп") }
-                OutlinedButton(onClick = onReset, enabled = !busy && alarm) { Text("Сброс аварии") }
-            }
         }
     }
 }
@@ -344,7 +335,13 @@ private fun SettingsCard(settings: Settings, onSave: (Settings) -> Unit) {
             }
             Button(
                 onClick = {
-                    onSave(Settings(host.trim().ifBlank { Settings.DEFAULT_HOST }, apiKey.trim(), forceDemo))
+                    onSave(
+                        settings.copy(
+                            host = host.trim().ifBlank { Settings.DEFAULT_HOST },
+                            apiKey = apiKey.trim(),
+                            forceDemo = forceDemo,
+                        ),
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Сохранить") }
@@ -352,5 +349,5 @@ private fun SettingsCard(settings: Settings, onSave: (Settings) -> Unit) {
     }
 }
 
-private fun fmt(value: Double): String =
-    if (value.isNaN()) "—" else "%.1f".format(value)
+private fun fmt(value: Double?): String =
+    if (value == null || value.isNaN()) "—" else "%.1f".format(value)

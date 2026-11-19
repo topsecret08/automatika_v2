@@ -38,6 +38,9 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Menu tree matches the device
+        run: python3 tools/gen_android_menu.py --check
+
       - name: Unit tests
         working-directory: android
         run: gradle --no-daemon testDebugUnitTest

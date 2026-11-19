@@ -1,0 +1,73 @@
+package com.automatika.autopilot
+
+import com.automatika.autopilot.data.ProcessMode
+import com.automatika.autopilot.ui.FieldNames
+import com.automatika.autopilot.ui.MenuActions
+import com.automatika.autopilot.ui.MenuItem
+import com.automatika.autopilot.ui.MenuOutcome
+import com.automatika.autopilot.ui.MenuRules
+import com.automatika.autopilot.ui.MenuType
+import com.automatika.autopilot.ui.ROOT_MENU
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class MenuTreeTest {
+
+    private fun root(id: String): MenuItem = ROOT_MENU.first { it.id == id }
+
+    private fun child(parent: String, id: String): MenuItem =
+        root(parent).children.first { it.id == id }
+
+    @Test
+    fun rootMatchesDeviceMenu() {
+        assertEquals(25, ROOT_MENU.size)
+        assertEquals("Режимы работы", ROOT_MENU.first().title)
+        assertTrue(ROOT_MENU.all { it.type == MenuType.SUBMENU })
+    }
+
+    @Test
+    fun startItemsResolveToProcessModes() {
+        assertEquals(MenuOutcome.Start(ProcessMode.DISTILL), MenuActions.resolve(child("menu.m", "m.distill")))
+        assertEquals(MenuOutcome.Start(ProcessMode.BEER), MenuActions.resolve(child("menu.m", "m.beer")))
+    }
+
+    @Test
+    fun safetyResetRequiresConfirmation() {
+        assertEquals(MenuOutcome.ResetAlarm, MenuActions.resolve(child("menu.d", "d.safe")))
+    }
+
+    @Test
+    fun settingsEditorsOpenDeviceConfigAndHardware() {
+        assertEquals(
+            MenuOutcome.Editor("/api/hardware", child("menu.s", "s.hw").title),
+            MenuActions.resolve(child("menu.s", "s.hw")),
+        )
+        assertEquals(
+            MenuOutcome.Editor("/api/config", child("menu.s", "s.gen").title),
+            MenuActions.resolve(child("menu.s", "s.gen")),
+        )
+    }
+
+    @Test
+    fun unsupportedItemsAreMarkedAsDeviceOnly() {
+        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(child("menu.mon", "mon.graph")))
+    }
+
+    @Test
+    fun roleRulesMatchDevice() {
+        val engineerOnly = MenuItem(id = "x", icon = "", title = "x", type = MenuType.ACTION, requiredRole = 2)
+        assertFalse(MenuRules.isAvailable(engineerOnly, 1))
+        assertTrue(MenuRules.isAvailable(engineerOnly, 2))
+        assertTrue(MenuRules.isAvailable(engineerOnly, 3))
+    }
+
+    @Test
+    fun fieldNamesAreHumanReadable() {
+        assertEquals("Гистерезис, °C", FieldNames.label("hys"))
+        assertEquals("неизвестный_ключ (ключ API)", FieldNames.label("неизвестный_ключ"))
+        assertTrue(FieldNames.isReadOnly("schema"))
+        assertFalse(FieldNames.isReadOnly("hys"))
+    }
+}

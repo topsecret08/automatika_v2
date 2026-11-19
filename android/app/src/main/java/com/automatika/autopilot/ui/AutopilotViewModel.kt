@@ -20,9 +20,12 @@ data class Settings(
     val host: String = DEFAULT_HOST,
     val apiKey: String = "",
     val forceDemo: Boolean = false,
+    /** Роль пользователя в приложении: по ней скрываются пункты меню, как на дисплее. */
+    val role: Int = ROLE_OPERATOR,
 ) {
     companion object {
         const val DEFAULT_HOST = "automatika.local"
+        const val ROLE_OPERATOR = 1
     }
 }
 
@@ -47,6 +50,7 @@ class SettingsStore(context: Context) {
         host = prefs.getString(KEY_HOST, Settings.DEFAULT_HOST) ?: Settings.DEFAULT_HOST,
         apiKey = prefs.getString(KEY_API_KEY, "") ?: "",
         forceDemo = prefs.getBoolean(KEY_FORCE_DEMO, false),
+        role = prefs.getInt(KEY_ROLE, Settings.ROLE_OPERATOR),
     )
 
     fun save(settings: Settings) {
@@ -54,6 +58,7 @@ class SettingsStore(context: Context) {
             .putString(KEY_HOST, settings.host)
             .putString(KEY_API_KEY, settings.apiKey)
             .putBoolean(KEY_FORCE_DEMO, settings.forceDemo)
+            .putInt(KEY_ROLE, settings.role)
             .apply()
     }
 
@@ -61,6 +66,7 @@ class SettingsStore(context: Context) {
         const val KEY_HOST = "host"
         const val KEY_API_KEY = "api_key"
         const val KEY_FORCE_DEMO = "force_demo"
+        const val KEY_ROLE = "role"
     }
 }
 
