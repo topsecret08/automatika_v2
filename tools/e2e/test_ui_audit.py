@@ -67,8 +67,8 @@ def test_menu_groups_have_at_most_four_tasks(make_page, base_url):
     page = make_page()
     for group in ("work", "prepare", "diagnose", "system"):
         page.goto(base_url + f"/?tab={group}")
-        page.wait_for_selector(".task-row")
-        assert page.locator(".task-row").count() <= 4, group
+        page.wait_for_selector(".menu-tile")
+        assert page.locator(".menu-tile").count() <= 4, group
 
 
 def test_modal_focus_and_escape(make_page, base_url):
