@@ -1,0 +1,78 @@
+name: android-app
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза, в который прикрепить APK (например v0.9.1-beta). Пусто — только artifact."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: Автоматика Autopilot (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Unit tests
+        working-directory: android
+        run: gradle --no-daemon testDebugUnitTest
+
+      - name: Build debug APK
+        working-directory: android
+        run: gradle --no-daemon assembleDebug
+
+      - name: Name APK
+        id: name
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          RELEASE_TAG="${INPUT_TAG}"
+          if [ -z "$RELEASE_TAG" ] && [ "$GITHUB_REF_TYPE" = "tag" ]; then RELEASE_TAG="$GITHUB_REF_NAME"; fi
+          LABEL="${RELEASE_TAG:-manual-${GITHUB_SHA::7}}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "Autopilot-${LABEL}.apk"
+          sha256sum "Autopilot-${LABEL}.apk" > SHA256SUMS-apk.txt
+          echo "apk=Autopilot-${LABEL}.apk" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autopilot-apk-${{ github.sha }}
+          path: |
+            ${{ steps.name.outputs.apk }}
+            SHA256SUMS-apk.txt
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: steps.name.outputs.release_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.name.outputs.release_tag }}
+          files: |
+            ${{ steps.name.outputs.apk }}
+            SHA256SUMS-apk.txt
