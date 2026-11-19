@@ -314,6 +314,22 @@ ctest --test-dir test/host/build --output-on-failure
 
 ---
 
+## Скачать
+
+Все файлы публикуются в **[последнем релизе](https://github.com/topsecret08/automatika_v2/releases/latest)**.
+
+| Что | Файл в релизе | Для кого | Инструкция |
+|---|---|---|---|
+| Приложение для Windows | `Automatika-<версия>.exe` | обновить и прошить плату по USB в один клик | [APP.md](docs/user/APP.md) |
+| Приложение для Android | `Autopilot-<версия>.apk` | управление с телефона, есть демо-режим | [AUTOPILOT_APP.md](docs/user/AUTOPILOT_APP.md) |
+| Прошивка контроллера | `automatika-<версия>.zip` | архив: приложение, загрузчик, таблица разделов, веб-интерфейс | [CONFIGURATOR.md](docs/user/CONFIGURATOR.md) |
+
+Контрольные суммы — в `SHA256SUMS-app.txt`, `SHA256SUMS-apk.txt` и `SHA256SUMS.txt`
+внутри архива прошивки. Для первого знакомства без платы начните с Android-приложения:
+оно работает в демо-режиме.
+
+---
+
 ## Содержание
 
 - [Возможности](#возможности)
