@@ -21,7 +21,7 @@
 | espressif/ds18b20, esp_lcd_st7796, esp_lcd_touch, esp_lcd_touch_ft5x06, onewire_bus | драйверы | Apache-2.0 (типично) | нет | проверить по каждому компоненту |
 | littlefs (joltwallet) | раздел assets | BSD-3-Clause (типично) | нет | проверить по компоненту |
 | **autopid_for_esp_idf (hayschan)** | PID, `control/autopid_glue.cpp` | **неизвестно** | **нет** | репозиторий недоступен по проверенным ссылкам; лицензия не установлена |
-| **Шрифты `main/ui/fonts/lv_font_cyr_16.c`, `lv_font_cyr_24.c`** | экраны LCD | **Segoe UI (Microsoft), проприетарный** | **да — нарушение** | сгенерированы из `C:\Windows\Fonts\segoeui.ttf` (см. заголовок файла); MIT-лицензия проекта их не покрывает |
+| Шрифты `main/ui/fonts/lv_font_cyr_16.c`, `lv_font_cyr_24.c` | экраны LCD | Inter Regular 4.0, SIL OFL 1.1 | да | заменены с Segoe UI (проприетарный шрифт Microsoft); текст лицензии в `docs/legal/fonts/Inter-LICENSE.txt` |
 
 ## Веб-интерфейс (`littlefs/`)
 
@@ -51,8 +51,7 @@
 
 ## Что нужно сделать до публикации
 
-1. Заменить шрифты, полученные из Segoe UI, на шрифт с открытой лицензией
-   (например, OFL или Apache-2.0) и перегенерировать `lv_font_cyr_*.c`.
+1. Готово: шрифты перегенерированы из Inter (OFL 1.1), Segoe UI удалён.
 2. Установить лицензию `autopid_for_esp_idf` или заменить компонент.
 3. Решить вопрос с esptool (GPL-2.0) в `Automatika.exe`.
 4. Подтвердить лицензии, помеченные «нет», по исходным репозиториям.
