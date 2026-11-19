@@ -1,3 +1,4 @@
-﻿# Зависимости конфигуратора Automatika (Windows, Linux, macOS).
-pyserial>=3.5
-esptool>=4.8
+# Зависимости конфигуратора Automatika (Windows, Linux, macOS).
+# Версии закреплены: esptool (GPL-2.0) входит в Automatika.exe, см. docs/legal/LEGAL_REVIEW.md.
+pyserial==3.5
+esptool==5.6.0

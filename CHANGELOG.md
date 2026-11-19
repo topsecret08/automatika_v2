@@ -10,6 +10,10 @@
   компонентов со статусом проверки) и `docs/legal/LEGAL_REVIEW.md` (вопросы
   для юриста). Найдены блокеры: шрифты, созданные из Segoe UI, и GPL-2.0
   esptool в `Automatika.exe`.
+- **esptool (GPL-2.0) в `Automatika.exe`:** решение владельца — оставить.
+  Версии зависимостей закреплены (`esptool==5.6.0`, `pyserial==3.5`). Сборка
+  `windows-app` прикладывает к релизу `licenses-app.zip` с текстами лицензий.
+  Юридическая оценка не получена, см. `docs/legal/LEGAL_REVIEW.md`, раздел 2.2.
 - **Шрифты интерфейса:** `lv_font_cyr_16.c` и `lv_font_cyr_24.c` перегенерированы
   из Inter Regular 4.0 (SIL OFL 1.1) вместо Segoe UI. Текст лицензии —
   `docs/legal/fonts/Inter-LICENSE.txt`. Высота строки 24 px изменилась с 32 на 30.
