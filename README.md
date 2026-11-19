@@ -1686,6 +1686,8 @@ python -m tools.configurator
   проверка E-STOP, NO-реле, readback, loop_verify, SSVR и OTA;
 - [`docs/hardware/I2C_STEPPER.md`](docs/hardware/I2C_STEPPER.md) — протокол,
   подключение и калибровка I2C-степпера;
+- пошагово для новичков (подключение, прошивка, настройка, работа):
+  [BEGINNER_GUIDE](docs/user/BEGINNER_GUIDE.md);
 - краткий старт: [RU](docs/user/QUICK_START.md),
   [EN](docs/user/QUICK_START.en.md), [DE](docs/user/QUICK_START.de.md),
   [ES](docs/user/QUICK_START.es.md), [FR](docs/user/QUICK_START.fr.md).
@@ -2091,7 +2093,7 @@ HTTP→HTTPS редирект **выключен** по умолчанию (`WEB
 
 | Уровень | Для кого | Файлы |
 |---|---|---|
-| **Пользователь** | владелец аппарата | [QUICK_START](docs/user/QUICK_START.md), [USER_GUIDE](docs/user/USER_GUIDE.md), [FAQ](docs/user/FAQ.md), [PWA_INSTALL](docs/user/PWA_INSTALL.md), [video_links](docs/user/video_links.md) |
+| **Пользователь** | владелец аппарата | [BEGINNER_GUIDE](docs/user/BEGINNER_GUIDE.md) (пошагово для новичков), [QUICK_START](docs/user/QUICK_START.md), [USER_GUIDE](docs/user/USER_GUIDE.md), [FAQ](docs/user/FAQ.md), [PWA_INSTALL](docs/user/PWA_INSTALL.md), [video_links](docs/user/video_links.md) |
 | **Сервис** | монтажник, ремонт | [SERVICE_MANUAL](docs/service/SERVICE_MANUAL.md), [TROUBLESHOOTING](docs/service/TROUBLESHOOTING.md), [TEST_PROCEDURES](docs/service/TEST_PROCEDURES.md) |
 | **Разработчик** | программист | [API](docs/developer/API.md), [ARCHITECTURE](docs/developer/ARCHITECTURE.md), [BUILD](docs/developer/BUILD.md), [LVGL9_MIGRATION](docs/developer/LVGL9_MIGRATION.md) |
 | **Железо** | инженер | [pinout](docs/hardware/pinout.md), [bom.csv](docs/hardware/bom.csv), [wiring_diagram.svg](docs/hardware/wiring_diagram.svg), [pcb_layout.png](docs/hardware/pcb_layout.png) |
@@ -2383,6 +2385,13 @@ Remove-Item -Recurse -Force build, managed_components, dependencies.lock, sdkcon
 ## Лицензия
 
 Проект распространяется по лицензии **MIT**. См. [LICENSE.txt](LICENSE.txt).
+
+**Происхождение кода.** Модули `main/web/samovar_*` реализуют MQTT- и Blynk-интеграцию
+в совместимом с проектом Samovar (LKosoj/Samovar, GPL-3.0) виде. Выборочная проверка:
+`main/web/samovar_mqtt.c` сверен с `SamovarMqtt.h` из репозитория LKosoj/Samovar.
+Совпадений кода не найдено, совпадает только схема MQTT-топиков. Полного
+сравнения на заимствования не проводилось. Перед коммерческим использованием
+или публикацией релиза юридически проверьте лицензионную совместимость.
 
 Сторонние компоненты:
 
