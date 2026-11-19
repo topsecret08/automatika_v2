@@ -54,6 +54,13 @@ jobs:
           "APP_EXE=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "RELEASE_TAG=$release" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Collect license texts (esptool is GPL-2.0)
+        shell: pwsh
+        run: |
+          python tools/collect_licenses.py licenses-app
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path licenses-app/* -DestinationPath licenses-app.zip -Force
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -61,6 +68,7 @@ jobs:
           path: |
             ${{ env.APP_EXE }}
             SHA256SUMS-app.txt
+            licenses-app.zip
           if-no-files-found: error
 
       - name: Attach to release
@@ -71,3 +79,4 @@ jobs:
           files: |
             ${{ env.APP_EXE }}
             SHA256SUMS-app.txt
+            licenses-app.zip
