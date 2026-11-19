@@ -44,6 +44,8 @@ def collect(out: Path) -> dict[str, int]:
 
 
 def main(argv: list[str]) -> int:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     if len(argv) != 2:
         print(__doc__, file=sys.stderr)
         return 2
