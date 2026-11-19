@@ -1,7 +1,7 @@
 #pragma once
 
-#define FW_VERSION          "V0.9.5 beta"
-#define FW_NAME             "Automatika V0.9.5 beta"
+#define FW_VERSION          "V0.9.6"
+#define FW_NAME             "Automatika V0.9.6"
 
 // ============================================================
 // GPIO
