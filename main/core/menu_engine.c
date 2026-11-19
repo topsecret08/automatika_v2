@@ -13,8 +13,6 @@
 
 static nvs_handle_t g_nvs;
 
-#define MENU_TOGGLE_MAX 64
-
 // Пул контекстов для callbacks (menu_item_t + menu_ctx_t)
 typedef struct {
     const menu_item_t *item;
@@ -38,13 +36,20 @@ int menu_engine_list_toggles(const menu_item_t **out, int max) {
     return collect_toggles(&MENU_ROOT, out, max, 0);
 }
 
-const menu_item_t *menu_engine_find_toggle(const char *key) {
-    const menu_item_t *found[MENU_TOGGLE_MAX];
-    int n = menu_engine_list_toggles(found, MENU_TOGGLE_MAX);
-    for (int i = 0; i < n; i++) {
-        if (strcmp(found[i]->nvs_key, key) == 0) return found[i];
+static const menu_item_t *find_in(const menu_item_t *node, const char *key) {
+    for (uint16_t i = 0; i < node->children_count; i++) {
+        const menu_item_t *c = &node->children[i];
+        if (c->type == MENU_ITEM_TOGGLE && c->nvs_key && strcmp(c->nvs_key, key) == 0) return c;
+        if (c->children_count) {
+            const menu_item_t *f = find_in(c, key);
+            if (f) return f;
+        }
     }
     return NULL;
+}
+
+const menu_item_t *menu_engine_find_toggle(const char *key) {
+    return key ? find_in(&MENU_ROOT, key) : NULL;
 }
 
 bool menu_engine_toggle_get(const char *key, uint8_t *value) {
