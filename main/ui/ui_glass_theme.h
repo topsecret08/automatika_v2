@@ -23,7 +23,7 @@
 #define UI_GLASS_RADIUS    20
 #define UI_GLASS_BTN_R     12
 
-// Кириллические шрифты, сгенерированные из Segoe UI (16 и 24 px, bpp 2).
+// Кириллические шрифты, сгенерированные из Inter (SIL OFL 1.1; 16 и 24 px, bpp 2).
 // Montserrat в LVGL не содержит кириллицу, поэтому для русского текста
 // используем эти. Объявлены в ui/ui_glass_theme.h, лежат в ui/fonts/.
 LV_FONT_DECLARE(lv_font_cyr_16);

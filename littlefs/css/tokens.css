@@ -23,7 +23,7 @@
 
   /* Typography — system font stack */
   --font-stack: -apple-system, BlinkMacSystemFont, "system font Display",
-                "system font Text", "Segoe UI", Roboto, sans-serif;
+                "system font Text", "Inter", Roboto, sans-serif;
 
   /* Colors — Dark (основная тема) */
   --bg-primary: #0b0f14;

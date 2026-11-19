@@ -10,6 +10,9 @@
   компонентов со статусом проверки) и `docs/legal/LEGAL_REVIEW.md` (вопросы
   для юриста). Найдены блокеры: шрифты, созданные из Segoe UI, и GPL-2.0
   esptool в `Automatika.exe`.
+- **Шрифты интерфейса:** `lv_font_cyr_16.c` и `lv_font_cyr_24.c` перегенерированы
+  из Inter Regular 4.0 (SIL OFL 1.1) вместо Segoe UI. Текст лицензии —
+  `docs/legal/fonts/Inter-LICENSE.txt`. Высота строки 24 px изменилась с 32 на 30.
 - **README:** переписан короче, ссылки на подробности в `docs/`.
 - **Структура:** справка SD-карты вынесена из `generate_sdcard.py` в
   `sdcard_src/help/` (103 файла). Вывод генератора проверен по SHA-256:
