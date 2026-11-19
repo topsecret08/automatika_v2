@@ -230,6 +230,9 @@ void app_main(void) {
     sd_resilience_init();
 
     sd_content_init();
+    /* CDC включается при старте, чтобы конфигуратор на ПК находил плату
+     * по COM-порту без ручного выбора режима в меню. */
+    hal_usb_init(USB_MODE_CDC);
     learning_init();
     help_init();
     recipes_init();
