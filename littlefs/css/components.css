@@ -608,6 +608,88 @@
 /* ------------------------------------------------------------------ */
 /* Списки задач (меню)                                                 */
 /* ------------------------------------------------------------------ */
+/* Дашборд по референсу: температуры, мощность, ряд управления */
+.temp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.temp-card { min-height: 116px; }
+.temp-card .kpi-value { font-size: 34px; }
+.kpi-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.status-line {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  margin-top: var(--space-12);
+  flex-wrap: wrap;
+}
+.power-card { padding: var(--space-16); }
+.power-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-8);
+}
+.power-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.mode-badge {
+  padding: 4px 10px;
+  border-radius: var(--radius-badge);
+  background: rgba(47, 140, 255, 0.16);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.mode-badge.manual {
+  background: var(--orange);
+  color: #111;
+}
+.power-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+}
+.power-value {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.power-unit {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.step-btn {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--card-border);
+  background: #1d2735;
+  color: var(--text-primary);
+  font: 600 22px/1 var(--font-stack);
+  cursor: pointer;
+}
+.step-btn:disabled { opacity: 0.4; cursor: default; }
+.power-card .slider-row input[type="range"] {
+  accent-color: var(--orange);
+}
+.slider-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 0 52px;
+}
+
 .task-list { padding: 0; }
 .task-row {
   display: flex;
