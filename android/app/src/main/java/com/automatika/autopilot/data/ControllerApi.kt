@@ -21,6 +21,9 @@ data class ControllerState(
 
 data class ControllerHealth(val version: String, val uptimeSec: Long)
 
+/** Тумблер меню контроллера. key совпадает с nvs_key в menu_tree.c. */
+data class ToggleSetting(val key: String, val title: String, val value: Boolean, val editable: Boolean)
+
 class ControllerException(message: String) : Exception(message)
 
 /** Режимы контроллера: идентификатор для API и подпись для экрана. */

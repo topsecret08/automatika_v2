@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.automatika.autopilot.data.ControllerParser
 import com.automatika.autopilot.data.ControllerState
+import com.automatika.autopilot.data.ToggleSetting
+import org.json.JSONObject
 import com.automatika.autopilot.data.ProcessMode
 
 /** Пункт «Приложение»: подключение, роль, журнал и ручная мощность. Есть только в приложении. */
@@ -227,6 +229,7 @@ private fun processText(state: ControllerState?, alarm: Boolean): String = when 
 private fun AppPage(ui: UiState, vm: AutopilotViewModel) {
     RoleCard(ui.settings) { role -> vm.saveSettings(ui.settings.copy(role = role)) }
     SettingsCard(settings = ui.settings, onSave = vm::saveSettings)
+    TogglesSection(vm)
     EventsSection(vm)
 }
 
@@ -330,6 +333,47 @@ private fun PowerCard(ui: UiState, vm: AutopilotViewModel) {
             }
             if (!enabled) {
                 Text("Мощность меняется только во время процесса.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+/** Тумблеры меню контроллера: те же настройки, что на экране дисплея, с проверкой роли на контроллере. */
+@Composable
+private fun TogglesSection(vm: AutopilotViewModel) {
+    var toggles by remember { mutableStateOf<List<ToggleSetting>>(emptyList()) }
+    var status by remember { mutableStateOf("Нажмите «Обновить».") }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Тумблеры контроллера", style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = {
+                vm.execute { api ->
+                    toggles = ControllerParser.toggles(api.getArray("/api/menu/toggles"))
+                    status = if (toggles.isEmpty()) "Тумблеров нет." else ""
+                }
+            }) { Text("Обновить") }
+            if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
+            toggles.forEach { item ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(item.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = item.value,
+                        enabled = item.editable,
+                        onCheckedChange = { on ->
+                            vm.execute { api ->
+                                api.postJson(
+                                    "/api/menu/toggle",
+                                    JSONObject().put("key", item.key).put("value", if (on) 1 else 0),
+                                )
+                                toggles = ControllerParser.toggles(api.getArray("/api/menu/toggles"))
+                            }
+                        },
+                    )
+                }
             }
         }
     }

@@ -29,6 +29,17 @@ object ControllerParser {
         listOf(name, msg).filter { it.isNotBlank() }.joinToString("  ").ifBlank { null }
     }
 
+    /** /api/menu/toggles: тумблеры меню контроллера (ключ, подпись, значение, можно ли менять). */
+    fun toggles(json: JSONArray): List<ToggleSetting> = (0 until json.length()).mapNotNull { index ->
+        val item = json.optJSONObject(index) ?: return@mapNotNull null
+        ToggleSetting(
+            key = item.optString("key", ""),
+            title = item.optString("title", ""),
+            value = item.optInt("value", 0) != 0,
+            editable = item.optBoolean("editable", false),
+        ).takeIf { it.key.isNotBlank() }
+    }
+
     fun health(json: JSONObject): ControllerHealth = ControllerHealth(
         version = json.optString("version", "?"),
         uptimeSec = json.optLong("uptime_s", 0L),

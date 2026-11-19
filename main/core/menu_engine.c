@@ -1,4 +1,5 @@
 #include "menu_engine.h"
+#include "menu_tree.h"
 #include "roles.h"
 #include "events.h"
 #include "flags.h"
@@ -21,6 +22,51 @@ typedef struct {
 #define MENU_CB_POOL 128
 static menu_cb_t s_cb_pool[MENU_CB_POOL];
 static int s_cb_pool_idx = 0;
+
+static int collect_toggles(const menu_item_t *node, const menu_item_t **out, int max, int n) {
+    for (uint16_t i = 0; i < node->children_count && n < max; i++) {
+        const menu_item_t *c = &node->children[i];
+        if (c->type == MENU_ITEM_TOGGLE && c->nvs_key) out[n++] = c;
+        if (c->children_count) n = collect_toggles(c, out, max, n);
+    }
+    return n;
+}
+
+int menu_engine_list_toggles(const menu_item_t **out, int max) {
+    return collect_toggles(&MENU_ROOT, out, max, 0);
+}
+
+static const menu_item_t *find_in(const menu_item_t *node, const char *key) {
+    for (uint16_t i = 0; i < node->children_count; i++) {
+        const menu_item_t *c = &node->children[i];
+        if (c->type == MENU_ITEM_TOGGLE && c->nvs_key && strcmp(c->nvs_key, key) == 0) return c;
+        if (c->children_count) {
+            const menu_item_t *f = find_in(c, key);
+            if (f) return f;
+        }
+    }
+    return NULL;
+}
+
+const menu_item_t *menu_engine_find_toggle(const char *key) {
+    return key ? find_in(&MENU_ROOT, key) : NULL;
+}
+
+bool menu_engine_toggle_get(const char *key, uint8_t *value) {
+    uint8_t v = 0;
+    if (nvs_get_u8(g_nvs, key, &v) != ESP_OK) v = 0;
+    *value = v ? 1 : 0;
+    return true;
+}
+
+bool menu_engine_toggle_set(const char *key, uint8_t value) {
+    uint8_t v = value ? 1 : 0;
+    if (nvs_set_u8(g_nvs, key, v) != ESP_OK) return false;
+    nvs_commit(g_nvs);
+    flags_set_by_key(key, v);
+    events_log(EVENT_USER_ACTION, "TOGGLE %s=%d", key, v);
+    return true;
+}
 
 void menu_engine_init(menu_ctx_t *ctx, const menu_item_t *root, void *user_ctx) {
     memset(ctx, 0, sizeof(*ctx));

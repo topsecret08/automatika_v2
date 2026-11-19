@@ -43,3 +43,9 @@ void menu_engine_init(menu_ctx_t *ctx, const menu_item_t *root, void *user_ctx);
 void menu_engine_open(menu_ctx_t *ctx, const menu_item_t *parent);
 void menu_engine_back(menu_ctx_t *ctx);
 void menu_engine_render(menu_ctx_t *ctx, lv_obj_t *parent);
+
+// Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
+int          menu_engine_list_toggles(const menu_item_t **out, int max);
+const menu_item_t *menu_engine_find_toggle(const char *key);
+bool         menu_engine_toggle_get(const char *key, uint8_t *value);
+bool         menu_engine_toggle_set(const char *key, uint8_t value);
