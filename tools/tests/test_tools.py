@@ -89,7 +89,7 @@ class TestReleaseMetadata(unittest.TestCase):
             self.assertEqual(len(digest), 64)
 
             sbom = gen_release_metadata.build_sbom(
-                "V0.9 beta", "abc123", 1700000000,
+                "V0.9.5 beta", "abc123", 1700000000,
                 [{"name": "lvgl", "version": "8.3.11", "source": "registry",
                   "license": "MIT", "license_file": ""}],
                 [{"path": "fw.bin", "size": 10, "sha256": digest}],

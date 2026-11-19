@@ -24,7 +24,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const STORAGE_KEY = 'automatika.apiKey';
-const APP_VERSION = 'V0.5-alfa';
+const APP_VERSION = 'V0.9.5 beta';
 
 const STAGE_NAMES = [
   'Ожидание', 'Нагрев', 'Стабилизация', 'Головы', 'Тело',
@@ -554,6 +554,14 @@ function renderDashboard() {
       </div>
     </section>
 
+    <section class="section hidden" id="mode-picker">
+      <div class="section-title">Выберите режим</div>
+      <div class="mode-grid">
+        ${MODE_TILES.map((m) => `<button class="mode-tile" type="button" data-mode="${m.id}"><span class="mode-icon" aria-hidden="true"><svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${m.svg}</svg></span><span>${m.title}</span></button>`).join('')}
+      </div>
+      <button class="btn btn-secondary btn-block mt-8" type="button" id="mode-cancel">Отмена</button>
+    </section>
+
     <section class="section">
       <div id="safety-line" class="safety-line">
         <span id="safety-text">Проверка защиты…</span>
@@ -563,7 +571,7 @@ function renderDashboard() {
 
     <section class="section">
       <div class="btn-row">
-        <button class="btn btn-primary" type="button" data-action="start">Старт</button>
+        <button class="btn btn-primary" type="button" id="start-btn">Старт</button>
         <button class="btn btn-secondary" type="button" data-action="pause">Пауза</button>
         <button class="btn btn-danger" type="button" data-action="stop">Стоп</button>
       </div>
@@ -579,6 +587,21 @@ function renderDashboard() {
       </div>
     </section>
   `;
+
+  $('#start-btn')?.addEventListener('click', () => {
+    haptic('light');
+    const picker = $('#mode-picker');
+    if (!picker) return;
+    picker.classList.toggle('hidden');
+    if (!picker.classList.contains('hidden')) picker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  $('#mode-cancel')?.addEventListener('click', () => $('#mode-picker')?.classList.add('hidden'));
+  document.querySelectorAll('#mode-picker [data-mode]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      $('#mode-picker')?.classList.add('hidden');
+      runAction('start', { mode: btn.dataset.mode });
+    });
+  });
 
   $('#minimize-btn')?.addEventListener('click', () => {
     haptic('light');
@@ -761,7 +784,7 @@ function renderLiveValues() {
   updateStatusOnly();
   renderSelectionValues();
 
-  const startBtn = document.querySelector('[data-action="start"]');
+  const startBtn = document.querySelector('#start-btn');
   if (startBtn) startBtn.disabled = !!state.running;
   const pauseBtn = document.querySelector('[data-action="pause"]');
   if (pauseBtn) pauseBtn.disabled = !state.running;
@@ -1561,7 +1584,17 @@ function drawChart() {
 // ------------------------------------------------------------------
 // Действия
 // ------------------------------------------------------------------
-async function runAction(action) {
+// Режимы для выбора на главном экране. Пиктограммы: docs/design/mode-icons.
+const MODE_TILES = [
+  { id: 'rectify', title: 'Ректификация', svg: '<rect x="36" y="14" width="18" height="56" rx="6"/><path d="M45 14c0-6 12-6 18-10"/><path d="M54 22h14M54 22v6M68 22v8"/><circle cx="72" cy="40" r="6"/><path d="M36 74h18M30 80h30"/>' },
+  { id: 'distill', title: 'Дистилляция', svg: '<path d="M16 58h64v12a6 6 0 0 1-6 6H22a6 6 0 0 1-6-6z"/><path d="M24 58c0-16 12-24 24-24s24 8 24 24"/><path d="M48 34V18c0-4 8-6 16-6"/><path d="M64 12v8"/>' },
+  { id: 'beer', title: 'Пивоварение', svg: '<path d="M34 18h28v12c10 4 12 14 12 26 0 14-6 22-26 22s-26-8-26-22c0-12 2-22 12-26z"/><path d="M34 30h28"/><path d="M48 80v6M40 86h16"/>' },
+  { id: 'pvk', title: 'ПВК', svg: '<rect x="22" y="18" width="52" height="46" rx="6"/><path d="M22 40h52"/><path d="M34 52h28M34 58h20"/><path d="M48 64v12M38 80h20"/>' },
+  { id: 'nbk', title: 'НБК', svg: '<rect x="38" y="10" width="20" height="60" rx="8"/><path d="M48 70v10M36 80h24"/><path d="M58 22h16v12"/><path d="M24 50h14M24 58h14"/>' },
+  { id: 'vacuum', title: 'Вакуумная перегонка', svg: '<path d="M30 14h30v22"/><path d="M28 36h34v38a6 6 0 0 1-6 6H34a6 6 0 0 1-6-6z"/><path d="M22 80h44M42 46h4"/><circle cx="76" cy="62" r="8"/><path d="M68 62h-6"/>' },
+];
+
+async function runAction(action, body = {}) {
   const endpoints = {
     start: '/api/start',
     pause: '/api/pause',
@@ -1577,7 +1610,7 @@ async function runAction(action) {
   }
 
   try {
-    const response = await postJson(path, {});
+    const response = await postJson(path, body);
     if (!response.ok) {
       let message = 'Ошибка ' + response.status;
       try {

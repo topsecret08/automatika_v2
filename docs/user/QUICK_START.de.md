@@ -1,59 +1,91 @@
 # Schnellstart (15 Minuten)
 
-Vom Auspacken bis zum ersten Prozess. Ausführlich: [USER_GUIDE.md](USER_GUIDE.md);
-PWA-Installation: [PWA_INSTALL.md](PWA_INSTALL.md).
+Vom Auspacken bis zum ersten Start. Details stehen in
+[USER_GUIDE.md](USER_GUIDE.md); die Installation der PWA in
+[PWA_INSTALL.md](PWA_INSTALL.md).
 
-## 1. Voraussetzungen
+> Maßgeblich ist die russische Fassung. Bei Abweichungen gilt der russische Text.
+> Die Beschriftungen der Oberfläche sind standardmäßig russisch («Старт», «Стоп»,
+> «Система → API-ключ»); die deutschen Begriffe hier sind Übersetzungen.
 
-- Automatika mit Firmware V0.9 beta.
-- Telefon oder Notebook mit 2,4-GHz-WLAN.
-- 220-V-Steckdose mit FI-Schutzschalter und Erdung.
-- Kühlwasser und Flüssigkeit zum Destillieren (mindestens 15 % des Volumens).
+## 1. Was Sie brauchen
+
+- Ein zusammengebautes Gerät Automatika mit Firmware V0.9.5 beta.
+- Ein Telefon oder Laptop mit WLAN 2,4 GHz.
+- Eine geerdete 220-V-Steckdose mit FI-Schutzschalter (RCD).
+- Kühlwasser und Flüssigkeit zur Destillation (mindestens 15 % des Blasenvolumens).
 
 ## 2. Anschluss
 
-1. Kühlung anschließen (Wasserein- und -ausgang).
-2. Kessel über die Mindestfüllmenge befüllen.
-3. Deckel schließen und prüfen, dass **NOT-AUS nicht gedrückt** ist.
-4. Einschalten: Der Hauptbildschirm muss erscheinen.
+1. Schließen Sie die Kühlung an (Wasser ein/aus).
+2. Füllen Sie die Blase mit Flüssigkeit, nicht unter die Mindestfüllhöhe.
+3. Schließen Sie den Deckel und prüfen Sie, dass der E-STOP **nicht** gedrückt ist.
+4. Schalten Sie die Stromversorgung ein. Das Display zeigt den Startbildschirm und danach den Hauptbildschirm.
 
-> Nie ohne Füllung oder ohne Kühlung heizen.
+> Schalten Sie die Heizung nicht ohne gefüllte Blase und ohne Kühlwasserdurchfluss ein.
 
-## 3. WLAN
+## 3. Verbindung mit dem WLAN
 
-Beim ersten Start öffnet das Gerät das Netz **`Automatika-Setup`**.
+Beim ersten Start (oder nach einem Zurücksetzen) öffnet das Gerät einen offenen
+Zugangspunkt **`Automatika-Setup`**.
 
-1. Mit dem Telefon mit diesem Netz verbinden.
-2. **ESP SoftAP Prov** oder `esp_prov.py` aus ESP-IDF starten.
-3. SSID und Passwort des 2,4-GHz-Netzes eingeben.
-4. Bestätigung und erneute Verbindung abwarten.
+1. Öffnen Sie auf dem Telefon das WLAN und verbinden Sie sich mit `Automatika-Setup`.
+2. Starten Sie die App **ESP SoftAP Prov** (Espressif, Android/iPhone) oder
+   `esp_prov.py` aus ESP-IDF.
+3. Gerät: `Automatika-Setup`, Transport `softap`.
+4. Geben Sie SSID und Passwort Ihres Netzes **2,4 GHz** ein.
+5. Warten Sie auf die Erfolgsmeldung. Das Gerät startet das WLAN neu und verbindet sich mit Ihrem Netz.
 
-Das Einrichtungsnetz ist offen: nicht unnötig lange an öffentlichen Orten
-aktiv lassen.
+Der Zugangspunkt hat kein Passwort (Provisioning mit Sicherheitsstufe 0). Lassen Sie
+das Gerät nicht länger als nötig im Einrichtungsmodus an einem belebten Ort.
 
-## 4. Weboberfläche
+## 4. Weboberfläche öffnen
 
-1. `http://automatika.local` öffnen (oder IP-Adresse aus dem Router).
-2. **System → API-Schlüssel** öffnen und **Erzeugen** drücken.
-3. Der Schlüssel wird in diesem Browser gespeichert; ohne ihn ist nur die
-   erstmalige Erzeugung erlaubt.
-4. Zurück zu **Arbeit → Dashboard**: Status muss `Online` sein.
+1. Öffnen Sie im Browser `http://automatika.local`
+   (funktioniert mDNS nicht, verwenden Sie die IP-Adresse aus der Client-Liste des Routers).
+2. Gehen Sie zu **System → API-Schlüssel**.
+3. Drücken Sie **„Erzeugen“**. Der Schlüssel wird erstellt und in diesem Browser gespeichert.
+   Das ist ein einmaliger Vorgang: Solange kein Schlüssel existiert, akzeptiert das
+   Gerät den Bootstrap; danach nur noch den aktuellen Schlüssel.
+4. Kehren Sie zu **Arbeit → Dashboard** zurück. Der Status sollte `Online` sein.
 
-## 5. PWA (optional)
+> Die Firmware enthält keinen Standardschlüssel. Hat jemand vor Ihnen einen Schlüssel
+> erzeugt, setzen Sie die Einstellungen zurück (siehe SERVICE_MANUAL.md) und wiederholen Sie den Vorgang.
 
-1. `https://automatika.local` öffnen und das selbstsignierte Zertifikat
-   akzeptieren.
-2. Chrome (Android): **Installieren** in der Kopfzeile.
-3. Safari (iPhone): **Teilen → Zum Home-Bildschirm**.
+## 5. PWA installieren (optional)
 
-## 6. Erster Prozess
+1. Öffnen Sie `https://automatika.local`.
+2. Bestätigen Sie die Warnung zum selbstsignierten Zertifikat (oder installieren Sie
+   `cert.pem` als vertrauenswürdiges Zertifikat — [PWA_INSTALL.md](PWA_INSTALL.md)).
+3. Chrome (Android): Schaltfläche **„Installieren“** in der Kopfzeile oder im Menü →
+   „App installieren“.
+4. Safari (iPhone): „Teilen“ → „Zum Home-Bildschirm“.
 
-1. Kessel und Kolonne müssen Umgebungstemperatur haben, Kühlwasserdurchfluss
-   über 0,5 l/min liegen.
-2. Manuelle Leistung einstellen (30–40 %) und Temperaturanstieg prüfen.
-3. Für den Automatikbetrieb Profil und PID konfigurieren.
-4. **Stopp** schaltet die Heizung ab; **Safety** quittiert nur, wenn Prozess
-   gestoppt, NOT-AUS gelöst und der Füllstand in Ordnung ist.
+Nach der Installation öffnet sich die App ohne Adressleiste, arbeitet als Offline-Hülle
+und hat Verknüpfungen zu „Dashboard“, „Protokoll“ und „Einstellungen“.
 
-> Sicherheit: NOT-AUS, NC-Sicherheitsrelais und aktive Kreisprüfung ergänzen
-> die Elektroinstallation, sie ersetzen sie nicht.
+## 6. Erster Prozessstart
+
+1. Prüfen Sie die Messwerte: Blase und Kolonne sollten nahe Raumtemperatur liegen,
+   der Kühlwasserdurchfluss über 0,5 l/min.
+2. Stellen Sie die Leistung manuell ein (z. B. 30–40 %) und prüfen Sie, dass die Temperatur steigt.
+3. Für den Automatikbetrieb richten Sie ein Profil und PID ein (siehe
+   [USER_GUIDE.md](USER_GUIDE.md), Abschnitt „Profile und PID“).
+4. Start: Taste **„Start“**, dann die Kachel des Modus wählen (Rektifikation, Destillation,
+   Bierbrauen, PVK, NBK, Vakuumdestillation). Stopp: **„Stopp“**.
+5. Verfolgen Sie das Protokoll: Reiter **„Protokoll“** (benötigt den API-Schlüssel).
+
+## 7. Wenn etwas nicht funktioniert
+
+- Heizt nicht — [TROUBLESHOOTING.md](../service/TROUBLESHOOTING.md), §2.1.
+- Kein WLAN — §2.5.
+- Die PWA lässt sich nicht installieren — §2.6 und [PWA_INSTALL.md](PWA_INSTALL.md).
+- Alarm / E-STOP — schalten Sie sofort die Stromversorgung ab, dann siehe
+  [SERVICE_MANUAL.md](../service/SERVICE_MANUAL.md).
+
+## 8. Und dann?
+
+- [USER_GUIDE.md](USER_GUIDE.md) — täglicher Betrieb.
+- [FAQ.md](FAQ.md) — häufige Fragen.
+- [video_links.md](video_links.md) — Themen der Videoanleitungen (noch ohne Links).
+- [SERVICE_MANUAL.md](../service/SERVICE_MANUAL.md) — Wartung.

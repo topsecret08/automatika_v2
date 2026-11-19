@@ -35,8 +35,8 @@ class ControllerParserTest {
 
     @Test
     fun healthParsesVersionAndUptime() {
-        val health = ControllerParser.health(JSONObject("""{"version":"V0.9 beta","uptime_s":42}"""))
-        assertEquals("V0.9 beta", health.version)
+        val health = ControllerParser.health(JSONObject("""{"version":"V0.9.5 beta","uptime_s":42}"""))
+        assertEquals("V0.9.5 beta", health.version)
         assertEquals(42L, health.uptimeSec)
     }
 
