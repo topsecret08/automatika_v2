@@ -54,6 +54,7 @@ sealed class MenuOutcome {
     data class Start(val mode: ProcessMode) : MenuOutcome()
     object ResetAlarm : MenuOutcome()
     data class Editor(val path: String, val title: String) : MenuOutcome()
+    data class Calc(val kind: CalcKind) : MenuOutcome()
     object OnDeviceOnly : MenuOutcome()
 }
 
@@ -69,9 +70,22 @@ object MenuActions {
         "cb_start_ferment" to ProcessMode.FERMENT,
     )
 
+    private val calcByCallback = mapOf(
+        "cb_calc_dil" to CalcKind.DILUTION,
+        "cb_calc_sug" to CalcKind.SUGAR,
+        "cb_calc_grn" to CalcKind.GRAIN,
+        "cb_calc_out" to CalcKind.YIELD,
+        "cb_calc_abv" to CalcKind.ABV,
+        "cb_calc_tmp" to CalcKind.TEMP,
+        "cb_alc_temp" to CalcKind.TEMP,
+        "cb_calc_prs" to CalcKind.PRESSURE,
+        "cb_calc_gab" to CalcKind.GABRIEL,
+    )
+
     fun resolve(item: MenuItem): MenuOutcome {
         if (item.type == MenuType.SUBMENU) return MenuOutcome.Open
         startByCallback[item.action]?.let { return MenuOutcome.Start(it) }
+        calcByCallback[item.action]?.let { return MenuOutcome.Calc(it) }
         return when (item.action) {
             "cb_safety_reset" -> MenuOutcome.ResetAlarm
             "cb_settings_hw" -> MenuOutcome.Editor("/api/hardware", item.title)
