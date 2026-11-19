@@ -13,6 +13,17 @@ Android-приложения.
 > [`docs/user/BEGINNER_GUIDE.md`](docs/user/BEGINNER_GUIDE.md). Не оставляйте
 > работающий аппарат без присмотра.
 
+## Известные ограничения
+
+- Модули EQ_LOCK, VLE, PCHIP и zone_consensus есть в коде и тестах, но в рабочий
+  цикл не подключены. Они не влияют на нагрев и отбор.
+- Статус `degraded` (нет SD-карты или нет датчиков DS18B20) не блокирует старт.
+  Без датчиков защита тренда выключена, нагрев идёт на заданной мощности.
+- Пиктограммы режимов есть в Android-приложении, в веб-интерфейсе их нет.
+
+Полный список с ссылками на код и пошаговыми действиями:
+[`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md).
+
 [![CI](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/topsecret08/automatika_v2/actions/workflows/build.yml)
 
 ## Скачать
