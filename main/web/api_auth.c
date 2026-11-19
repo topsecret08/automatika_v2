@@ -132,7 +132,7 @@ bool api_check_telegram_secret(httpd_req_t *req) {
                                     got, sizeof(got)) != ESP_OK)
         return false;
 
-    return strcmp(got, expected) == 0;
+    return token_eq(got, expected);
 }
 
 void api_auth_get_key(char *out, size_t out_len) {

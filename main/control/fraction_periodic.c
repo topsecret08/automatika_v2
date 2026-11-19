@@ -7,6 +7,7 @@
 #include "core/state.h"
 #include "core/watchdog.h"
 #include "core/control_config.h"
+#include "core/hw_profile.h"
 #include "control/ctrl_dose.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_valve_control.h"
@@ -863,8 +864,12 @@ void fsel_task(void *arg) {
         fsel_get_config(&cfg);
 
         float pressure = baro_get_pressure_hpa();
-        float cube = hal_1wire_read_compensated(0, pressure);
-        float column = hal_1wire_read_compensated(1, pressure);
+        float cube = hw_temp_available(HW_TEMP_CUBE)
+                         ? hal_1wire_read_compensated(hw_temp_index(HW_TEMP_CUBE), pressure)
+                         : -127.0f;
+        float column = hw_temp_available(HW_TEMP_COLUMN)
+                           ? hal_1wire_read_compensated(hw_temp_index(HW_TEMP_COLUMN), pressure)
+                           : -127.0f;
         float t_stage = cube;
 
         if (cfg.sensor == FSEL_SENSOR_STEAM) {

@@ -1,5 +1,16 @@
 # История
 
+## Unreleased
+
+- **OTA:** удалена `fota_task`, которая подтверждала образ по таймауту без
+  проверки здоровья и могла отменить откат. Подтверждение только в
+  `ota_manager_task`. Удалена `fota_mark_valid()`.
+- **OTA:** `fota_flash_from_url()` сбрасывает `in_progress` при ошибке;
+  `POST /api/ota/url` и `/api/ota/secure` отклоняют слишком длинный URL.
+- **Датчики:** `fraction_periodic`, `ctrl_safety` и `ctrl_heater` берут
+  индексы куба/колонны из профиля (`hw_temp_index`), а не из захардкоженных 0/1.
+- **Безопасность:** сравнение Telegram webhook-секрета в постоянном времени.
+
 ## V0.9 beta
 
 - **I2C-степпер:** `core/stepper_proto` (кадры с CRC8), `hal/i2c_stepper`

@@ -284,8 +284,10 @@ void ctrl_safety_task(void *arg) {
             s_last_abv_us = now_abv;
             float p_hpa = baro_get_pressure_hpa();
             // Прогнать конвейер независимо от того, вызывали ли его режимы.
-            (void)hal_1wire_read_compensated(0, p_hpa);
-            (void)hal_1wire_read_compensated(1, p_hpa);
+            int cube_idx = hw_temp_index(HW_TEMP_CUBE);
+            int col_idx = hw_temp_index(HW_TEMP_COLUMN);
+            if (cube_idx >= 0) (void)hal_1wire_read_compensated(cube_idx, p_hpa);
+            if (col_idx >= 0)  (void)hal_1wire_read_compensated(col_idx, p_hpa);
             abv_update(cube, p_hpa);
         }
 

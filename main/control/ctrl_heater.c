@@ -204,8 +204,10 @@ void ctrl_heater_task(void *arg) {
         bool cut = s_trend_cut;
         if (cut != last_cut) {
             last_cut = cut;
+            int cube_idx = hw_temp_index(HW_TEMP_CUBE);
             events_log(EVENT_INFO, "Heater: trend guard %s (slope %.1f C/min)",
-                       cut ? "ON" : "off", hal_1wire_slope(0));
+                       cut ? "ON" : "off",
+                       cube_idx >= 0 ? hal_1wire_slope(cube_idx) : 0.0f);
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }

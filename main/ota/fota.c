@@ -24,8 +24,8 @@ esp_err_t fota_init(void) {
     esp_ota_img_states_t st;
     if (esp_ota_get_state_partition(run, &st) == ESP_OK) {
         if (st == ESP_OTA_IMG_PENDING_VERIFY) {
-            // Не блокируем загрузку: подтверждение делает fota_task после
-            // того, как система отработает без сбоев.
+            // Подтверждение делает только ota_manager_task по результату
+            // проверки здоровья (не по таймауту).
             ESP_LOGW(TAG, "Running image PENDING_VERIFY");
         }
     }
@@ -86,18 +86,12 @@ esp_err_t fota_check_version(const char *path_or_url, char *out, size_t max) {
     esp_app_desc_t d;
     memcpy(&d, buf + 0x20, sizeof(d));
     if (d.magic_word != ESP_APP_DESC_MAGIC_WORD) return ESP_FAIL;
-    strncpy(out, d.version, max - 1);
+    snprintf(out, max, "%.*s", (int)sizeof(d.version), d.version);
     return ESP_OK;
 }
 
 esp_err_t fota_rollback(void) {
     return esp_ota_mark_app_invalid_rollback_and_reboot();
-}
-
-esp_err_t fota_mark_valid(void) {
-    esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
-    if (err == ESP_OK) events_log(EVENT_INFO, "FOTA: image marked valid");
-    return err;
 }
 
 bool fota_is_pending_verify(void) {
@@ -115,15 +109,3 @@ esp_err_t fota_flash(const fota_config_t *cfg) {
     return fota_flash_from_url(cfg->path);
 }
 
-void fota_task(void *arg) {
-    (void)arg;
-    // Даём системе 60 секунд на self-test, затем подтверждаем образ.
-    for (int i = 0; i < 12 && fota_is_pending_verify(); i++) {
-        vTaskDelay(pdMS_TO_TICKS(5000));
-    }
-    if (fota_is_pending_verify()) {
-        ESP_LOGW(TAG, "Health check passed, marking image valid");
-        fota_mark_valid();
-    }
-    vTaskDelete(NULL);
-}
