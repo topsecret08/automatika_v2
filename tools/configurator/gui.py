@@ -165,7 +165,7 @@ class App(tk.Tk):
             self.port_box["values"] = [p.device for p in ports]
             if found is None:
                 self.qlog("Плата Automatika по USB не найдена. Проверьте кабель "
-                          "и что прошивка V0.9.5 beta или новее.")
+                          "и что прошивка V0.9.6 или новее.")
                 return
             port, info = found
             self.port_var.set(usb.guess_flash_port(ports, port.device))

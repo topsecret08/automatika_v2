@@ -10,7 +10,7 @@ From unpacking to the first run. Details are in
 
 ## 1. What you need
 
-- An assembled Automatika device with firmware V0.9.5 beta.
+- An assembled Automatika device with firmware V0.9.6.
 - A phone or laptop with 2.4 GHz Wi-Fi.
 - A grounded 220 V socket with an RCD (residual current device).
 - Cooling water and liquid for distillation (at least 15 % of the still volume).

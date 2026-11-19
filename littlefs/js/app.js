@@ -24,7 +24,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const STORAGE_KEY = 'automatika.apiKey';
-const APP_VERSION = 'V0.9.5 beta';
+const APP_VERSION = 'V0.9.6';
 
 const STAGE_NAMES = [
   'Ожидание', 'Нагрев', 'Стабилизация', 'Головы', 'Тело',
