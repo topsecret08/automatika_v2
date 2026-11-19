@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -114,7 +117,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             LinkBanner(ui)
-            StatusStrip(ui, vm)
+            if (atRoot) Dashboard(ui, vm) else StatusStrip(ui, vm)
             if (notice.isNotBlank()) {
                 Card(Modifier.fillMaxWidth()) {
                     Text(notice, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
@@ -219,7 +222,6 @@ private fun processText(state: ControllerState?, alarm: Boolean): String = when 
 @Composable
 private fun AppPage(ui: UiState, vm: AutopilotViewModel) {
     RoleCard(ui.settings) { role -> vm.saveSettings(ui.settings.copy(role = role)) }
-    PowerSection(ui, vm)
     SettingsCard(settings = ui.settings, onSave = vm::saveSettings)
     EventsSection(vm)
 }
@@ -246,31 +248,83 @@ private fun RoleCard(settings: Settings, onRole: (Int) -> Unit) {
     }
 }
 
+/** Главный экран по образцу дисплея: температуры, мощность, пауза и стоп, строка безопасности. */
 @Composable
-private fun PowerSection(ui: UiState, vm: AutopilotViewModel) {
+private fun Dashboard(ui: UiState, vm: AutopilotViewModel) {
+    val state = ui.state
+    val running = state?.running == true
+    val alarm = state != null && (!state.safetyOk || state.estop)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(processText(state, alarm), style = MaterialTheme.typography.bodyMedium)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TempCard("КУБ", fmt(state?.cube), Modifier.weight(1f))
+            TempCard("ЦАРГА", fmt(state?.column), Modifier.weight(1f))
+        }
+        PowerCard(ui, vm)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { vm.pause() },
+                enabled = !ui.busy && running && state?.paused != true,
+                modifier = Modifier.weight(1f),
+            ) { Text("ПАУЗА") }
+            Button(
+                onClick = { vm.stop() },
+                enabled = !ui.busy && running,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier.weight(1f),
+            ) { Text("СТОП") }
+        }
+        Card(Modifier.fillMaxWidth()) {
+            Text(
+                if (alarm) "Защита сработала: проверьте журнал" else "Защита в норме",
+                modifier = Modifier.padding(12.dp),
+                color = if (alarm) MaterialTheme.colorScheme.error else Color(0xFF2ECC71),
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TempCard(label: String, value: String, modifier: Modifier) {
+    Card(modifier) {
+        Column(Modifier.padding(14.dp)) {
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("$value °C", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun PowerCard(ui: UiState, vm: AutopilotViewModel) {
     val current = ui.state?.power?.toFloat() ?: 0f
     var target by remember { mutableFloatStateOf(current) }
-    val running = ui.state?.running == true
+    val enabled = ui.state?.running == true && !ui.busy
+    fun stepTo(value: Float) {
+        target = value.coerceIn(0f, 100f)
+        vm.setPower(target.toDouble())
+    }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Ручная мощность", style = MaterialTheme.typography.titleMedium)
-            Text("Цель: ${"%.0f".format(target)} %")
-            Slider(
-                value = target,
-                onValueChange = { target = it },
-                valueRange = 0f..100f,
-                steps = 99,
-                enabled = running && !ui.busy,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { vm.setPower(target.toDouble()) }, enabled = running && !ui.busy) {
-                    Text("Применить")
-                }
-                OutlinedButton(onClick = { vm.setPower(null) }, enabled = running && !ui.busy) {
-                    Text("Авто")
-                }
+            Text("МОЩНОСТЬ НАГРЕВА", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${"%.0f".format(target)} %", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { stepTo(target - 1f) }, enabled = enabled) { Text("−") }
+                Slider(
+                    value = target,
+                    onValueChange = { target = it },
+                    onValueChangeFinished = { vm.setPower(target.toDouble()) },
+                    valueRange = 0f..100f,
+                    steps = 99,
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(onClick = { stepTo(target + 1f) }, enabled = enabled) { Text("+") }
             }
-            if (!running) {
+            Button(onClick = { vm.setPower(null) }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                Text("АВТО")
+            }
+            if (!enabled) {
                 Text("Мощность меняется только во время процесса.", style = MaterialTheme.typography.bodySmall)
             }
         }

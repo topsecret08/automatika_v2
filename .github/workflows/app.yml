@@ -37,7 +37,7 @@ jobs:
       - name: Build Automatika.exe
         run: >-
           python -m PyInstaller --noconfirm --onefile --windowed
-          --name Automatika --paths . tools/automatika_app.py
+          --name Automatika --icon tools/automatika.ico --paths . tools/automatika_app.py
 
       - name: Name artifacts
         shell: pwsh
