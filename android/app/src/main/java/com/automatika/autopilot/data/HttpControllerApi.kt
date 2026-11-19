@@ -24,17 +24,37 @@ class HttpControllerApi(
     override suspend fun health(): ControllerHealth =
         ControllerParser.health(JSONObject(request("GET", "/api/health", null)))
 
-    override suspend fun start() {
-        request("POST", "/api/start", "{}")
+    override suspend fun start(mode: String) {
+        val body = if (mode.isBlank()) "{}" else JSONObject().put("mode", mode).toString()
+        request("POST", "/api/start", body)
     }
 
     override suspend fun stop() {
         request("POST", "/api/stop", "{}")
     }
 
+    override suspend fun pause() {
+        request("POST", "/api/pause", "{}")
+    }
+
+    override suspend fun setPower(percent: Double?) {
+        val body = if (percent == null) {
+            JSONObject().put("mode", "auto")
+        } else {
+            JSONObject().put("power", percent)
+        }
+        request("POST", "/api/power", body.toString())
+    }
+
     override suspend fun resetSafety() {
         request("POST", "/api/safety", "{}")
     }
+
+    override suspend fun getJson(path: String): JSONObject =
+        JSONObject(request("GET", path, null).ifBlank { "{}" })
+
+    override suspend fun postJson(path: String, body: JSONObject): JSONObject =
+        JSONObject(request("POST", path, body.toString()).ifBlank { "{}" })
 
     private suspend fun request(method: String, path: String, body: String?): String =
         withContext(Dispatchers.IO) {
@@ -55,7 +75,12 @@ class HttpControllerApi(
                 val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 if (code !in 200..299) {
                     throw ControllerException(
-                        if (code == 401) "неверный API-ключ" else "HTTP $code: $text"
+                        when (code) {
+                            401 -> "неверный API-ключ"
+                            403 -> "недостаточно прав (роль)"
+                            409 -> "контроллер не готов: ${errorText(text)}"
+                            else -> "HTTP $code: ${errorText(text)}"
+                        }
                     )
                 }
                 text
@@ -65,6 +90,9 @@ class HttpControllerApi(
                 connection.disconnect()
             }
         }
+
+    private fun errorText(raw: String): String =
+        runCatching { JSONObject(raw).optString("error", raw) }.getOrDefault(raw)
 
     companion object {
         private const val CONNECT_TIMEOUT_MS = 3000

@@ -91,9 +91,41 @@ class AutopilotViewModel(
         viewModelScope.launch { poll() }
     }
 
-    fun start() = command { it.start() }
-    fun stop() = command { it.stop() }
-    fun resetSafety() = command { it.resetSafety() }
+    fun start(mode: String = "") = execute { it.start(mode) }
+    fun stop() = execute { it.stop() }
+    fun pause() = execute { it.pause() }
+    fun setPower(percent: Double?) = execute { it.setPower(percent) }
+    fun resetSafety() = execute { it.resetSafety() }
+
+    /**
+     * Выполняет произвольное действие с активным контроллером (живым или демо)
+     * и обновляет состояние. Используется и для команд, и для чтения/записи настроек.
+     */
+    fun execute(action: suspend (ControllerApi) -> Unit) {
+        viewModelScope.launch {
+            val current = _ui.value
+            val api: ControllerApi = if (current.link == Link.LIVE && !current.settings.forceDemo) {
+                live(current.settings)
+            } else {
+                demo
+            }
+            _ui.update { it.copy(busy = true) }
+            try {
+                action(api)
+                _ui.update { it.copy(message = "") }
+            } catch (e: Exception) {
+                _ui.update { it.copy(message = "Не выполнено: ${e.message}") }
+            } finally {
+                _ui.update { it.copy(busy = false) }
+            }
+            poll()
+        }
+    }
+
+    /** Сообщение для пользователя (например, «Сохранено»). */
+    fun notify(text: String) {
+        _ui.update { it.copy(message = text) }
+    }
 
     /** Демо-режим: имитация аварии, чтобы проверить блокировку запуска. */
     fun simulateAlarm() {
@@ -115,7 +147,7 @@ class AutopilotViewModel(
             val state = api.state()
             failures = 0
             val version = runCatching { api.health().version }.getOrDefault("")
-            _ui.update { it.copy(link = Link.LIVE, state = state, version = version, message = "") }
+            _ui.update { it.copy(link = Link.LIVE, state = state, version = version) }
         } catch (e: Exception) {
             failures++
             if (failures >= FAILURES_BEFORE_DEMO) {
@@ -130,27 +162,6 @@ class AutopilotViewModel(
         val state = demo.state()
         _ui.update {
             it.copy(link = Link.DEMO, state = state, version = "демо", message = message)
-        }
-    }
-
-    private fun command(action: suspend (ControllerApi) -> Unit) {
-        viewModelScope.launch {
-            val current = _ui.value
-            val api: ControllerApi = if (current.link == Link.LIVE && !current.settings.forceDemo) {
-                live(current.settings)
-            } else {
-                demo
-            }
-            _ui.update { it.copy(busy = true) }
-            try {
-                action(api)
-                _ui.update { it.copy(message = "") }
-            } catch (e: Exception) {
-                _ui.update { it.copy(message = "Команда не выполнена: ${e.message}") }
-            } finally {
-                _ui.update { it.copy(busy = false) }
-            }
-            poll()
         }
     }
 
