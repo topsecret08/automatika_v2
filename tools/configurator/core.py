@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import socket
 import ssl
 import threading
 import time
@@ -19,6 +20,20 @@ MAX_OTA_BYTES = 3 * 1024 * 1024  # размер слота ota_0/ota_1
 
 class DeviceError(RuntimeError):
     pass
+
+
+def describe_network_error(exc: BaseException, host: str = "") -> str:
+    """Понятный текст сетевой ошибки вместо системного кода."""
+    reason = getattr(exc, "reason", exc)
+    where = host or "устройство"
+    if isinstance(reason, socket.gaierror):
+        return (f"{where} не найдено в сети: проверьте адрес, что плата "
+                "включена и подключена к Wi-Fi, либо используйте USB")
+    if isinstance(reason, (TimeoutError, socket.timeout)):
+        return f"{where} не отвечает (тайм-аут)"
+    if isinstance(reason, ConnectionRefusedError):
+        return f"{where} отказало в соединении: прошивка не слушает этот адрес"
+    return str(exc)
 
 
 class UploadCancelled(DeviceError):
@@ -92,7 +107,7 @@ class DeviceClient:
             raw = exc.read().decode("utf-8", "replace")
             raise DeviceError(f"HTTP {exc.code}: {raw}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise DeviceError(str(exc)) from exc
+            raise DeviceError(describe_network_error(exc, self.host)) from exc
 
     # ------------------------------------------------------------------
     def health(self) -> dict:
@@ -199,7 +214,7 @@ class DeviceClient:
             return UploadResult(str(firmware), size, digest,
                                 response.status, body)
         except (OSError, http.client.HTTPException) as exc:
-            raise DeviceError(f"сеть: {exc}") from exc
+            raise DeviceError(f"сеть: {describe_network_error(exc, self.host)}") from exc
         finally:
             conn.close()
 

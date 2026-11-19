@@ -48,7 +48,6 @@ class App(tk.Tk):
 
         self.client = DeviceClient(self.host_var.get(), self.key_var.get())
         self._build()
-        self.refresh_device()
 
     # ------------------------------------------------------------------
     def _client(self) -> DeviceClient:
