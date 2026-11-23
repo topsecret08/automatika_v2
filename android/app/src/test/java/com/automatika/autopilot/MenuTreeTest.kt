@@ -92,6 +92,15 @@ class MenuTreeTest {
     }
 
     @Test
+    fun readOnlyScreensOpenInApp() {
+        fun action(callback: String, title: String = "x") =
+            MenuItem(id = "x", icon = "", title = title, type = MenuType.ACTION, action = callback)
+        assertEquals(MenuOutcome.View("/api/hardware", "I2C"), MenuActions.resolve(action("cb_diag_i2c", "I2C")))
+        assertEquals(MenuOutcome.View("/api/alcohol", "Спирт"), MenuActions.resolve(action("cb_alc_show", "Спирт")))
+        assertEquals(MenuOutcome.AiStatus, MenuActions.resolve(action("cb_ai_predict")))
+    }
+
+    @Test
     fun realtimeGraphOpensInApp() {
         assertEquals(MenuOutcome.Graph, MenuActions.resolve(child("menu.mon", "mon.graph")))
     }

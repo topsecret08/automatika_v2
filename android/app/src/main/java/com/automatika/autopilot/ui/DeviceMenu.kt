@@ -54,6 +54,8 @@ sealed class MenuOutcome {
     data class Start(val mode: ProcessMode) : MenuOutcome()
     object ResetAlarm : MenuOutcome()
     data class Editor(val path: String, val title: String) : MenuOutcome()
+    /** Только просмотр JSON-документа контроллера, без сохранения. */
+    data class View(val path: String, val title: String) : MenuOutcome()
     data class Calc(val kind: CalcKind) : MenuOutcome()
     object Graph : MenuOutcome()
     object History : MenuOutcome()
@@ -130,6 +132,22 @@ object MenuActions {
         "cb_help_whatsnew" to "90_whatsnew",
     )
 
+    /** Экраны только для чтения: JSON, который уже отдаёт контроллер. */
+    private val viewPaths = mapOf(
+        "cb_diag_i2c" to "/api/hardware",
+        "cb_diag_mon" to "/api/state",
+        "cb_diag_perf" to "/api/health",
+        "cb_usb_config" to "/api/usb/status",
+        "cb_fota_status" to "/api/ota",
+        "cb_alc_show" to "/api/alcohol",
+        "cb_settings_pid" to "/api/autotune",
+    )
+
+    /** Экраны ИИ, которые показывает общая карточка статуса ИИ. */
+    private val aiScreens = setOf(
+        "cb_ai_predict", "cb_ai_action", "cb_ai_anomaly", "cb_ai_warnings_open", "cb_ai_cache_cfg",
+    )
+
     private val diagKinds = mapOf(
         "cb_diag_over" to DiagKind.OVERVIEW,
         "cb_diag_ds" to DiagKind.SENSORS,
@@ -142,7 +160,8 @@ object MenuActions {
         calcByCallback[item.action]?.let { return MenuOutcome.Calc(it) }
         if (item.action == "cb_graph") return MenuOutcome.Graph
         if (item.action == "cb_graph_history") return MenuOutcome.History
-        if (item.action == "cb_ai_status") return MenuOutcome.AiStatus
+        if (item.action == "cb_ai_status" || item.action in aiScreens) return MenuOutcome.AiStatus
+        viewPaths[item.action]?.let { return MenuOutcome.View(it, item.title) }
         maintByCallback[item.action]?.let { return MenuOutcome.Maintenance(it) }
         recipeCategories[item.action]?.let { (category, title) -> return MenuOutcome.Recipes(category, title) }
         helpArticles[item.action]?.let { return MenuOutcome.Help(it, item.title) }
