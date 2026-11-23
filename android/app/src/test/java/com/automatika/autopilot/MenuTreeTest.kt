@@ -68,6 +68,7 @@ class MenuTreeTest {
         assertEquals(MenuOutcome.Maintenance(MaintKind.RESET_AI), MenuActions.resolve(action("cb_ai_reset")))
         assertEquals(MenuOutcome.Maintenance(MaintKind.DB_BACKUP), MenuActions.resolve(action("cb_db_backup")))
         assertEquals(MenuOutcome.Maintenance(MaintKind.SCALE), MenuActions.resolve(action("cb_scale_calib")))
+        assertEquals(MenuOutcome.Maintenance(MaintKind.DB_EXPORT), MenuActions.resolve(action("cb_db_export")))
         assertEquals(MenuOutcome.Maintenance(MaintKind.VALVE_STATE), MenuActions.resolve(action("cb_valve_calib_show")))
     }
 

@@ -28,6 +28,7 @@ enum class MaintKind(val title: String) {
     DB_BACKUP("Копия базы"),
     DB_VACUUM("Оптимизация базы"),
     DB_STATS("Статистика базы"),
+    DB_EXPORT("Экспорт базы в CSV"),
     USB("Флешка USB"),
     SCALE("Весы"),
     SENSOR_CALIB("Калибровка датчиков"),
@@ -52,6 +53,7 @@ fun MaintenanceCard(kind: MaintKind, vm: AutopilotViewModel) {
         status = when (op) {
             "backup" -> "Копия создана: /sdcard/backups/db_auto.db"
             "vacuum" -> "База оптимизирована."
+            "export" -> "Экспорт готов: /sdcard/processes.csv"
             else -> body.optString("text", "")
         }
     }
@@ -89,6 +91,7 @@ fun MaintenanceCard(kind: MaintKind, vm: AutopilotViewModel) {
                 MaintKind.DB_BACKUP -> OutlinedButton(onClick = { dbOp("backup") }) { Text("Создать копию") }
                 MaintKind.DB_VACUUM -> OutlinedButton(onClick = { dbOp("vacuum") }) { Text("Оптимизировать") }
                 MaintKind.DB_STATS -> OutlinedButton(onClick = { dbOp("stats") }) { Text("Показать статистику") }
+                MaintKind.DB_EXPORT -> OutlinedButton(onClick = { dbOp("export") }) { Text("Экспортировать") }
                 MaintKind.USB -> OutlinedButton(onClick = {
                     vm.execute { api ->
                         val mounted = api.getJson("/api/usb/status").optInt("mounted", 0) != 0

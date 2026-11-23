@@ -2313,6 +2313,13 @@ static esp_err_t h_maint_db(httpd_req_t *r) {
         return ok ? send_json(r, "{\"ok\":true}")
                   : send_err(r, "500 Internal Server Error", "{\"error\":\"db op failed\"}");
     }
+    if (strcmp(op, "export") == 0) {
+        bool ok = db_export_all_csv("/sdcard");
+        events_log(EVENT_USER_ACTION, "Web: db export %s", ok ? "ok" : "failed");
+        cJSON_Delete(root);
+        return ok ? send_json(r, "{\"ok\":true,\"file\":\"/sdcard/processes.csv\"}")
+                  : send_err(r, "500 Internal Server Error", "{\"error\":\"export failed\"}");
+    }
     if (strcmp(op, "stats") == 0) {
         char text[256];
         db_stats(text, sizeof(text));
