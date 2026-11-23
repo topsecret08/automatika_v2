@@ -15,6 +15,7 @@
 #include "core/roles.h"
 #include "core/process_control.h"
 #include "core/menu_engine.h"
+#include "core/recipes_db.h"
 #include "db/db_manager.h"
 #include "ai/anomaly.h"
 #include "ai/action_predictor.h"
@@ -2420,6 +2421,57 @@ static esp_err_t h_calib_sensors_abort(httpd_req_t *r) {
     return send_json(r, "{\"ok\":true}");
 }
 
+static esp_err_t h_recipes_list(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    cJSON *arr = cJSON_CreateArray();
+    if (!arr) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    for (size_t i = 0; i < RECIPES_COUNT; i++) {
+        const recipe_t *rc = &RECIPES[i];
+        cJSON *o = cJSON_CreateObject();
+        if (!o) continue;
+        cJSON_AddStringToObject(o, "id", rc->id);
+        cJSON_AddStringToObject(o, "name", rc->name);
+        cJSON_AddStringToObject(o, "category", rc->category);
+        cJSON_AddStringToObject(o, "description", rc->description);
+        cJSON_AddItemToArray(arr, o);
+    }
+    char *json = cJSON_PrintUnformatted(arr);
+    cJSON_Delete(arr);
+    if (!json) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    esp_err_t err = send_json(r, json);
+    free(json);
+    return err;
+}
+
+static esp_err_t h_recipe_get(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    char id[48] = "";
+    size_t qlen = httpd_req_get_url_query_len(r);
+    if (qlen == 0 || qlen >= 64) return send_err(r, "400 Bad Request", "{\"error\":\"id required\"}");
+    char q[64];
+    if (httpd_req_get_url_query_str(r, q, sizeof(q)) != ESP_OK ||
+        httpd_query_key_value(q, "id", id, sizeof(id)) != ESP_OK) {
+        return send_err(r, "400 Bad Request", "{\"error\":\"id required\"}");
+    }
+    const recipe_t *rc = recipes_find(id);
+    if (!rc) return send_err(r, "404 Not Found", "{\"error\":\"unknown recipe\"}");
+
+    cJSON *o = cJSON_CreateObject();
+    if (!o) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    cJSON_AddStringToObject(o, "id", rc->id);
+    cJSON_AddStringToObject(o, "name", rc->name);
+    cJSON_AddStringToObject(o, "category", rc->category);
+    cJSON_AddStringToObject(o, "description", rc->description);
+    cJSON_AddStringToObject(o, "ingredients", rc->ingredients);
+    cJSON_AddStringToObject(o, "steps_md", rc->steps_md);
+    char *json = cJSON_PrintUnformatted(o);
+    cJSON_Delete(o);
+    if (!json) return send_err(r, "500 Internal Server Error", "{\"error\":\"memory\"}");
+    esp_err_t err = send_json(r, json);
+    free(json);
+    return err;
+}
+
 static esp_err_t h_menu_toggles(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -2876,6 +2928,8 @@ void web_api_register(httpd_handle_t srv) {
 { .uri="/api/usb/status",          .method=HTTP_GET,  .handler=h_usb_status },
 { .uri="/api/calib/state",         .method=HTTP_GET,  .handler=h_calib_state },
 { .uri="/api/menu/toggle",         .method=HTTP_POST, .handler=h_menu_toggle },
+{ .uri="/api/recipes",             .method=HTTP_GET,  .handler=h_recipes_list },
+{ .uri="/api/recipe",              .method=HTTP_GET,  .handler=h_recipe_get },
 { .uri="/api/calib/scale/tare",    .method=HTTP_POST, .handler=h_calib_scale_tare },
 { .uri="/api/calib/sensors/abort", .method=HTTP_POST, .handler=h_calib_sensors_abort },
         { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },

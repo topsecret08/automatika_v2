@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 90.
+Всего маршрутов: 92.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -54,6 +54,8 @@
 | `DELETE` | `/api/profiles` | `h_profiles` | ключ |
 | `GET` | `/api/profiles` | `h_profiles` | ключ |
 | `POST` | `/api/profiles` | `h_profiles` | ключ |
+| `GET` | `/api/recipe` | `h_recipe_get` | ключ |
+| `GET` | `/api/recipes` | `h_recipes_list` | ключ |
 | `GET` | `/api/remote` | `h_remote` | ключ |
 | `POST` | `/api/remote` | `h_remote` | ключ |
 | `GET` | `/api/safety` | `h_safety` | ключ |
