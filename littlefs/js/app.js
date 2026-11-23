@@ -228,6 +228,14 @@ function scheduleWS() {
   wsRetry = setTimeout(() => { wsRetry = null; connectWS(); }, 3000);
 }
 
+// Смена состояния процесса меняет, какие параметры можно править:
+// перечитываем описание параметров, иначе блокировки устареют до перезагрузки.
+function setRunning(value) {
+  const changed = !!state.running !== !!value;
+  state.running = value;
+  if (changed) loadParamDefs();
+}
+
 function applyTelemetry(frame) {
   if (typeof frame.tc === 'number') state.tc = frame.tc;
   if (typeof frame.ts === 'number') state.ts = frame.ts;
@@ -235,7 +243,7 @@ function applyTelemetry(frame) {
   if (typeof frame.m === 'number') state.rate = frame.m;
   if (typeof frame.lv === 'number') state.level = frame.lv;
   if (typeof frame.stg === 'number') state.stage = frame.stg;
-  if (typeof frame.r === 'number') state.running = frame.r;
+  if (typeof frame.r === 'number') setRunning(frame.r);
   if (typeof frame.sa === 'number') state.safety = frame.sa;
   if (typeof frame.es === 'number') state.estop = frame.es;
 
@@ -276,7 +284,7 @@ async function pollState() {
     if (typeof data.tank !== 'undefined') state.tank = Number(data.tank);
     if (typeof data.regulator_error !== 'undefined') state.regulatorError = data.regulator_error;
     if (typeof data.stage !== 'undefined') state.stage = data.stage;
-    if (typeof data.running !== 'undefined') state.running = data.running;
+    if (typeof data.running !== 'undefined') setRunning(data.running);
     if (typeof data.paused !== 'undefined') state.paused = data.paused;
     if (typeof data.heads !== 'undefined') state.heads = data.heads;
     if (typeof data.body !== 'undefined') state.body = data.body;
@@ -853,13 +861,13 @@ function renderSelectionValues() {
 }
 
 const PARAM_FALLBACK = {
-  t_fix: { label: 'T фиксации', unit: '°C', min: 0, max: 150, step: 0.1, value: 0, editable: true },
-  open_time: { label: 'Время открыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true },
-  close_time: { label: 'Время закрыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true },
-  hysteresis: { label: 'Гистерезис', unit: '°C', min: 0, max: 20, step: 0.05, value: 0, editable: true },
-  decrement: { label: 'Декремент', unit: '%', min: 0, max: 100, step: 1, value: 0, editable: true },
-  reflux: { label: 'Флегмовое число', unit: ':1', min: 0, max: 10, step: 0.1, value: 0, editable: true },
-  setpoint: { label: 'Уставка', unit: '°C', min: 30, max: 100, step: 0.5, value: 0, editable: false }
+  t_fix: { label: 'T фиксации', unit: '°C', min: 0, max: 150, step: 0.1, value: 0, editable: true, editable_running: true },
+  open_time: { label: 'Время открыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true, editable_running: true },
+  close_time: { label: 'Время закрыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true, editable_running: true },
+  hysteresis: { label: 'Гистерезис', unit: '°C', min: 0, max: 20, step: 0.05, value: 0, editable: true, editable_running: true },
+  decrement: { label: 'Декремент', unit: '%', min: 0, max: 100, step: 1, value: 0, editable: true, editable_running: true },
+  reflux: { label: 'Флегмовое число', unit: ':1', min: 0, max: 10, step: 0.1, value: 0, editable: true, editable_running: true },
+  setpoint: { label: 'Уставка', unit: '°C', min: 30, max: 100, step: 0.5, value: 0, editable: false, editable_running: false }
 };
 
 async function loadParamDefs() {
@@ -899,6 +907,9 @@ function renderParamValues() {
     if (def && row) {
       row.classList.toggle('locked', !def.editable);
       row.classList.toggle('clickable', !!def.editable);
+      row.setAttribute('role', 'button');
+      row.setAttribute('aria-disabled', def.editable ? 'false' : 'true');
+      row.tabIndex = def.editable ? 0 : -1;
     }
   }
 
@@ -1043,8 +1054,9 @@ function openParamEditor(name) {
   document.getElementById('param-title').textContent = def.label;
   document.getElementById('param-sub').textContent =
     `${def.unit || ''} · диапазон ${def.min}…${def.max}`;
-  document.getElementById('param-hint').textContent =
-    'Значение можно изменить во время процесса.';
+  document.getElementById('param-hint').textContent = def.editable_running
+    ? 'Значение можно изменить во время процесса.'
+    : 'Изменяется только при остановленном процессе.';
   input.min = String(def.min);
   input.max = String(def.max);
   input.step = String(def.step || 0.1);
@@ -1064,6 +1076,14 @@ window.editParam = openParamEditor;
 document.addEventListener('click', (event) => {
   const row = event.target.closest('[data-param]');
   if (!row) return;
+  openParamEditor(row.dataset.param);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const row = event.target.closest && event.target.closest('[data-param]');
+  if (!row) return;
+  event.preventDefault();
   openParamEditor(row.dataset.param);
 });
 
