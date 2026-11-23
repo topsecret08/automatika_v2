@@ -71,6 +71,34 @@ object ControllerParser {
         )
     }
 
+    /** /api/calib/state: короткие строки по датчикам, весам и клапанам. */
+    fun calibLines(json: JSONObject): List<String> {
+        val lines = mutableListOf<String>()
+        json.optJSONObject("sensors")?.let { s ->
+            lines += "Датчики: состояние ${s.optInt("state", 0)}, эталон ${num(s.optDouble("reference", Double.NaN), 1)} °C, " +
+                "сохранено ${if (s.optBoolean("saved", false)) "да" else "нет"}"
+            val error = s.optString("error", "")
+            if (error.isNotBlank()) lines += "Ошибка датчиков: $error"
+        }
+        json.optJSONObject("scale")?.let { s ->
+            lines += "Весы: ${if (s.optBoolean("ready", false)) "готовы" else "не готовы"}, " +
+                "${if (s.optBoolean("stable", false)) "стабильно" else "нестабильно"}, " +
+                "${num(s.optDouble("grams", Double.NaN), 1)} г, всего ${num(s.optDouble("total_ml", Double.NaN), 0)} мл"
+        }
+        json.optJSONArray("valves")?.let { valves ->
+            for (i in 0 until valves.length()) {
+                val v = valves.optJSONObject(i) ?: continue
+                lines += "Клапан ${v.optInt("idx", i) + 1}: " +
+                    "${if (v.optBoolean("active", false)) "калибровка идёт" else "калибровка не идёт"}, " +
+                    "${num(v.optDouble("ml_per_hour", Double.NaN), 0)} мл/ч"
+            }
+        }
+        return lines
+    }
+
+    private fun num(value: Double, digits: Int): String =
+        if (value.isNaN()) "—" else String.format(java.util.Locale.US, "%.${digits}f", value)
+
     fun health(json: JSONObject): ControllerHealth = ControllerHealth(
         version = json.optString("version", "?"),
         uptimeSec = json.optLong("uptime_s", 0L),
