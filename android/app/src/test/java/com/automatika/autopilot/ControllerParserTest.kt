@@ -53,6 +53,22 @@ class ControllerParserTest {
     }
 
     @Test
+    fun parsesRecipeListAndDetail() {
+        val list = ControllerParser.recipes(
+            JSONArray("[{\"id\":\"beer_pils\",\"name\":\"Пильзнер\",\"category\":\"beer\",\"description\":\"Светлое\"},{\"id\":\"\",\"name\":\"x\"}]")
+        )
+        assertEquals(1, list.size)
+        assertEquals("beer", list[0].category)
+
+        val detail = ControllerParser.recipe(
+            JSONObject("{\"id\":\"beer_pils\",\"name\":\"Пильзнер\",\"category\":\"beer\",\"description\":\"Светлое\"," +
+                "\"ingredients\":\"Солод 5 кг\",\"steps_md\":\"1. Затор\"}")
+        )
+        assertEquals("Солод 5 кг", detail.ingredients)
+        assertEquals("1. Затор", detail.stepsMd)
+    }
+
+    @Test
     fun aiStatusWithoutValuesIsNaN() {
         val s = ControllerParser.aiStatus(JSONObject("{}"))
         assertTrue(s.actionAccuracy.isNaN())

@@ -59,6 +59,7 @@ sealed class MenuOutcome {
     object History : MenuOutcome()
     object AiStatus : MenuOutcome()
     data class Maintenance(val kind: MaintKind) : MenuOutcome()
+    data class Recipes(val category: String, val title: String) : MenuOutcome()
     object OnDeviceOnly : MenuOutcome()
 }
 
@@ -101,6 +102,12 @@ object MenuActions {
         "cb_valve_calib_show" to MaintKind.VALVE_STATE,
     )
 
+    private val recipeCategories = mapOf(
+        "cb_recipes_beer" to ("beer" to "Пивные рецепты"),
+        "cb_recipes_spirit" to ("spirit" to "Рецепты спиртов"),
+        "cb_recipes_mash" to ("mash" to "Затирки"),
+    )
+
     fun resolve(item: MenuItem): MenuOutcome {
         if (item.type == MenuType.SUBMENU) return MenuOutcome.Open
         startByCallback[item.action]?.let { return MenuOutcome.Start(it) }
@@ -109,6 +116,7 @@ object MenuActions {
         if (item.action == "cb_graph_history") return MenuOutcome.History
         if (item.action == "cb_ai_status") return MenuOutcome.AiStatus
         maintByCallback[item.action]?.let { return MenuOutcome.Maintenance(it) }
+        recipeCategories[item.action]?.let { (category, title) -> return MenuOutcome.Recipes(category, title) }
         return when (item.action) {
             "cb_safety_reset" -> MenuOutcome.ResetAlarm
             "cb_settings_hw" -> MenuOutcome.Editor("/api/hardware", item.title)
