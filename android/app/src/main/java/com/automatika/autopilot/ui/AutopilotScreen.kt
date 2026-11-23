@@ -64,12 +64,13 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
     var graph by remember { mutableStateOf(false) }
     var historyOpen by remember { mutableStateOf(false) }
     var aiOpen by remember { mutableStateOf(false) }
+    var maint by remember { mutableStateOf<MenuOutcome.Maintenance?>(null) }
     var appPage by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<Pair<MenuItem, MenuOutcome>?>(null) }
     var notice by remember { mutableStateOf("") }
 
     val currentEditor = editor
-    val atRoot = currentEditor == null && calc == null && !graph && !historyOpen && !aiOpen && !appPage && stack.isEmpty()
+    val atRoot = currentEditor == null && calc == null && !graph && !historyOpen && !aiOpen && maint == null && !appPage && stack.isEmpty()
 
     fun back() {
         when {
@@ -78,6 +79,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             graph -> graph = false
             historyOpen -> historyOpen = false
             aiOpen -> aiOpen = false
+            maint != null -> maint = null
             appPage -> appPage = false
             stack.isNotEmpty() -> stack.removeAt(stack.lastIndex)
         }
@@ -101,6 +103,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             MenuOutcome.Graph -> graph = true
             MenuOutcome.History -> historyOpen = true
             MenuOutcome.AiStatus -> aiOpen = true
+            is MenuOutcome.Maintenance -> maint = outcome
             MenuOutcome.OnDeviceOnly -> notice = "«${item.title}» пока доступно только на дисплее контроллера."
         }
     }
@@ -113,6 +116,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
         graph -> "График"
         historyOpen -> "История процессов"
         aiOpen -> "Статус ИИ"
+        maint != null -> maint?.kind?.title ?: "Обслуживание"
         appPage -> "Приложение и подключение"
         stack.isNotEmpty() -> stack.last().title
         else -> "Главное меню"
@@ -148,6 +152,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
                 graph -> GraphCard(ui.state)
                 historyOpen -> HistoryCard(vm)
                 aiOpen -> AiStatusCard(vm)
+                maint != null -> maint?.let { MaintenanceCard(it.kind, vm) }
                 appPage -> AppPage(ui, vm)
                 stack.isEmpty() -> groupRootMenu(ROOT_MENU + APP_TILE).forEach { (section, items) ->
                     Text(section, style = MaterialTheme.typography.titleMedium)

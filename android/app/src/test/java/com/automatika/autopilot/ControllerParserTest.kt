@@ -40,6 +40,19 @@ class ControllerParserTest {
     }
 
     @Test
+    fun calibStateBecomesReadableLines() {
+        val json = JSONObject(
+            "{\"sensors\":{\"state\":0,\"saved\":false,\"reference\":85.5,\"error\":\"\",\"offsets\":[0.1,0.2]}," +
+                "\"scale\":{\"state\":3,\"ready\":true,\"stable\":false,\"grams\":1250.0,\"total_ml\":860.0}," +
+                "\"valves\":[{\"idx\":0,\"active\":true,\"ml_per_hour\":120.0}]}"
+        )
+        val lines = ControllerParser.calibLines(json)
+        assertTrue(lines.any { it.startsWith("Датчики: состояние 0, эталон 85.5") })
+        assertTrue(lines.any { it == "Весы: готовы, нестабильно, 1250.0 г, всего 860 мл" })
+        assertTrue(lines.any { it == "Клапан 1: калибровка идёт, 120 мл/ч" })
+    }
+
+    @Test
     fun aiStatusWithoutValuesIsNaN() {
         val s = ControllerParser.aiStatus(JSONObject("{}"))
         assertTrue(s.actionAccuracy.isNaN())

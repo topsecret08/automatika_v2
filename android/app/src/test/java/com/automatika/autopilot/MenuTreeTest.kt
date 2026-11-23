@@ -2,6 +2,7 @@ package com.automatika.autopilot
 
 import com.automatika.autopilot.data.ProcessMode
 import com.automatika.autopilot.ui.FieldNames
+import com.automatika.autopilot.ui.MaintKind
 import com.automatika.autopilot.ui.MenuActions
 import com.automatika.autopilot.ui.MenuItem
 import com.automatika.autopilot.ui.MenuOutcome
@@ -59,6 +60,15 @@ class MenuTreeTest {
     fun historyAndAiStatusOpenInApp() {
         assertEquals(MenuOutcome.History, MenuActions.resolve(child("menu.mon", "mon.hist")))
         assertEquals(MenuOutcome.AiStatus, MenuActions.resolve(child("menu.ai", "ai.status")))
+    }
+
+    @Test
+    fun maintenanceActionsOpenTheirScreens() {
+        fun action(callback: String) = MenuItem(id = "x", icon = "", title = "x", type = MenuType.ACTION, action = callback)
+        assertEquals(MenuOutcome.Maintenance(MaintKind.RESET_AI), MenuActions.resolve(action("cb_ai_reset")))
+        assertEquals(MenuOutcome.Maintenance(MaintKind.DB_BACKUP), MenuActions.resolve(action("cb_db_backup")))
+        assertEquals(MenuOutcome.Maintenance(MaintKind.SCALE), MenuActions.resolve(action("cb_scale_calib")))
+        assertEquals(MenuOutcome.Maintenance(MaintKind.VALVE_STATE), MenuActions.resolve(action("cb_valve_calib_show")))
     }
 
     @Test

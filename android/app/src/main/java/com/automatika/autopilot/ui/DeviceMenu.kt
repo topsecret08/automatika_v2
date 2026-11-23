@@ -58,6 +58,7 @@ sealed class MenuOutcome {
     object Graph : MenuOutcome()
     object History : MenuOutcome()
     object AiStatus : MenuOutcome()
+    data class Maintenance(val kind: MaintKind) : MenuOutcome()
     object OnDeviceOnly : MenuOutcome()
 }
 
@@ -85,6 +86,20 @@ object MenuActions {
         "cb_calc_gab" to CalcKind.GABRIEL,
     )
 
+    private val maintByCallback = mapOf(
+        "cb_ai_reset" to MaintKind.RESET_AI,
+        "cb_al_reset" to MaintKind.RESET_AUTOLEARN,
+        "cb_tm_reset" to MaintKind.RESET_TINYML,
+        "cb_db_backup" to MaintKind.DB_BACKUP,
+        "cb_db_vacuum" to MaintKind.DB_VACUUM,
+        "cb_db_stats" to MaintKind.DB_STATS,
+        "cb_usb_status" to MaintKind.USB,
+        "cb_scale_calib" to MaintKind.SCALE,
+        "cb_senscal_open" to MaintKind.SENSOR_CALIB,
+        "cb_valve_calib_menu" to MaintKind.VALVE_STATE,
+        "cb_valve_calib_show" to MaintKind.VALVE_STATE,
+    )
+
     fun resolve(item: MenuItem): MenuOutcome {
         if (item.type == MenuType.SUBMENU) return MenuOutcome.Open
         startByCallback[item.action]?.let { return MenuOutcome.Start(it) }
@@ -92,6 +107,7 @@ object MenuActions {
         if (item.action == "cb_graph") return MenuOutcome.Graph
         if (item.action == "cb_graph_history") return MenuOutcome.History
         if (item.action == "cb_ai_status") return MenuOutcome.AiStatus
+        maintByCallback[item.action]?.let { return MenuOutcome.Maintenance(it) }
         return when (item.action) {
             "cb_safety_reset" -> MenuOutcome.ResetAlarm
             "cb_settings_hw" -> MenuOutcome.Editor("/api/hardware", item.title)
