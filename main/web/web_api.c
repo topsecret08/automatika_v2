@@ -2631,7 +2631,7 @@ static esp_err_t h_menu_toggle(httpd_req_t *r) {
 
 static esp_err_t h_param_get(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-    char json[2048];
+    char json[4096];
     int off = snprintf(json, sizeof(json), "{\"running\":%d,\"params\":[",
                        session_is_running() ? 1 : 0);
 

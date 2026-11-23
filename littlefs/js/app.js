@@ -228,6 +228,14 @@ function scheduleWS() {
   wsRetry = setTimeout(() => { wsRetry = null; connectWS(); }, 3000);
 }
 
+// Смена состояния процесса меняет, какие параметры можно править:
+// перечитываем описание параметров, иначе блокировки устареют до перезагрузки.
+function setRunning(value) {
+  const changed = !!state.running !== !!value;
+  state.running = value;
+  if (changed) loadParamDefs();
+}
+
 function applyTelemetry(frame) {
   if (typeof frame.tc === 'number') state.tc = frame.tc;
   if (typeof frame.ts === 'number') state.ts = frame.ts;
@@ -235,7 +243,7 @@ function applyTelemetry(frame) {
   if (typeof frame.m === 'number') state.rate = frame.m;
   if (typeof frame.lv === 'number') state.level = frame.lv;
   if (typeof frame.stg === 'number') state.stage = frame.stg;
-  if (typeof frame.r === 'number') state.running = frame.r;
+  if (typeof frame.r === 'number') setRunning(frame.r);
   if (typeof frame.sa === 'number') state.safety = frame.sa;
   if (typeof frame.es === 'number') state.estop = frame.es;
 
@@ -276,7 +284,7 @@ async function pollState() {
     if (typeof data.tank !== 'undefined') state.tank = Number(data.tank);
     if (typeof data.regulator_error !== 'undefined') state.regulatorError = data.regulator_error;
     if (typeof data.stage !== 'undefined') state.stage = data.stage;
-    if (typeof data.running !== 'undefined') state.running = data.running;
+    if (typeof data.running !== 'undefined') setRunning(data.running);
     if (typeof data.paused !== 'undefined') state.paused = data.paused;
     if (typeof data.heads !== 'undefined') state.heads = data.heads;
     if (typeof data.body !== 'undefined') state.body = data.body;
@@ -547,6 +555,7 @@ function renderDashboard() {
           <span class="chart-legend">
             <span><span class="legend-dot legend-cube"></span>куб</span>
             <span><span class="legend-dot legend-steam"></span>пар</span>
+            <span><span class="legend-dot legend-setpoint"></span>уставка</span>
           </span>
         </div>
         <div class="chart-wrap"><canvas id="chart"></canvas></div>
@@ -853,13 +862,13 @@ function renderSelectionValues() {
 }
 
 const PARAM_FALLBACK = {
-  t_fix: { label: 'T фиксации', unit: '°C', min: 0, max: 150, step: 0.1, value: 0, editable: true },
-  open_time: { label: 'Время открыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true },
-  close_time: { label: 'Время закрыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true },
-  hysteresis: { label: 'Гистерезис', unit: '°C', min: 0, max: 20, step: 0.05, value: 0, editable: true },
-  decrement: { label: 'Декремент', unit: '%', min: 0, max: 100, step: 1, value: 0, editable: true },
-  reflux: { label: 'Флегмовое число', unit: ':1', min: 0, max: 10, step: 0.1, value: 0, editable: true },
-  setpoint: { label: 'Уставка', unit: '°C', min: 30, max: 100, step: 0.5, value: 0, editable: false }
+  t_fix: { label: 'T фиксации', unit: '°C', min: 0, max: 150, step: 0.1, value: 0, editable: true, editable_running: true },
+  open_time: { label: 'Время открыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true, editable_running: true },
+  close_time: { label: 'Время закрыт', unit: 'с', min: 0, max: 3600, step: 0.1, value: 0, editable: true, editable_running: true },
+  hysteresis: { label: 'Гистерезис', unit: '°C', min: 0, max: 20, step: 0.05, value: 0, editable: true, editable_running: true },
+  decrement: { label: 'Декремент', unit: '%', min: 0, max: 100, step: 1, value: 0, editable: true, editable_running: true },
+  reflux: { label: 'Флегмовое число', unit: ':1', min: 0, max: 10, step: 0.1, value: 0, editable: true, editable_running: true },
+  setpoint: { label: 'Уставка', unit: '°C', min: 30, max: 100, step: 0.5, value: 0, editable: false, editable_running: false }
 };
 
 async function loadParamDefs() {
@@ -899,6 +908,9 @@ function renderParamValues() {
     if (def && row) {
       row.classList.toggle('locked', !def.editable);
       row.classList.toggle('clickable', !!def.editable);
+      row.setAttribute('role', 'button');
+      row.setAttribute('aria-disabled', def.editable ? 'false' : 'true');
+      row.tabIndex = def.editable ? 0 : -1;
     }
   }
 
@@ -1043,8 +1055,9 @@ function openParamEditor(name) {
   document.getElementById('param-title').textContent = def.label;
   document.getElementById('param-sub').textContent =
     `${def.unit || ''} · диапазон ${def.min}…${def.max}`;
-  document.getElementById('param-hint').textContent =
-    'Значение можно изменить во время процесса.';
+  document.getElementById('param-hint').textContent = def.editable_running
+    ? 'Значение можно изменить во время процесса.'
+    : 'Изменяется только при остановленном процессе.';
   input.min = String(def.min);
   input.max = String(def.max);
   input.step = String(def.step || 0.1);
@@ -1064,6 +1077,14 @@ window.editParam = openParamEditor;
 document.addEventListener('click', (event) => {
   const row = event.target.closest('[data-param]');
   if (!row) return;
+  openParamEditor(row.dataset.param);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const row = event.target.closest && event.target.closest('[data-param]');
+  if (!row) return;
+  event.preventDefault();
   openParamEditor(row.dataset.param);
 });
 
@@ -1101,6 +1122,24 @@ async function pollSelection() {
 // ------------------------------------------------------------------
 let uplot = null;
 
+// Уставка берётся из описания параметра setpoint; без неё линию не рисуем.
+function setpointValue() {
+  const def = paramDefs.setpoint;
+  const v = def ? Number(def.value) : NaN;
+  return Number.isFinite(v) ? v : null;
+}
+
+// Колонки для uPlot: время, куб, пар, уставка (пунктир).
+function chartColumns() {
+  const sp = setpointValue();
+  return [
+    chartData.map((point) => point.t),
+    chartData.map((point) => Number.isFinite(point.tc) ? point.tc : null),
+    chartData.map((point) => Number.isFinite(point.ts) ? point.ts : null),
+    chartData.map(() => sp)
+  ];
+}
+
 function initChart() {
   const canvas = $('#chart');
   if (!canvas) {
@@ -1117,12 +1156,7 @@ function initChart() {
   if (window.uPlot && host) {
     canvas.hidden = true;
     const width = Math.max(280, Math.floor(host.clientWidth || 320));
-    const data = [[], [], []];
-    chartData.forEach((point, index) => {
-      data[0].push(point.t || (Date.now() / 1000 - (chartData.length - index)));
-      data[1].push(Number.isFinite(point.tc) ? point.tc : null);
-      data[2].push(Number.isFinite(point.ts) ? point.ts : null);
-    });
+    const data = chartColumns();
 
     uplot = new uPlot({
       width,
@@ -1149,7 +1183,8 @@ function initChart() {
       series: [
         {},
         { label: 'куб', stroke: cssVar('--accent') || '#007aff', width: 2 },
-        { label: 'пар', stroke: cssVar('--text-primary') || '#f2f5f7', width: 2 }
+        { label: 'пар', stroke: cssVar('--text-primary') || '#f2f5f7', width: 2 },
+        { label: 'уставка', stroke: cssVar('--yellow') || '#f5a524', width: 1.5, dash: [6, 4], points: { show: false } }
       ]
     }, data, host);
 
@@ -1202,7 +1237,7 @@ function clearTempHistory() {
   chartAnomalies = [];
   saveTempHistory();
   if (uplot) {
-    uplot.setData([[], [], []]);
+    uplot.setData([[], [], [], []]);
     uplot.redraw();
   } else {
     drawChart();
@@ -1228,11 +1263,7 @@ function pushChartPoint() {
   }
 
   if (uplot) {
-    uplot.setData([
-      chartData.map((point) => point.t),
-      chartData.map((point) => Number.isFinite(point.tc) ? point.tc : null),
-      chartData.map((point) => Number.isFinite(point.ts) ? point.ts : null)
-    ]);
+    uplot.setData(chartColumns());
   } else {
     drawChart();
   }

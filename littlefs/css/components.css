@@ -467,7 +467,8 @@
   vertical-align: middle;
 }
 .legend-cube { background: var(--accent); }
-.legend-steam { background: var(--orange); }
+.legend-steam { background: var(--text-primary); }
+.legend-setpoint { background: transparent; border: 2px dashed var(--yellow); }
 .chart-wrap {
   position: relative;
   width: 100%;
