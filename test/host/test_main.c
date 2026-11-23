@@ -43,9 +43,10 @@ static void test_gpio(void) {
     CHECK(!regulator_pwm_gpio_valid(22));
     CHECK(!regulator_pwm_gpio_valid(25));
     CHECK(!regulator_pwm_gpio_valid(27));
-    CHECK(regulator_pwm_gpio_valid(7));
-    CHECK(regulator_pwm_gpio_valid(40));
-    CHECK(regulator_pwm_gpio_next(-1, +1) == 7);
+    CHECK(!regulator_pwm_gpio_valid(7));
+    CHECK(!regulator_pwm_gpio_valid(40));
+    CHECK(regulator_pwm_gpio_valid(41));
+    CHECK(regulator_pwm_gpio_next(-1, +1) == 41);
 }
 
 static void test_heater_gate(void) {

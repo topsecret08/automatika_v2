@@ -313,8 +313,8 @@ curl -X POST -H "X-API-Key: $KEY" http://<IP>/api/backup/telegram
 - SPIRAM: Octal, 80 МГц; крупные буферы (LVGL, Lua, AI) — в PSRAM
 - Задачи распределены по двум ядрам (`main/core/core_pinning.h`);
   safety/estop — ядро 1 с максимальным приоритетом, сеть/Lua/WS — ядро 0
-- E-STOP: `ESTOP_GPIO=27`, NC-контакт на GND, активный уровень — высокий
+- E-STOP: `ESTOP_GPIO=7`, NC-контакт на GND, активный уровень — высокий
   (нажатие/обрыв), 100 нФ на линии
-- Датчик уровня: поплавок на `LEVEL_SENSOR_GPIO=28`
+- Датчик уровня: поплавок на `LEVEL_SENSOR_GPIO=40`
 - Дозатор: STEP/ENABLE по умолчанию `-1` (задать реальные выводы платы;
   GPIO 22–25 у ESP32-S3 отсутствуют)

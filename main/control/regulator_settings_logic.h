@@ -35,6 +35,8 @@ static inline bool regulator_pwm_gpio_reserved(int gpio) {
     case 33: case 34: case 35: case 36: case 37:
     // Touch, UART0, buzzer/strapping, input-only/strapping.
     case 38: case 39: case 43: case 44: case 45: case 46:
+    // Занято прошивкой: E-STOP (7), датчик уровня (40), зуммер (42).
+    case 7: case 40: case 42:
         return true;
     default:
         return false;

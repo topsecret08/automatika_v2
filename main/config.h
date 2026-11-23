@@ -19,11 +19,11 @@
 #define PIN_LCD_BL          17
 #define PIN_LCD_MOSI        18
 #define PIN_LCD_CLK         21
-#define PIN_TOUCH_CS        38
-#define PIN_TOUCH_IRQ       39
+// Тач FT6336U идёт по I2C (PIN_I2C_SDA/SCL), отдельных GPIO у него нет.
+// Линии CTP_INT / CTP_RST на плате пока не подключены, драйвер их не использует.
 #define PIN_HX711_DOUT      5
 #define PIN_HX711_SCK       6
-#define PIN_BUZZER          45
+#define PIN_BUZZER          42
 #define PIN_SPILL_SENSOR    1
 #define PIN_FLOW_SENSOR     2
 
@@ -35,10 +35,9 @@
 #define PUMP_EN_GPIO        -1
 // Аварийная кнопка: нормально замкнутая, вход с подтяжкой вверх.
 // Требует свободного накопительного конденсатора 100 нФ на линии.
-// ВНИМАНИЕ: в исходном ТЗ E-STOP был на GPIO18, но на этой плате 18 занят
-// LCD MOSI (PIN_LCD_MOSI). Поэтому кнопка на 27; для другой разводки
-// достаточно поменять только это значение (см. README, раздел GPIO).
-#define ESTOP_GPIO          27
+// GPIO 7 (ADC1, не strapping). GPIO 26–32 на ESP32-S3-DevKitC-1 не выведены,
+// поэтому кнопка не может быть на 27. Проводка ещё не подключена.
+#define ESTOP_GPIO          7
 // E-STOP: нормально замкнутая кнопка на GND. В норме линия = 0,
 // при нажатии/обрыве провода pull-up даёт 1. Активный уровень — высокий.
 #define ESTOP_ACTIVE_LEVEL  1
@@ -163,14 +162,11 @@
 // Датчик уровня (level/level_sensor.c)
 // ------------------------------------------------------------
 // HC-SR04 требует два свободных GPIO: TRIG (выход) и ECHO (вход).
-// На плате Automatika свободного GPIO для ECHO нет (есть только
-// GPIO 28; 3/19/20 — USB, 23/24/25/26 заняты под дозатор и внешний модуль).
-// 28/29 не подходят для HC-SR04 (strap-пины на ESP32-S3).
-// Поэтому по умолчанию используется поплавковый/поплавковый 2-контактный
-// датчик на свободном GPIO 28: INPUT_PULLUP, низкий уровень = вода.
+// GPIO 26–32 не выведены на ESP32-S3-DevKitC-1, поэтому датчик на GPIO 40.
+// Поплавковый 2-контактный датчик: INPUT_PULLUP, низкий уровень = вода.
 #define LEVEL_SENSOR_ENABLED    1
 #define LEVEL_SENSOR_REQUIRED   1     // 1: без датчика нагрев запрещён
-#define LEVEL_SENSOR_GPIO       28
+#define LEVEL_SENSOR_GPIO       40
 #define LEVEL_SENSOR_ACTIVE_LOW 1
 // Гистерезис для поплавка, чтобы не дёргать события на границе.
 #define LEVEL_HYST_PCT          2.0f
