@@ -93,6 +93,7 @@ object MenuActions {
         "cb_db_backup" to MaintKind.DB_BACKUP,
         "cb_db_vacuum" to MaintKind.DB_VACUUM,
         "cb_db_stats" to MaintKind.DB_STATS,
+        "cb_db_export" to MaintKind.DB_EXPORT,
         "cb_usb_status" to MaintKind.USB,
         "cb_scale_calib" to MaintKind.SCALE,
         "cb_senscal_open" to MaintKind.SENSOR_CALIB,
