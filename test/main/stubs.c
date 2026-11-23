@@ -8,6 +8,7 @@
 // events.c обращается к SD только для дублирования журнала — в тестах
 // файловая система не нужна.
 bool storage_sd_ready(void) { return false; }
+void sd_resilience_append(const char *path, const char *line) { (void)path; (void)line; }
 
 // pump_doser.c — фасад над control_config/ctrl_dose. В тестах проверяется
 // только его собственная логика (значения по умолчанию и отказ до
