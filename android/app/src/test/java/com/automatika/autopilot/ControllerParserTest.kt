@@ -3,6 +3,8 @@ package com.automatika.autopilot
 import com.automatika.autopilot.data.ControllerParser
 import com.automatika.autopilot.data.HttpControllerApi
 import com.automatika.autopilot.ui.processTypeName
+import com.automatika.autopilot.ui.sensorLine
+import com.automatika.autopilot.ui.watchdogLine
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -66,6 +68,22 @@ class ControllerParserTest {
         )
         assertEquals("Солод 5 кг", detail.ingredients)
         assertEquals("1. Затор", detail.stepsMd)
+    }
+
+    @Test
+    fun parsesHelpSensorsAndWatchdog() {
+        val help = ControllerParser.help(JSONObject("{\"id\":\"01_intro\",\"title\":\"Основы\",\"content_md\":\"# Текст\"}"))
+        assertEquals("# Текст", help.contentMd)
+
+        val sensors = ControllerParser.sensors(
+            JSONArray("[{\"idx\":0,\"address\":\"28aa\",\"temp\":78.5,\"noise_rms\":0.02,\"age_ms\":150}]")
+        )
+        assertEquals("Датчик 1: 78.50 °C, шум 0.020 °C, показание 150 мс назад, адрес 28aa", sensorLine(sensors[0]))
+
+        val wd = ControllerParser.watchdog(
+            JSONArray("[{\"name\":\"ctrl\",\"timeout_ms\":5000,\"age_ms\":9000,\"max_stale_ms\":5000,\"restarts\":2,\"enabled\":true,\"critical\":true}]")
+        )
+        assertTrue(watchdogLine(wd[0]).startsWith("ctrl: ЗАВИСЛА"))
     }
 
     @Test

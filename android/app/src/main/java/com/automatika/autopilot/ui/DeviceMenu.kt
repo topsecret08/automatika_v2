@@ -60,6 +60,8 @@ sealed class MenuOutcome {
     object AiStatus : MenuOutcome()
     data class Maintenance(val kind: MaintKind) : MenuOutcome()
     data class Recipes(val category: String, val title: String) : MenuOutcome()
+    data class Help(val articleId: String, val title: String) : MenuOutcome()
+    data class Diag(val kind: DiagKind) : MenuOutcome()
     object OnDeviceOnly : MenuOutcome()
 }
 
@@ -108,6 +110,32 @@ object MenuActions {
         "cb_recipes_mash" to ("mash" to "Затирки"),
     )
 
+    /** Пункты справки: какая статья открывается. Названия берутся из пункта меню. */
+    private val helpArticles = mapOf(
+        "cb_help_basics" to "01_intro",
+        "cb_help_work" to "04_distill",
+        "cb_help_system" to "59_ai",
+        "cb_help_hw" to "19_ds18b20",
+        "cb_help_schemes" to "81_schemes",
+        "cb_help_safety" to "03_safety",
+        "cb_help_recipes" to "74_recipes",
+        "cb_help_beer" to "06_beer",
+        "cb_help_vacuum" to "09_vacuum",
+        "cb_help_double" to "10_double",
+        "cb_help_gabriel" to "11_gabriel",
+        "cb_help_nbk" to "08_nbk",
+        "cb_help_compare" to "04_distill",
+        "cb_help_history" to "84_history",
+        "cb_help_maint" to "87_maintenance",
+        "cb_help_whatsnew" to "90_whatsnew",
+    )
+
+    private val diagKinds = mapOf(
+        "cb_diag_over" to DiagKind.OVERVIEW,
+        "cb_diag_ds" to DiagKind.SENSORS,
+        "cb_wd_status" to DiagKind.WATCHDOG,
+    )
+
     fun resolve(item: MenuItem): MenuOutcome {
         if (item.type == MenuType.SUBMENU) return MenuOutcome.Open
         startByCallback[item.action]?.let { return MenuOutcome.Start(it) }
@@ -117,6 +145,8 @@ object MenuActions {
         if (item.action == "cb_ai_status") return MenuOutcome.AiStatus
         maintByCallback[item.action]?.let { return MenuOutcome.Maintenance(it) }
         recipeCategories[item.action]?.let { (category, title) -> return MenuOutcome.Recipes(category, title) }
+        helpArticles[item.action]?.let { return MenuOutcome.Help(it, item.title) }
+        diagKinds[item.action]?.let { return MenuOutcome.Diag(it) }
         return when (item.action) {
             "cb_safety_reset" -> MenuOutcome.ResetAlarm
             "cb_settings_hw" -> MenuOutcome.Editor("/api/hardware", item.title)

@@ -59,6 +59,29 @@ data class RecipeDetail(
     val stepsMd: String,
 )
 
+/** Статья справки (/api/help?id=...): Markdown с SD или встроенная. */
+data class HelpArticle(val id: String, val title: String, val contentMd: String)
+
+/** Датчик DS18B20 (/api/diag/sensors). */
+data class SensorReading(
+    val idx: Int,
+    val address: String,
+    val temp: Double,
+    val noiseRms: Double,
+    val ageMs: Long,
+)
+
+/** Задача watchdog (/api/diag/watchdog). */
+data class WatchdogTask(
+    val name: String,
+    val timeoutMs: Long,
+    val ageMs: Long,
+    val maxStaleMs: Long,
+    val restarts: Int,
+    val enabled: Boolean,
+    val critical: Boolean,
+)
+
 /** Тумблер меню контроллера. key совпадает с nvs_key в menu_tree.c. */
 data class ToggleSetting(val key: String, val title: String, val value: Boolean, val editable: Boolean)
 
