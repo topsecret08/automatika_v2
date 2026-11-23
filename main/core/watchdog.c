@@ -120,7 +120,6 @@ void wd_task(void *arg) {
             }
         }
         xSemaphoreGive(s_mtx);
-        esp_task_wdt_reset();
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

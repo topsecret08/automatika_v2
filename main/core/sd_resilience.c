@@ -18,6 +18,9 @@
 
 static const char *TAG = "SD_SAFE";
 
+// Пауза между попытками монтирования, если карты нет: удваивается до этого предела.
+#define SD_RETRY_MAX_MS 60000u
+
 #define SD_PROBE_PATH "/sdcard/.probe"
 #define SD_LOG_PATH   "/sdcard/logs/resilience.log"
 
@@ -144,9 +147,10 @@ void sd_resilience_init(void) {
 
 void sd_resilience_task(void *arg) {
     (void)arg;
-    wd_register("sd_safe", (SD_PROBE_MS > 5000 ? SD_PROBE_MS : 5000) * 2, false);
+    wd_register("sd_safe", SD_RETRY_MAX_MS + 2 * SD_PROBE_MS, false);
 
     bool was_mounted = s_mounted;
+    uint32_t retry_ms = SD_PROBE_MS;
 
     while (1) {
         WD_FEED("sd_safe");
@@ -154,6 +158,9 @@ void sd_resilience_task(void *arg) {
         if (!s_mounted) {
             if (storage_sd_ready() || storage_remount() == ESP_OK) {
                 s_mounted = true;
+                retry_ms = SD_PROBE_MS;
+            } else {
+                retry_ms = retry_ms * 2 > SD_RETRY_MAX_MS ? SD_RETRY_MAX_MS : retry_ms * 2;
             }
         } else if (!probe()) {
             ESP_LOGW(TAG, "SD probe failed, remounting");
@@ -172,6 +179,6 @@ void sd_resilience_task(void *arg) {
         // Периодически сбрасываем накопленное, даже если карта не «терялась».
         if (s_mounted && sd_resilience_pending() > 0) flush_queue();
 
-        vTaskDelay(pdMS_TO_TICKS(SD_PROBE_MS));
+        vTaskDelay(pdMS_TO_TICKS(s_mounted ? SD_PROBE_MS : retry_ms));
     }
 }

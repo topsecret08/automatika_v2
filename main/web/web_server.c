@@ -10,6 +10,7 @@
 #include "core/watchdog.h"
 #include "config.h"
 #include "esp_http_server.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -435,7 +436,10 @@ void web_start(void *arg) {
     cfg.lru_purge_enable = true;
 
     if (httpd_start(&s_srv, &cfg) != ESP_OK) {
-        ESP_LOGE(TAG, "httpd start failed");
+        ESP_LOGE(TAG, "httpd start failed (free internal RAM %u B)",
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        // Иначе сторож будет перезапускать уже завершённую задачу каждые 10 с.
+        wd_remove("web");
         vTaskDelete(NULL);
         return;
     }
