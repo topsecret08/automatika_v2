@@ -85,10 +85,16 @@ static void ui_navigate(screen_id_t to) {
 static void clear_screen(void) {
     session_minimize();
     s_dashboard_visible = false;
-    if (g_screen) lv_obj_del(g_screen);
+    // Сначала загружаем новый экран, потом удаляем старый: удаление активного
+    // экрана оставляет LVGL без act_scr и роняет следующий lv_scr_load.
+    lv_obj_t *old = g_screen;
     g_screen = lv_obj_create(NULL);
     ui_style_apply_screen(g_screen);
     lv_scr_load(g_screen);
+    if (old) {
+        g_toast = NULL;
+        lv_obj_del(old);
+    }
 }
 
 void ui_main_menu(void) {
