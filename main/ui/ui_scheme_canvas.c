@@ -5,5 +5,5 @@
 
 void ui_scheme_canvas_clear(lv_obj_t *canvas) {
     if (!canvas) return;
-    lv_canvas_fill_bg(canvas, lv_color_hex(0x111A26), LV_OPA_COVER);
+    lv_canvas_fill_bg(canvas, lv_color_hex(0x1A242B), LV_OPA_COVER);
 }

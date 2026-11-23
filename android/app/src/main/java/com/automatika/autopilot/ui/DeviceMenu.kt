@@ -191,12 +191,8 @@ fun groupRootMenu(items: List<MenuItem>): List<Pair<String, List<MenuItem>>> {
     return groups.filter { it.second.isNotEmpty() }
 }
 
-/** Цвета категорий меню, как colorCategory в menu_tree.c (0..10). */
-private val CategoryColors = listOf(
-    Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFFFB8C00), Color(0xFF8E24AA),
-    Color(0xFFD81B60), Color(0xFF00897B), Color(0xFF6D4C41), Color(0xFF3949AB),
-    Color(0xFFC0CA33), Color(0xFF546E7A), Color(0xFFE53935),
-)
+/** Плитки меню нейтральные: цвет зарезервирован за состояниями, а не за категориями. */
+private val CategoryColors = List(11) { Color(0xFF35424A) }
 
 fun categoryColor(category: Int): Color =
     CategoryColors[category.coerceIn(0, CategoryColors.lastIndex)]

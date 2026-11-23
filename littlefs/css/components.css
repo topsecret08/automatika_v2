@@ -63,15 +63,15 @@
   background: var(--red);
   display: inline-block;
   flex: 0 0 auto;
-  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.15);
+  outline: 2px solid #d93b3b; outline-offset: 2px;
 }
 .status-dot.online {
   background: var(--green);
-  box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.15);
+  outline: 2px solid #2ecc71; outline-offset: 2px;
 }
 .status-dot.warn {
   background: var(--orange);
-  box-shadow: 0 0 0 3px rgba(255, 149, 0, 0.18);
+  outline: 2px solid #f5a524; outline-offset: 2px;
 }
 .status-label {
   font-size: 13px;
@@ -189,7 +189,7 @@
   border-radius: 50%;
   display: inline-block;
   flex: 0 0 auto;
-  box-shadow: 0 0 8px currentColor;
+  /* glow removed: flat design */
 }
 .indicator.red   { background: var(--red); color: var(--red); }
 .indicator.green { background: var(--green); color: var(--green); }
@@ -247,10 +247,8 @@
   gap: 12px;
   padding: 8px 16px;
   background: rgba(10, 132, 255, 0.95);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4);
+  /* shadow removed: flat design */
   color: #fff;
   z-index: 900;
   cursor: pointer;
@@ -384,7 +382,7 @@
 .segmented button.active {
   background: var(--bg-card-solid);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  /* shadow removed: flat design */
 }
 
 /* ------------------------------------------------------------------ */
@@ -414,7 +412,7 @@
 }
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+  outline: 2px solid #2f8cff; outline-offset: 2px;
 }
 .input-row {
   display: flex;
@@ -838,8 +836,6 @@
   pointer-events: none;
   transition: opacity var(--duration) var(--ease-standard),
               transform var(--duration) var(--ease-spring);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 .toast.show {
   opacity: 1;
@@ -1007,7 +1003,7 @@
   padding: var(--space-16);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   background: var(--bg-card-solid);
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+  /* shadow removed: flat design */
 }
 .temp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-8); }
 .temp-title { font-size: 20px; font-weight: 700; }

@@ -29,7 +29,7 @@ void ui_scheme_show(const char *filename) {
     lv_obj_t *canvas = lv_canvas_create(scr);
     static lv_color_t cbuf[440 * 280];
     lv_canvas_set_buffer(canvas, cbuf, 440, 280, LV_IMG_CF_TRUE_COLOR);
-    lv_canvas_fill_bg(canvas, lv_color_hex(0x111A26), LV_OPA_COVER);
+    lv_canvas_fill_bg(canvas, lv_color_hex(0x1A242B), LV_OPA_COVER);
     lv_obj_align(canvas, LV_ALIGN_TOP_MID, 0, 60);
 
     cJSON *shapes = cJSON_GetObjectItem(root, "shapes");
