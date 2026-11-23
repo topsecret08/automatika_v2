@@ -8,6 +8,7 @@
 #include "core/flags.h"
 #include "core/flash_fs.h"
 #include "core/watchdog.h"
+#include "net/wifi_prov.h"
 #include "config.h"
 #include "esp_http_server.h"
 #include "esp_heap_caps.h"
@@ -422,9 +423,14 @@ void web_start(void *arg) {
         return;
     }
 
-    wd_register("web", 10000, false);
+    // Пока Wi-Fi не настроен, порт 80 занят сервером провижининга на
+    // точке доступа (192.168.4.1). Ждём подключения, иначе httpd не поднимется
+    // и не поднимется потом, после настройки сети.
+    while (!wifi_prov_is_connected()) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 
-    // Wi-Fi уже поднят wifi_prov_init() в app_main.
+    wd_register("web", 10000, false);
     rate_limit_init();
 
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
@@ -435,7 +441,14 @@ void web_start(void *arg) {
     cfg.stack_size = 8192;
     cfg.lru_purge_enable = true;
 
-    if (httpd_start(&s_srv, &cfg) != ESP_OK) {
+    // Провижининг останавливается чуть позже события подключения: порт 80
+    // может быть занят ещё несколько секунд, поэтому повторяем попытку.
+    esp_err_t srv_err = ESP_FAIL;
+    for (int attempt = 0; attempt < 10 && srv_err != ESP_OK; attempt++) {
+        srv_err = httpd_start(&s_srv, &cfg);
+        if (srv_err != ESP_OK) vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    if (srv_err != ESP_OK) {
         ESP_LOGE(TAG, "httpd start failed (free internal RAM %u B)",
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
         // Иначе сторож будет перезапускать уже завершённую задачу каждые 10 с.
