@@ -555,6 +555,7 @@ function renderDashboard() {
           <span class="chart-legend">
             <span><span class="legend-dot legend-cube"></span>куб</span>
             <span><span class="legend-dot legend-steam"></span>пар</span>
+            <span><span class="legend-dot legend-setpoint"></span>уставка</span>
           </span>
         </div>
         <div class="chart-wrap"><canvas id="chart"></canvas></div>
@@ -1121,6 +1122,24 @@ async function pollSelection() {
 // ------------------------------------------------------------------
 let uplot = null;
 
+// Уставка берётся из описания параметра setpoint; без неё линию не рисуем.
+function setpointValue() {
+  const def = paramDefs.setpoint;
+  const v = def ? Number(def.value) : NaN;
+  return Number.isFinite(v) ? v : null;
+}
+
+// Колонки для uPlot: время, куб, пар, уставка (пунктир).
+function chartColumns() {
+  const sp = setpointValue();
+  return [
+    chartData.map((point) => point.t),
+    chartData.map((point) => Number.isFinite(point.tc) ? point.tc : null),
+    chartData.map((point) => Number.isFinite(point.ts) ? point.ts : null),
+    chartData.map(() => sp)
+  ];
+}
+
 function initChart() {
   const canvas = $('#chart');
   if (!canvas) {
@@ -1137,12 +1156,7 @@ function initChart() {
   if (window.uPlot && host) {
     canvas.hidden = true;
     const width = Math.max(280, Math.floor(host.clientWidth || 320));
-    const data = [[], [], []];
-    chartData.forEach((point, index) => {
-      data[0].push(point.t || (Date.now() / 1000 - (chartData.length - index)));
-      data[1].push(Number.isFinite(point.tc) ? point.tc : null);
-      data[2].push(Number.isFinite(point.ts) ? point.ts : null);
-    });
+    const data = chartColumns();
 
     uplot = new uPlot({
       width,
@@ -1169,7 +1183,8 @@ function initChart() {
       series: [
         {},
         { label: 'куб', stroke: cssVar('--accent') || '#007aff', width: 2 },
-        { label: 'пар', stroke: cssVar('--text-primary') || '#f2f5f7', width: 2 }
+        { label: 'пар', stroke: cssVar('--text-primary') || '#f2f5f7', width: 2 },
+        { label: 'уставка', stroke: cssVar('--yellow') || '#f5a524', width: 1.5, dash: [6, 4], points: { show: false } }
       ]
     }, data, host);
 
@@ -1222,7 +1237,7 @@ function clearTempHistory() {
   chartAnomalies = [];
   saveTempHistory();
   if (uplot) {
-    uplot.setData([[], [], []]);
+    uplot.setData([[], [], [], []]);
     uplot.redraw();
   } else {
     drawChart();
@@ -1248,11 +1263,7 @@ function pushChartPoint() {
   }
 
   if (uplot) {
-    uplot.setData([
-      chartData.map((point) => point.t),
-      chartData.map((point) => Number.isFinite(point.tc) ? point.tc : null),
-      chartData.map((point) => Number.isFinite(point.ts) ? point.ts : null)
-    ]);
+    uplot.setData(chartColumns());
   } else {
     drawChart();
   }
