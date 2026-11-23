@@ -99,7 +99,8 @@ void hal_display_init(void) {
     esp_lcd_panel_io_spi_config_t io_cfg = {
         .dc_gpio_num       = PIN_LCD_DC,
         .cs_gpio_num       = PIN_LCD_CS,
-        .pclk_hz           = 40 * 1000 * 1000,
+        // 20 МГц: на проводах и макетной плате 40 МГц даёт помехи на картинке.
+        .pclk_hz           = 20 * 1000 * 1000,
         .lcd_cmd_bits      = 8,
         .lcd_param_bits    = 8,
         .spi_mode          = 0,
