@@ -26,7 +26,7 @@
 // остаётся на ядре 0 (CORE_NETWORK_AI) и выполняет сетевой ввод-вывод.
 #define PRIO_TELEMETRY       8
 
-#define STACK_ESTOP         2048
+#define STACK_ESTOP         4096
 #define STACK_DOSER         4096
 #define STACK_STEPPER       4096
 #define STACK_LUA           12288
