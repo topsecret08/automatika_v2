@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 92.
+Всего маршрутов: 95.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -27,6 +27,8 @@
 | `POST` | `/api/config/import` | `h_config_import` | ключ |
 | `GET` | `/api/control` | `h_control` | ключ |
 | `POST` | `/api/control` | `h_control` | ключ |
+| `GET` | `/api/diag/sensors` | `h_diag_sensors` | ключ |
+| `GET` | `/api/diag/watchdog` | `h_diag_watchdog` | ключ |
 | `POST` | `/api/dose` | `h_dose` | ключ |
 | `GET` | `/api/env` | `h_env` | ключ |
 | `POST` | `/api/estop` | `h_estop` | ключ |
@@ -34,6 +36,7 @@
 | `GET` | `/api/hardware` | `h_hardware` | ключ |
 | `POST` | `/api/hardware` | `h_hardware` | ключ |
 | `GET` | `/api/health` | `h_health` | — |
+| `GET` | `/api/help` | `h_help_get` | ключ |
 | `GET` | `/api/history/processes` | `h_history_processes` | ключ |
 | `GET` | `/api/i18n` | `h_i18n` | ключ |
 | `POST` | `/api/i18n` | `h_i18n` | ключ |
