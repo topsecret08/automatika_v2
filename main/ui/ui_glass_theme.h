@@ -10,16 +10,16 @@
 // backdrop-filter, а имитация полупрозрачности на 16-битном цвете выглядит
 // грязно. Вместо этого — плотные карточки с мягкой тенью.
 
-#define UI_GLASS_BG        lv_color_hex(0x070B11)
-#define UI_GLASS_CARD      lv_color_hex(0x111A26)
-#define UI_GLASS_CARD_2    lv_color_hex(0x1D2735)
+#define UI_GLASS_BG        lv_color_hex(0x121820)
+#define UI_GLASS_CARD      lv_color_hex(0x1A242B)
+#define UI_GLASS_CARD_2    lv_color_hex(0x35424A)
 #define UI_GLASS_ACCENT    lv_color_hex(0x2F8CFF)
 #define UI_GLASS_RED       lv_color_hex(0xD93B3B)
-#define UI_GLASS_YELLOW    lv_color_hex(0xFFCC00)
+#define UI_GLASS_YELLOW    lv_color_hex(0xF5A524)
 #define UI_GLASS_ORANGE    lv_color_hex(0xF5A524)
 #define UI_GLASS_GREEN     lv_color_hex(0x2ECC71)
-#define UI_GLASS_TEXT      lv_color_hex(0xFFFFFF)
-#define UI_GLASS_TEXT_2    lv_color_hex(0xC8D6E8)
+#define UI_GLASS_TEXT      lv_color_hex(0xF2F5F7)
+#define UI_GLASS_TEXT_2    lv_color_hex(0xAAB5BC)
 #define UI_GLASS_RADIUS    20
 #define UI_GLASS_BTN_R     12
 

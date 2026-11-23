@@ -2,22 +2,25 @@
 #include "lvgl.h"
 #include <stdbool.h>
 
-#define GLASS_BLUE     lv_color_hex(0x007AFF)
-#define GLASS_GREEN    lv_color_hex(0x34C759)
-#define GLASS_RED      lv_color_hex(0xFF3B30)
-#define GLASS_ORANGE   lv_color_hex(0xFF9500)
-#define GLASS_YELLOW   lv_color_hex(0xFFCC00)
-#define GLASS_PURPLE   lv_color_hex(0xAF52DE)
-#define GLASS_PINK     lv_color_hex(0xFF2D55)
-#define GLASS_TEAL     lv_color_hex(0x5AC8FA)
-#define GLASS_INDIGO   lv_color_hex(0x5856D6)
-#define GLASS_GRAY     lv_color_hex(0x8E8E93)
-#define GLASS_LIGHT_BG lv_color_hex(0xF2F2F7)
-#define GLASS_DARK_BG  lv_color_hex(0x000000)
+// Палитра по правилам UI: цвет только для состояний.
+// Синий — информация и действия, зелёный — норма, красный — авария/СТОП,
+// янтарный — предупреждение, ручной режим и уставки. Серый — нейтральный текст.
+#define GLASS_BLUE     lv_color_hex(0x2F8CFF)
+#define GLASS_GREEN    lv_color_hex(0x2ECC71)
+#define GLASS_RED      lv_color_hex(0xD93B3B)
+#define GLASS_ORANGE   lv_color_hex(0xF5A524)
+#define GLASS_YELLOW   lv_color_hex(0xF5A524)
+#define GLASS_PURPLE   lv_color_hex(0xAAB5BC)
+#define GLASS_PINK     lv_color_hex(0xAAB5BC)
+#define GLASS_TEAL     lv_color_hex(0xAAB5BC)
+#define GLASS_INDIGO   lv_color_hex(0xAAB5BC)
+#define GLASS_GRAY     lv_color_hex(0xAAB5BC)
+#define GLASS_LIGHT_BG lv_color_hex(0xF2F5F7)
+#define GLASS_DARK_BG  lv_color_hex(0x121820)
 #define GLASS_CARD_L   lv_color_hex(0xFFFFFF)
-#define GLASS_CARD_D   lv_color_hex(0x1C1C1E)
-#define GLASS_LABEL_L  lv_color_hex(0x000000)
-#define GLASS_LABEL_D  lv_color_hex(0xFFFFFF)
+#define GLASS_CARD_D   lv_color_hex(0x1A242B)
+#define GLASS_LABEL_L  lv_color_hex(0x121820)
+#define GLASS_LABEL_D  lv_color_hex(0xF2F5F7)
 
 typedef enum { THEME_LIGHT, THEME_DARK, THEME_AUTO } theme_mode_t;
 

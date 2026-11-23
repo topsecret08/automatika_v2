@@ -119,4 +119,4 @@ def test_dark_theme_is_default(context, base_url):
       scheme: document.querySelector('meta[name="color-scheme"]')?.content
     })""")
     assert result["scheme"] == "dark"
-    assert result["bg"] in ("rgb(7, 11, 17)", "rgba(7, 11, 17, 1)")
+    assert result["bg"] in ("rgb(18, 24, 32)", "rgba(18, 24, 32, 1)")

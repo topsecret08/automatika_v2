@@ -1149,7 +1149,7 @@ function initChart() {
       series: [
         {},
         { label: 'куб', stroke: cssVar('--accent') || '#007aff', width: 2 },
-        { label: 'пар', stroke: cssVar('--orange') || '#ff9500', width: 2 }
+        { label: 'пар', stroke: cssVar('--text-primary') || '#f2f5f7', width: 2 }
       ]
     }, data, host);
 
@@ -1626,7 +1626,7 @@ async function runAction(action, body = {}) {
     await pollState();
   } catch (_) {
     haptic('error');
-    toast('Нет связи с устройством');
+    toast('НЕТ СВЯЗИ');
   }
 }
 
@@ -2071,7 +2071,7 @@ async function loadProfiles() {
       });
     });
   } catch (_) {
-    list.innerHTML = '<div class="empty">Нет связи с устройством</div>';
+    list.innerHTML = '<div class="empty">НЕТ СВЯЗИ</div>';
   }
 }
 
@@ -2505,7 +2505,7 @@ async function renderSensors() {
       </div>
     `).join('');
   } catch (_) {
-    $('#sensor-list').innerHTML = '<div class="empty">Нет связи с устройством</div>';
+    $('#sensor-list').innerHTML = '<div class="empty">НЕТ СВЯЗИ</div>';
   }
 }
 
@@ -2697,7 +2697,7 @@ async function renderHardware() {
       }
     });
   } catch (_) {
-    app.innerHTML = '<div class="empty">Нет связи с устройством</div>';
+    app.innerHTML = '<div class="empty">НЕТ СВЯЗИ</div>';
   }
 }
 
@@ -2787,7 +2787,7 @@ async function renderHealth() {
       </div>
     `).join('');
   } catch (_) {
-    $('#health-list').innerHTML = '<div class="empty">Нет связи с устройством</div>';
+    $('#health-list').innerHTML = '<div class="empty">НЕТ СВЯЗИ</div>';
   }
 }
 
@@ -3251,7 +3251,7 @@ async function loadLog() {
       });
     });
   } catch (_) {
-    list.innerHTML = '<div class="empty">Нет связи с устройством.</div>';
+    list.innerHTML = '<div class="empty">НЕТ СВЯЗИ.</div>';
   }
 }
 

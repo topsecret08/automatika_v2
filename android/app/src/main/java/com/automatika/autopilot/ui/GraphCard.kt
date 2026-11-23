@@ -68,7 +68,7 @@ fun GraphCard(state: ControllerState?) {
                         }
                     }
                 }
-                series({ it.cube }, Color(0xFFF5A524))
+                series({ it.cube }, Color(0xFFF2F5F7))
                 series({ it.column }, Color(0xFF2F8CFF))
             }
         }

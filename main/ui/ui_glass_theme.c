@@ -19,22 +19,18 @@ lv_obj_t *ui_glass_card_create(lv_obj_t *parent) {
     lv_obj_set_style_border_width(card, 0, 0);
     lv_obj_set_style_pad_all(card, 16, 0);
     lv_obj_set_style_pad_row(card, 8, 0);
-    lv_obj_set_style_shadow_width(card, 12, 0);
-    lv_obj_set_style_shadow_opa(card, LV_OPA_30, 0);
-    lv_obj_set_style_shadow_color(card, lv_color_black(), 0);
+    lv_obj_set_style_shadow_width(card, 0, 0);
     lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
     return card;
 }
 
 lv_obj_t *ui_glass_btn_create(lv_obj_t *parent, const char *text, lv_color_t color) {
     lv_obj_t *btn = lv_btn_create(parent);
-    lv_obj_set_height(btn, 44);
+    lv_obj_set_height(btn, 48);
     lv_obj_set_style_radius(btn, UI_GLASS_BTN_R, 0);
     lv_obj_set_style_bg_color(btn, color, 0);
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
-    lv_obj_set_style_shadow_width(btn, 8, 0);
-    lv_obj_set_style_shadow_opa(btn, LV_OPA_20, 0);
-    lv_obj_set_style_shadow_color(btn, lv_color_black(), 0);
+    lv_obj_set_style_shadow_width(btn, 0, 0);
     lv_obj_set_style_pad_hor(btn, 12, 0);
 
     lv_obj_t *label = lv_label_create(btn);
