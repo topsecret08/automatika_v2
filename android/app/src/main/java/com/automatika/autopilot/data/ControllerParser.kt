@@ -99,6 +99,27 @@ object ControllerParser {
     private fun num(value: Double, digits: Int): String =
         if (value.isNaN()) "—" else String.format(java.util.Locale.US, "%.${digits}f", value)
 
+    /** /api/recipes: список рецептов без шагов. */
+    fun recipes(json: JSONArray): List<RecipeSummary> = (0 until json.length()).mapNotNull { index ->
+        val item = json.optJSONObject(index) ?: return@mapNotNull null
+        RecipeSummary(
+            id = item.optString("id", ""),
+            name = item.optString("name", ""),
+            category = item.optString("category", ""),
+            description = item.optString("description", ""),
+        ).takeIf { it.id.isNotBlank() }
+    }
+
+    /** /api/recipe?id=...: полный рецепт. */
+    fun recipe(json: JSONObject): RecipeDetail = RecipeDetail(
+        id = json.optString("id", ""),
+        name = json.optString("name", ""),
+        category = json.optString("category", ""),
+        description = json.optString("description", ""),
+        ingredients = json.optString("ingredients", ""),
+        stepsMd = json.optString("steps_md", ""),
+    )
+
     fun health(json: JSONObject): ControllerHealth = ControllerHealth(
         version = json.optString("version", "?"),
         uptimeSec = json.optLong("uptime_s", 0L),

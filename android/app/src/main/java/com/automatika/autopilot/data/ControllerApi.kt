@@ -46,6 +46,19 @@ data class AiStatus(
     val cacheHitRate: Double,
 )
 
+/** Рецепт в списке (/api/recipes). */
+data class RecipeSummary(val id: String, val name: String, val category: String, val description: String)
+
+/** Полный рецепт (/api/recipe?id=...): ингредиенты и шаги в Markdown. */
+data class RecipeDetail(
+    val id: String,
+    val name: String,
+    val category: String,
+    val description: String,
+    val ingredients: String,
+    val stepsMd: String,
+)
+
 /** Тумблер меню контроллера. key совпадает с nvs_key в menu_tree.c. */
 data class ToggleSetting(val key: String, val title: String, val value: Boolean, val editable: Boolean)
 

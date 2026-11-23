@@ -73,6 +73,14 @@ class MenuTreeTest {
     }
 
     @Test
+    fun recipeCategoriesOpenInAppOthersStayOnDevice() {
+        fun action(callback: String) = MenuItem(id = "x", icon = "", title = "x", type = MenuType.ACTION, action = callback)
+        assertEquals(MenuOutcome.Recipes("beer", "Пивные рецепты"), MenuActions.resolve(action("cb_recipes_beer")))
+        assertEquals(MenuOutcome.Recipes("spirit", "Рецепты спиртов"), MenuActions.resolve(action("cb_recipes_spirit")))
+        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(action("cb_recipes_mine")))
+    }
+
+    @Test
     fun realtimeGraphOpensInApp() {
         assertEquals(MenuOutcome.Graph, MenuActions.resolve(child("menu.mon", "mon.graph")))
     }
