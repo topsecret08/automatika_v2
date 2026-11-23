@@ -16,6 +16,8 @@ static sdmmc_card_t *s_card = NULL;
 static esp_err_t sd_mount(void) {
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     host.slot = SPI3_HOST;
+    // 10 МГц: на проводах макетной платы и при 20 МГц карта не отвечает на запись.
+    host.max_freq_khz = 10000;
 
     spi_bus_config_t bus = {
         .mosi_io_num = PIN_SD_MOSI,

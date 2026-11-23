@@ -25,7 +25,12 @@ static const char *TAG = "SD_SAFE";
 #define SD_LOG_PATH   "/sdcard/logs/resilience.log"
 
 static SemaphoreHandle_t s_mtx = NULL;
-static char *s_queue[SD_QUEUE_LEN];
+typedef struct {
+    const char *path;
+    char *line;
+} sd_entry_t;
+
+static sd_entry_t s_queue[SD_QUEUE_LEN];
 static int s_head = 0;
 static int s_tail = 0;
 static int s_count = 0;
@@ -59,23 +64,12 @@ static char *dup_psram(const char *line) {
     return p;
 }
 
-void sd_resilience_log(const char *line) {
-    if (!line || !line[0]) return;
+// Ставит строку в очередь и не пишет на SD сама: вызывающий код (в том числе
+// events_log под своим мьютексом) не ждёт карту. Сброс делает задача sd_safe.
+void sd_resilience_append(const char *path, const char *line) {
+    if (!path || !line || !line[0]) return;
     ensure_mutex();
     if (!s_mtx) return;
-
-    // Быстрый путь: карта доступна — пишем сразу.
-    if (s_mounted) {
-        FILE *f = fopen(SD_LOG_PATH, "a");
-        if (f) {
-            fputs(line, f);
-            if (line[strlen(line) - 1] != '\n') fputc('\n', f);
-            fclose(f);
-            return;
-        }
-        // Запись не удалась: считаем карту потерянной до следующей проверки.
-        s_mounted = false;
-    }
 
     char *copy = dup_psram(line);
     if (!copy) return;
@@ -83,15 +77,20 @@ void sd_resilience_log(const char *line) {
     xSemaphoreTake(s_mtx, portMAX_DELAY);
     if (s_count >= SD_QUEUE_LEN) {
         // Кольцо переполнено: выбрасываем самую старую запись.
-        free(s_queue[s_tail]);
-        s_queue[s_tail] = NULL;
+        free(s_queue[s_tail].line);
+        s_queue[s_tail].line = NULL;
         s_tail = (s_tail + 1) % SD_QUEUE_LEN;
         s_count--;
     }
-    s_queue[s_head] = copy;
+    s_queue[s_head].path = path;
+    s_queue[s_head].line = copy;
     s_head = (s_head + 1) % SD_QUEUE_LEN;
     s_count++;
     xSemaphoreGive(s_mtx);
+}
+
+void sd_resilience_log(const char *line) {
+    sd_resilience_append(SD_LOG_PATH, line);
 }
 
 static void flush_queue(void) {
@@ -100,31 +99,31 @@ static void flush_queue(void) {
 
     while (s_count > 0) {
         xSemaphoreTake(s_mtx, portMAX_DELAY);
-        char *line = s_queue[s_tail];
-        s_queue[s_tail] = NULL;
+        sd_entry_t e = s_queue[s_tail];
+        s_queue[s_tail].line = NULL;
         s_tail = (s_tail + 1) % SD_QUEUE_LEN;
         s_count--;
         xSemaphoreGive(s_mtx);
 
-        if (!line) continue;
+        if (!e.line) continue;
 
-        FILE *f = fopen(SD_LOG_PATH, "a");
+        FILE *f = fopen(e.path, "a");
         if (!f) {
             // Не смогли сбросить — возвращаем строку в очередь.
             xSemaphoreTake(s_mtx, portMAX_DELAY);
             if (s_count < SD_QUEUE_LEN) {
-                s_queue[s_head] = line;
+                s_queue[s_head] = e;
                 s_head = (s_head + 1) % SD_QUEUE_LEN;
                 s_count++;
-                line = NULL;
+                e.line = NULL;
             }
             xSemaphoreGive(s_mtx);
-            if (line) free(line);
+            if (e.line) free(e.line);
             return;
         }
-        fputs(line, f);
+        fputs(e.line, f);
         fclose(f);
-        free(line);
+        free(e.line);
     }
 }
 

@@ -20,5 +20,8 @@ bool sd_resilience_mounted(void);
 // Записать строку в журнал устойчивости (с '\n' или без).
 void sd_resilience_log(const char *line);
 
+// Ставит строку в очередь записи в файл path. Сам на SD не пишет.
+void sd_resilience_append(const char *path, const char *line);
+
 // Сколько записей ждёт сброса (диагностика /api/health).
 int sd_resilience_pending(void);

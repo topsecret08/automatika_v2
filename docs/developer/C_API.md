@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 355.
+Всего функций: 356.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -859,6 +859,12 @@ void sd_resilience_log(const char *line);
 ```
 
 Записать строку в журнал устойчивости (с '\n' или без).
+
+```c
+void sd_resilience_append(const char *path, const char *line);
+```
+
+Ставит строку в очередь записи в файл path. Сам на SD не пишет.
 
 ```c
 int sd_resilience_pending(void);
