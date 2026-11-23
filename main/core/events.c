@@ -2,6 +2,7 @@
 #include "mem_attr.h"
 #include "config.h"
 #include "storage.h"
+#include "sd_resilience.h"
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -33,10 +34,9 @@ void events_log(event_type_t t, const char *fmt, ...) {
     ring_head = (ring_head + 1) % MAX_EVENTS;
     if (ring_count < MAX_EVENTS) ring_count++;
     ring_total++;
-    if (storage_sd_ready()) {
-        FILE *f = fopen(PATH_EVENTS, "a");
-        if (f) { fprintf(f, "%lu,%d,%s\n", (unsigned long)e->timestamp_ms, t, e->msg); fclose(f); }
-    }
+    char line[sizeof(e->msg) + 32];
+    snprintf(line, sizeof(line), "%lu,%d,%s\n", (unsigned long)e->timestamp_ms, t, e->msg);
+    sd_resilience_append(PATH_EVENTS, line);
     ESP_LOGI("EVENT", "[%s] %s", events_type_name(t), e->msg);
     xSemaphoreGive(mtx);
 }
