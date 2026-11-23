@@ -66,12 +66,14 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
     var aiOpen by remember { mutableStateOf(false) }
     var maint by remember { mutableStateOf<MenuOutcome.Maintenance?>(null) }
     var recipes by remember { mutableStateOf<MenuOutcome.Recipes?>(null) }
+    var help by remember { mutableStateOf<MenuOutcome.Help?>(null) }
+    var diag by remember { mutableStateOf<MenuOutcome.Diag?>(null) }
     var appPage by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<Pair<MenuItem, MenuOutcome>?>(null) }
     var notice by remember { mutableStateOf("") }
 
     val currentEditor = editor
-    val atRoot = currentEditor == null && calc == null && !graph && !historyOpen && !aiOpen && maint == null && recipes == null && !appPage && stack.isEmpty()
+    val atRoot = currentEditor == null && calc == null && !graph && !historyOpen && !aiOpen && maint == null && recipes == null && help == null && diag == null && !appPage && stack.isEmpty()
 
     fun back() {
         when {
@@ -82,6 +84,8 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             aiOpen -> aiOpen = false
             maint != null -> maint = null
             recipes != null -> recipes = null
+            help != null -> help = null
+            diag != null -> diag = null
             appPage -> appPage = false
             stack.isNotEmpty() -> stack.removeAt(stack.lastIndex)
         }
@@ -107,6 +111,8 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             MenuOutcome.AiStatus -> aiOpen = true
             is MenuOutcome.Maintenance -> maint = outcome
             is MenuOutcome.Recipes -> recipes = outcome
+            is MenuOutcome.Help -> help = outcome
+            is MenuOutcome.Diag -> diag = outcome
             MenuOutcome.OnDeviceOnly -> notice = "«${item.title}» пока доступно только на дисплее контроллера."
         }
     }
@@ -121,6 +127,8 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
         aiOpen -> "Статус ИИ"
         maint != null -> maint?.kind?.title ?: "Обслуживание"
         recipes != null -> recipes?.title ?: "Рецепты"
+        help != null -> help?.title ?: "Справка"
+        diag != null -> diag?.kind?.title ?: "Диагностика"
         appPage -> "Приложение и подключение"
         stack.isNotEmpty() -> stack.last().title
         else -> "Главное меню"
@@ -158,6 +166,8 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
                 aiOpen -> AiStatusCard(vm)
                 maint != null -> maint?.let { MaintenanceCard(it.kind, vm) }
                 recipes != null -> recipes?.let { RecipesCard(it.category, it.title, vm) }
+                help != null -> help?.let { HelpCard(it.articleId, it.title, vm) }
+                diag != null -> diag?.let { DiagCard(it.kind, vm) }
                 appPage -> AppPage(ui, vm)
                 stack.isEmpty() -> groupRootMenu(ROOT_MENU + APP_TILE).forEach { (section, items) ->
                     Text(section, style = MaterialTheme.typography.titleMedium)

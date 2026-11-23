@@ -2,6 +2,7 @@ package com.automatika.autopilot
 
 import com.automatika.autopilot.data.ProcessMode
 import com.automatika.autopilot.ui.FieldNames
+import com.automatika.autopilot.ui.DiagKind
 import com.automatika.autopilot.ui.MaintKind
 import com.automatika.autopilot.ui.MenuActions
 import com.automatika.autopilot.ui.MenuItem
@@ -78,6 +79,16 @@ class MenuTreeTest {
         assertEquals(MenuOutcome.Recipes("beer", "Пивные рецепты"), MenuActions.resolve(action("cb_recipes_beer")))
         assertEquals(MenuOutcome.Recipes("spirit", "Рецепты спиртов"), MenuActions.resolve(action("cb_recipes_spirit")))
         assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(action("cb_recipes_mine")))
+    }
+
+    @Test
+    fun helpAndDiagnosticsOpenInApp() {
+        fun action(callback: String, title: String = "x") =
+            MenuItem(id = "x", icon = "", title = title, type = MenuType.ACTION, action = callback)
+        assertEquals(MenuOutcome.Help("01_intro", "Основы"), MenuActions.resolve(action("cb_help_basics", "Основы")))
+        assertEquals(MenuOutcome.Diag(DiagKind.SENSORS), MenuActions.resolve(action("cb_diag_ds")))
+        assertEquals(MenuOutcome.Diag(DiagKind.WATCHDOG), MenuActions.resolve(action("cb_wd_status")))
+        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(action("cb_diag_test")))
     }
 
     @Test

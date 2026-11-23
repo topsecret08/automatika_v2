@@ -120,6 +120,36 @@ object ControllerParser {
         stepsMd = json.optString("steps_md", ""),
     )
 
+    fun help(json: JSONObject): HelpArticle = HelpArticle(
+        id = json.optString("id", ""),
+        title = json.optString("title", ""),
+        contentMd = json.optString("content_md", ""),
+    )
+
+    fun sensors(json: JSONArray): List<SensorReading> = (0 until json.length()).mapNotNull { index ->
+        val item = json.optJSONObject(index) ?: return@mapNotNull null
+        SensorReading(
+            idx = item.optInt("idx", index),
+            address = item.optString("address", ""),
+            temp = item.optDouble("temp", Double.NaN),
+            noiseRms = item.optDouble("noise_rms", Double.NaN),
+            ageMs = item.optLong("age_ms", 0L),
+        )
+    }
+
+    fun watchdog(json: JSONArray): List<WatchdogTask> = (0 until json.length()).mapNotNull { index ->
+        val item = json.optJSONObject(index) ?: return@mapNotNull null
+        WatchdogTask(
+            name = item.optString("name", ""),
+            timeoutMs = item.optLong("timeout_ms", 0L),
+            ageMs = item.optLong("age_ms", 0L),
+            maxStaleMs = item.optLong("max_stale_ms", 0L),
+            restarts = item.optInt("restarts", 0),
+            enabled = item.optBoolean("enabled", false),
+            critical = item.optBoolean("critical", false),
+        )
+    }
+
     fun health(json: JSONObject): ControllerHealth = ControllerHealth(
         version = json.optString("version", "?"),
         uptimeSec = json.optLong("uptime_s", 0L),
