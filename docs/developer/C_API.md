@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 356.
+Всего функций: 358.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -1366,6 +1366,26 @@ esp_err_t ota_manager_start_update(const char *firmware_url);
 
 Обновление по URL (HTTP/HTTPS), асинхронно через задачу «ota».
 Возвращает ESP_OK, если задача запущена.
+
+```c
+esp_err_t ota_manager_flash_url(const char *url);
+```
+
+Синхронная загрузка по HTTP(S) с проверкой подписи. Не перезагружает устройство:
+вызывающий делает esp_restart() после ESP_OK. Общий путь для всех URL-обновлений.
+
+## `main/ota/ota_signature.h`
+
+```c
+esp_err_t ota_signature_verify(const esp_partition_t *part, size_t total_len, size_t *image_len);
+```
+
+Проверка подписи образа перед выставлением загрузочного раздела.
+Формат хвоста и подписи: tools/sign_firmware.py.
+total_len  — полный размер записанного образа (включая хвост подписи).
+image_len  — выход: размер самого образа без хвоста.
+Возвращает ESP_OK, если подпись верна; ESP_ERR_NOT_FOUND — образ без хвоста
+(не подписан); ESP_FAIL — подпись не совпала или проверка не удалась.
 
 ## `main/script/lua_engine.h`
 
