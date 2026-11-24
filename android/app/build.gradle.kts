@@ -18,6 +18,8 @@ android {
 
     buildFeatures {
         compose = true
+        // Версия приложения нужна для проверки обновлений (BuildConfig.VERSION_NAME).
+        buildConfig = true
     }
 
     compileOptions {
@@ -25,9 +27,25 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Подпись release-APK: только если CI передал keystore через переменные окружения.
+    // Без них release собирается без подписи, а CI публикует debug-APK, как раньше.
+    signingConfigs {
+        create("release") {
+            System.getenv("ANDROID_KEYSTORE_PATH")?.let { path ->
+                storeFile = file(path)
+                storePassword = System.getenv("ANDROID_STORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

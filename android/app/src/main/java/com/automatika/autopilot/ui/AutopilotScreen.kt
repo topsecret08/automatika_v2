@@ -272,6 +272,7 @@ private fun processText(state: ControllerState?, alarm: Boolean): String = when 
 /** Раздел «Приложение»: подключение, роль, ручная мощность и журнал. */
 @Composable
 private fun AppPage(ui: UiState, vm: AutopilotViewModel) {
+    UpdateCard()
     RoleCard(ui.settings) { role -> vm.saveSettings(ui.settings.copy(role = role)) }
     SettingsCard(settings = ui.settings, onSave = vm::saveSettings)
     TogglesSection(vm)
