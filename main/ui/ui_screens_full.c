@@ -214,9 +214,15 @@ void ui_diag_i2c_scan(void) { lv_obj_t *c = ui_make_page("I2C");
 void ui_diag_ds18b20(void) { lv_obj_t *c = ui_make_page("DS18B20");
     static char buf[512];
     int n = hal_1wire_count();
-    int pos = 0;
-    for (int i=0;i<n;i++) pos += snprintf(buf+pos, sizeof(buf)-pos,
-        "#%d %s: %.4f°C\n", i, hal_1wire_addr_str(i), hal_1wire_read(i));
+    size_t pos = 0;
+    for (int i=0;i<n;i++) {
+        int w = snprintf(buf+pos, sizeof(buf)-pos,
+            "#%d %s: %.4f°C\n", i, hal_1wire_addr_str(i), hal_1wire_read(i));
+        // При обрезке snprintf пишет меньше, чем просили; дальше не идём,
+        // иначе sizeof(buf)-pos уйдёт в ноль или в огромное беззнаковое число.
+        if (w < 0 || (size_t)w >= sizeof(buf)-pos) break;
+        pos += (size_t)w;
+    }
     lv_obj_t *l = lv_label_create(c);
     lv_label_set_text(l, buf);
 }

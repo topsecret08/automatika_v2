@@ -299,14 +299,11 @@ static esp_err_t h_static(httpd_req_t *r) {
     // Отдаём только содержимое /lfs/www. Файлы в корне /lfs (профили,
     // скрипты, резервные копии, сертификаты) не должны быть доступны
     // статикой: для них есть API с X-API-Key.
-    struct stat st;
-    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) {
-        httpd_resp_send_err(r, HTTPD_404_NOT_FOUND, "Not found");
-        return ESP_FAIL;
-    }
-
+    // Проверяем тип уже открытого файла: между stat и fopen файл могли подменить.
     FILE *f = fopen(path, "r");
-    if (!f) {
+    struct stat st;
+    if (!f || fstat(fileno(f), &st) != 0 || !S_ISREG(st.st_mode)) {
+        if (f) fclose(f);
         httpd_resp_send_err(r, HTTPD_404_NOT_FOUND, "Not found");
         return ESP_FAIL;
     }
