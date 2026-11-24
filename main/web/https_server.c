@@ -32,18 +32,19 @@ static httpd_handle_t s_srv = NULL;
 // Чтение/запись PEM в littlefs
 // ------------------------------------------------------------------
 static char *load_pem(const char *path, size_t max_len, const char *marker) {
+    // Размер и тип берём у открытого файла, а не через stat: иначе между проверкой и чтением файл могли подменить.
+    FILE *f = fopen(path, "r");
+    if (!f) return NULL;
     struct stat st;
-    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) return NULL;
+    if (fstat(fileno(f), &st) != 0 || !S_ISREG(st.st_mode)) { fclose(f); return NULL; }
     if (st.st_size < 32 || (size_t)st.st_size >= max_len) {
         ESP_LOGW(TAG, "%s has unexpected size %ld, regenerating", path, (long)st.st_size);
+        fclose(f);
         return NULL;
     }
 
     char *buf = malloc((size_t)st.st_size + 1);
-    if (!buf) return NULL;
-
-    FILE *f = fopen(path, "r");
-    if (!f) { free(buf); return NULL; }
+    if (!buf) { fclose(f); return NULL; }
 
     size_t rd = fread(buf, 1, (size_t)st.st_size, f);
     fclose(f);

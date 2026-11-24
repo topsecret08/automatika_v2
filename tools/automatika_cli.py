@@ -259,7 +259,10 @@ def cmd_process(args, cfg) -> int:
 def cmd_config(args, cfg) -> int:
     if args.set_host or args.set_key:
         save_config(args.set_host or cfg["host"], args.set_key or cfg["api_key"])
-    print_json(load_config())
+    shown = load_config()
+    if shown.get("api_key"):
+        shown["api_key"] = "***"
+    print_json(shown)
     return 0
 
 
