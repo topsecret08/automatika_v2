@@ -1,0 +1,7 @@
+# Исключаем сторонний код: его предупреждения не относятся к нашей прошивке,
+# и поправить их в нашем репозитории нельзя (LVGL, sqlite3 — обновляются через менеджер компонентов).
+name: automatika-codeql
+paths-ignore:
+  - managed_components/**
+  - components/esp_sqlite3/**
+  - build/**

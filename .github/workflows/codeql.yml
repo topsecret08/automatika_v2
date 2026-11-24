@@ -30,3 +30,37 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:python"
+
+  analyze-cpp:
+    name: CodeQL (C firmware)
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Allow git in container
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+          build-mode: manual
+          config-file: ./.github/codeql/codeql-config.yml
+
+      # CodeQL для C видит код только при сборке, поэтому собираем прошивку
+      # тем же способом, что build.yml, под наблюдением трассировщика.
+      - name: Build firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py build
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:c-cpp"
