@@ -152,19 +152,20 @@ idf.py build
 
 | Образ | Размер | Слот |
 |---|---:|---:|
-| `automatika_v2.bin` | 22.4 МиБ | 3 МиБ (OTA) |
-| `assets.bin` | 1.0 МиБ | 1 МиБ (`assets`) |
-| bootloader | 223 КБ | — |
+| `automatika_v2.bin` | ≈2,8 МБ (`0x2EB980` = 3 062 144 байт) | 3 МиБ (`0x300000`, OTA) |
+| `assets.bin` | 1,0 МиБ | 1 МиБ (`assets`) |
+| bootloader | ≈23 КБ | — |
 
-Запас OTA-слота 20.6 МиБ. При добавлении крупных функций проверяйте
+Запас app-раздела около 3% (`0x14680` байт). При добавлении функций проверяйте
 `idf.py size` и не превышайте размер слота.
 
 ## 9. CI
 
-В репозитории есть workflow `.github/workflows/docs.yml` — проверка
-Markdown-ссылок. Сборка прошивки в CI не настроена: нужен образ ESP-IDF
-и скачивание managed-компонентов; это делает локальная машина или
-отдельный self-hosted runner.
+CI (`.github/workflows/build.yml`) собирает прошивку (`firmware (esp32s3)`),
+запускает модульные тесты в QEMU, cppcheck, host-тесты, E2E-тесты PWA и проверку
+API-документации (`tools/gen_api_docs.py --check`). Сборка Windows-приложения
+(`app.yml`), APK (`android.yml`) и релиз (`release.yml`) выполняются по тегу `v*`
+или вручную через `workflow_dispatch`.
 
 Локальная проверка ссылок:
 
