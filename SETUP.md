@@ -209,9 +209,10 @@ curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
      http://<IP>/api/ota/secure
 ```
 
-Подписанная OTA (Secure Boot v2) выключена, пока не заданы ключи; порядок
-включения — в `README.md`, раздел «OTA и подпись», и в `docs/SECURITY.md`.
-Для production подпись обязательна.
+Образ для OTA обязан быть подписан (ECDSA P-256). Неподписанный или изменённый
+образ отклоняется с ошибкой `image not signed` или `signature invalid`, текущая
+прошивка остаётся на месте. Подробности и процедура подписи — в
+`docs/developer/OTA_SIGNING.md`.
 
 ### 6.7. Резервная копия и восстановление
 
