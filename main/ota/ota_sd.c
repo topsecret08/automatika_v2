@@ -1,4 +1,5 @@
 #include "fota.h"
+#include "ota_signature.h"
 #include "core/events.h"
 #include "esp_ota_ops.h"
 #include "esp_log.h"
@@ -89,6 +90,16 @@ esp_err_t fota_flash_from_sd(const char *path) {
         p->failed = true;
         p->in_progress = false;
         snprintf(p->error, sizeof(p->error), "Image validation failed");
+        return err;
+    }
+
+    size_t image_len = 0;
+    err = ota_signature_verify(part, size, &image_len);
+    if (err != ESP_OK) {
+        p->failed = true;
+        p->in_progress = false;
+        snprintf(p->error, sizeof(p->error), err == ESP_ERR_NOT_FOUND ? "Image not signed" : "Signature invalid");
+        events_log(EVENT_ERROR, "FOTA SD: %s, прошивка не изменена", p->error);
         return err;
     }
 

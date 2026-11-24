@@ -1,6 +1,7 @@
 #include "ota_manager.h"
 #include "config.h"
 #include "ota_guard.h"
+#include "ota_signature.h"
 #include "secure_ota.h"
 
 #include "core/events.h"
@@ -254,6 +255,15 @@ static esp_err_t flash_from_url(const char *url) {
         return err;
     }
 
+    size_t image_len = 0;
+    err = ota_signature_verify(update, (size_t)len, &image_len);
+    if (err != ESP_OK) {
+        set_error(err == ESP_ERR_NOT_FOUND ? "image not signed" : "signature invalid");
+        events_log(EVENT_ERROR, "OTA: %s — прошивка не изменена", s_error);
+        telegram_notify("Образ без подписи или с неверной подписью — прошивка не изменена");
+        return err;
+    }
+
     err = esp_ota_set_boot_partition(update);
     if (err != ESP_OK) {
         set_error("set boot partition failed");
@@ -264,6 +274,8 @@ static esp_err_t flash_from_url(const char *url) {
     telegram_notify("Обновление загружено, устройство перезагружается");
     return ESP_OK;
 }
+
+esp_err_t ota_manager_flash_url(const char *url) { return flash_from_url(url); }
 
 typedef struct {
     char url[192];
