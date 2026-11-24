@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.automatika.autopilot.data.ControllerParser
 import com.automatika.autopilot.data.HelpArticle
+import com.automatika.autopilot.data.StaticContent
 import com.automatika.autopilot.data.SensorReading
 import com.automatika.autopilot.data.WatchdogTask
 import java.net.URLEncoder
@@ -34,10 +36,25 @@ enum class DiagKind(val title: String) {
 fun HelpCard(articleId: String, title: String, vm: AutopilotViewModel) {
     var article by remember { mutableStateOf<HelpArticle?>(null) }
     var status by remember { mutableStateOf("Загрузка…") }
+    LaunchedEffect(articleId) {
+        val local = StaticContent.help(articleId)
+        if (local != null) {
+            article = local
+            status = ""
+        } else {
+            status = "Нажмите «Обновить», статья загрузится с контроллера."
+        }
+    }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = {
+                // Статья из APK: без запроса к контроллеру. Иначе — с SD через API.
+                StaticContent.help(articleId)?.let {
+                    article = it
+                    status = ""
+                    return@OutlinedButton
+                }
                 vm.execute { api ->
                     val encoded = URLEncoder.encode(articleId, "UTF-8")
                     article = ControllerParser.help(api.getJson("/api/help?id=$encoded"))

@@ -1,0 +1,152 @@
+[
+  {
+    "id": "sp.whisky",
+    "name": "Шотландский Single Malt",
+    "ing": "Peated barley 5 кг"
+  },
+  {
+    "id": "sp.irish",
+    "name": "Ирландский виски",
+    "ing": "Barley 5 кг, не торф."
+  },
+  {
+    "id": "sp.bourbon",
+    "name": "Бурбон",
+    "ing": "Кукуруза 70%, Рожь 20%, Ячмень 10%"
+  },
+  {
+    "id": "sp.rye",
+    "name": "Ржаной виски",
+    "ing": "Рожь 6 кг, Ячмень 2 кг"
+  },
+  {
+    "id": "sp.tennessee",
+    "name": "Tennessee Whiskey",
+    "ing": "Кукуруза+Рожь, фильтр клён"
+  },
+  {
+    "id": "sp.canadian",
+    "name": "Canadian Whisky",
+    "ing": "Кукуруза+Рожь, лёгкий"
+  },
+  {
+    "id": "sp.japanese",
+    "name": "Japanese Whisky",
+    "ing": "Ячмень, стиль Шотландии"
+  },
+  {
+    "id": "sp.wheated",
+    "name": "Wheated Bourbon",
+    "ing": "Кукуруза+Пшеница"
+  },
+  {
+    "id": "sp.cognac",
+    "name": "Коньяк",
+    "ing": "Виноград (белый, кислый)"
+  },
+  {
+    "id": "sp.armagnac",
+    "name": "Арманьяк",
+    "ing": "Виноград (Уни Блан)"
+  },
+  {
+    "id": "sp.calvados",
+    "name": "Кальвадос",
+    "ing": "Яблоки (сидр)"
+  },
+  {
+    "id": "sp.apple_brandy",
+    "name": "Apple Brandy",
+    "ing": "Яблочный сидр"
+  },
+  {
+    "id": "sp.grape_brandy",
+    "name": "Grape Brandy",
+    "ing": "Виноград"
+  },
+  {
+    "id": "sp.white_rum",
+    "name": "White Rum",
+    "ing": "Меласса, светлый"
+  },
+  {
+    "id": "sp.gold_rum",
+    "name": "Gold Rum",
+    "ing": "Меласса, выдержка"
+  },
+  {
+    "id": "sp.dark_rum",
+    "name": "Dark Rum",
+    "ing": "Меласса, карамель"
+  },
+  {
+    "id": "sp.spiced_rum",
+    "name": "Spiced Rum",
+    "ing": "Ром + специи"
+  },
+  {
+    "id": "sp.agricole",
+    "name": "Rhum Agricole",
+    "ing": "Тростниковый сок"
+  },
+  {
+    "id": "sp.vodka_wheat",
+    "name": "Wheat Vodka",
+    "ing": "Пшеница"
+  },
+  {
+    "id": "sp.vodka_potato",
+    "name": "Potato Vodka",
+    "ing": "Картофель"
+  },
+  {
+    "id": "sp.vodka_rye",
+    "name": "Rye Vodka",
+    "ing": "Рожь"
+  },
+  {
+    "id": "sp.vodka_corn",
+    "name": "Corn Vodka",
+    "ing": "Кукуруза"
+  },
+  {
+    "id": "sp.vodka_grape",
+    "name": "Grape Vodka",
+    "ing": "Виноград"
+  },
+  {
+    "id": "sp.gin_london",
+    "name": "London Dry Gin",
+    "ing": "Можжевельник + 10 трав"
+  },
+  {
+    "id": "sp.gin_plymouth",
+    "name": "Plymouth Gin",
+    "ing": "Меньше можжевельника"
+  },
+  {
+    "id": "sp.gin_old_tom",
+    "name": "Old Tom Gin",
+    "ing": "Сладкий джин"
+  },
+  {
+    "id": "sp.gin_contemporary",
+    "name": "Contemporary Gin",
+    "ing": "Современные ботаникалы"
+  },
+  {
+    "id": "sp.gin_navy",
+    "name": "Navy Strength Gin",
+    "ing": "Крепкий 57%"
+  },
+  {
+    "id": "sp.absinthe",
+    "name": "Absinthe",
+    "ing": "Полынь, анис, фенхель"
+  },
+  {
+    "id": "sp.aquavit",
+    "name": "Aquavit",
+    "ing": "Картофель/зерно + тмин"
+  }
+]
