@@ -15,6 +15,6 @@ class MenuGroupingTest {
     @Test
     fun sectionsKeepTheRequestedOrder() {
         val titles = groupRootMenu(ROOT_MENU).map { it.first }
-        assertEquals(listOf("Режимы", "Настройка", "Диагностика", "Справка"), titles)
+        assertEquals(listOf("Процесс", "Контроль", "Оборудование", "Настройки", "Данные", "Система", "Справка"), titles)
     }
 }

@@ -191,10 +191,13 @@ fun modeIconRes(action: String): Int? = when (action) {
  * Состав дерева не меняется: группировка только для экрана приложения.
  */
 private val MENU_SECTIONS: List<Pair<String, List<String>>> = listOf(
-    "Режимы" to listOf("menu.m", "menu.mon", "menu.f", "menu.rec", "menu.c", "menu.ab", "menu.tp"),
-    "Настройка" to listOf("app.page", "menu.s", "menu.v", "menu.ui", "menu.r", "menu.sc", "menu.al", "menu.tm", "menu.ex"),
-    "Диагностика" to listOf("menu.d", "menu.wd", "menu.db", "menu.usb", "menu.fo"),
-    "Справка" to listOf("menu.h", "menu.l", "menu.dm", "menu.ai", "menu.qr"),
+    "Процесс" to listOf("menu.m", "menu.f", "menu.rec", "menu.c", "menu.ab", "menu.tp"),
+    "Контроль" to listOf("menu.mon", "menu.ai", "menu.al", "menu.tm"),
+    "Оборудование" to listOf("menu.v", "menu.sc", "menu.d", "menu.wd", "menu.usb"),
+    "Настройки" to listOf("menu.s", "menu.ui", "menu.r"),
+    "Данные" to listOf("menu.db", "menu.ex", "menu.qr"),
+    "Система" to listOf("menu.fo", "app.page"),
+    "Справка" to listOf("menu.h", "menu.l", "menu.dm"),
 )
 
 /** Пункты главного меню по разделам. Пункт вне разделов попадает в «Прочее». */
