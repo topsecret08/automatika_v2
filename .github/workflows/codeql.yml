@@ -48,6 +48,7 @@ jobs:
         with:
           languages: c-cpp
           build-mode: manual
+          config-file: ./.github/codeql/codeql-config.yml
 
       # CodeQL для C видит код только при сборке, поэтому собираем прошивку
       # тем же способом, что build.yml, под наблюдением трассировщика.
