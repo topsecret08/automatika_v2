@@ -60,6 +60,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
 
     val stack = remember { mutableStateListOf<MenuItem>() }
     var editor by remember { mutableStateOf<MenuOutcome.Editor?>(null) }
+    var view by remember { mutableStateOf<MenuOutcome.View?>(null) }
     var calc by remember { mutableStateOf<MenuOutcome.Calc?>(null) }
     var graph by remember { mutableStateOf(false) }
     var historyOpen by remember { mutableStateOf(false) }
@@ -73,11 +74,12 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
     var notice by remember { mutableStateOf("") }
 
     val currentEditor = editor
-    val atRoot = currentEditor == null && calc == null && !graph && !historyOpen && !aiOpen && maint == null && recipes == null && help == null && diag == null && !appPage && stack.isEmpty()
+    val atRoot = currentEditor == null && view == null && calc == null && !graph && !historyOpen && !aiOpen && maint == null && recipes == null && help == null && diag == null && !appPage && stack.isEmpty()
 
     fun back() {
         when {
             currentEditor != null -> editor = null
+            view != null -> view = null
             calc != null -> calc = null
             graph -> graph = false
             historyOpen -> historyOpen = false
@@ -105,6 +107,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             MenuOutcome.Open -> stack.add(item)
             is MenuOutcome.Start, MenuOutcome.ResetAlarm -> pending = item to outcome
             is MenuOutcome.Editor -> editor = outcome
+            is MenuOutcome.View -> view = outcome
             is MenuOutcome.Calc -> calc = outcome
             MenuOutcome.Graph -> graph = true
             MenuOutcome.History -> historyOpen = true
@@ -121,6 +124,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
 
     val title = when {
         currentEditor != null -> currentEditor.title
+        view != null -> view?.title ?: "Просмотр"
         calc != null -> calc?.kind?.title ?: "Калькулятор"
         graph -> "График"
         historyOpen -> "История процессов"
@@ -160,6 +164,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
             }
             when {
                 currentEditor != null -> JsonEditorCard(currentEditor.title, currentEditor.path, vm)
+                view != null -> view?.let { JsonViewCard(it.title, it.path, vm) }
                 calc != null -> calc?.let { CalculatorCard(it.kind) }
                 graph -> GraphCard(ui.state)
                 historyOpen -> HistoryCard(vm)

@@ -133,5 +133,45 @@ fun JsonEditorCard(title: String, path: String, vm: AutopilotViewModel) {
     }
 }
 
+/** Просмотр JSON-документа контроллера без редактирования (экраны только для чтения). */
+@Composable
+fun JsonViewCard(title: String, path: String, vm: AutopilotViewModel) {
+    var doc by remember(path) { mutableStateOf<JSONObject?>(null) }
+    var status by remember(path) { mutableStateOf("Загрузка…") }
+
+    fun load() {
+        status = "Загрузка…"
+        vm.execute { api ->
+            doc = api.getJson(path)
+            status = ""
+        }
+    }
+
+    LaunchedEffect(path) { load() }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                OutlinedButton(onClick = { load() }) { Text("Обновить") }
+            }
+            val current = doc
+            if (current == null) {
+                Text(status.ifBlank { "Нет данных. Нажмите «Обновить»." }, style = MaterialTheme.typography.bodySmall)
+            } else {
+                for (key in current.keys().asSequence().toList().sorted()) {
+                    val raw = current.get(key)
+                    val shown = if (raw == JSONObject.NULL) "—" else raw.toString().take(300)
+                    Text("${FieldNames.label(key)}: $shown", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+}
+
 private fun isReadOnly(value: Any?): Boolean =
     value is JSONObject || value is JSONArray || value == JSONObject.NULL
