@@ -13,8 +13,6 @@
 from __future__ import annotations
 
 import argparse
-import filecmp
-import os
 import shutil
 import subprocess
 import sys
@@ -57,7 +55,10 @@ def same_tree(a: Path, b: Path) -> bool:
     names_b = sorted(str(p.relative_to(b)) for p in b.rglob("*") if p.is_file())
     if names_a != names_b:
         return False
-    return all(filecmp.cmp(a / n, b / n, shallow=False) for n in names_a)
+    def norm(path: Path) -> bytes:
+        return path.read_bytes().replace(b"\r\n", b"\n")
+
+    return all(norm(a / n) == norm(b / n) for n in names_a)
 
 
 def main(argv: list[str]) -> int:
