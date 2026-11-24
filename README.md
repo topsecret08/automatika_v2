@@ -97,9 +97,12 @@ Get-FileHash .\Autopilot-v0.9.7.apk -Algorithm SHA256
 
 Сравните хеш со строкой в `SHA256SUMS-apk.txt`.
 
-> **Внимание.** APK в релизе подписан debug-ключом, это не production-подпись.
-> Прошивка по воздуху (OTA) не подписана криптографически, см.
-> [`docs/SECURITY.md`](docs/SECURITY.md). Устанавливайте файлы только из
+> **Внимание.** APK в релизах до `v0.9.8` подписан debug-ключом. Начиная с
+> `v0.9.8` release-APK подписан ключом владельца репозитория.
+> Прошивка по воздуху (OTA) принимается только с подписью ECDSA P-256:
+> неподписанный или изменённый образ отклоняется. Первую прошивку с этой
+> проверкой ставьте по USB. См. [`docs/developer/OTA_SIGNING.md`](docs/developer/OTA_SIGNING.md)
+> и [`docs/SECURITY.md`](docs/SECURITY.md). Устанавливайте файлы только из
 > официального релиза этого репозитория.
 
 Подробности о работе — [`docs/user/USER_GUIDE.md`](docs/user/USER_GUIDE.md).

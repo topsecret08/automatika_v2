@@ -55,7 +55,9 @@ nvs_flash_init
   `ESP_OTA_IMG_PENDING_VERIFY` открывает окно health-check (60 с), при
   стабильной здоровой работе 30 с подтверждает образ, иначе вызывает
   `esp_ota_mark_app_invalid_rollback_and_reboot()`. Загрузка — только HTTPS
-  (`esp_https_ota`, CA bundle), HTTP запрещён (`OTA_ALLOW_PLAIN_HTTP=0`).
+  (CA bundle, `OTA_ALLOW_PLAIN_HTTP=0`) через общий путь `ota_manager_flash_url()`.
+  Перед выставлением загрузочного раздела проверяется подпись образа
+  (`ota_signature.c`, см. `docs/developer/OTA_SIGNING.md`).
 - **Зависимости:** `app_update`, `esp_https_ota`, `esp_https_server`,
   `mbedtls`, `core/events`, `web/telegram_notify`, `core/health`.
 - **Проверка:** `POST /api/ota/url {"url":"https://..."}`; статус —

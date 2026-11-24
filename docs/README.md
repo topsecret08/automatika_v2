@@ -15,6 +15,7 @@
 - [QUICK_START.md](user/QUICK_START.md) — от распаковки до первого запуска.
 - [PWA_INSTALL.md](user/PWA_INSTALL.md) — установка веб-интерфейса как приложения.
 - [FAQ.md](user/FAQ.md) — частые вопросы.
+- [developer/OTA_SIGNING.md](developer/OTA_SIGNING.md) - подпись образа прошивки для OTA, ключи, первая прошивка по USB.
 - [RELEASES.md](RELEASES.md) - какой коммит и какие артефакты входят в каждый релиз.
 - [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) - что не включено в управление, что значит degraded.
 - [TROUBLESHOOTING.md](service/TROUBLESHOOTING.md) — дерево диагностики.
