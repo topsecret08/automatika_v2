@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -33,8 +34,10 @@ def copy_lf(src: Path, dst: Path) -> None:
 def build_into(out: Path) -> None:
     """Запускает генератор во временной папке и копирует нужные файлы в out."""
     with tempfile.TemporaryDirectory() as tmp:
+        # Генератор печатает кириллицу: не зависим от кодировки консоли (на CI — cp1252).
+        env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
         subprocess.run([sys.executable, str(GENERATOR)], cwd=tmp, check=True,
-                       stdout=subprocess.DEVNULL)
+                       stdout=subprocess.DEVNULL, env=env)
         src = Path(tmp) / "sdcard"
         help_out = out / "help"
         recipes_out = out / "recipes"
@@ -62,6 +65,9 @@ def same_tree(a: Path, b: Path) -> bool:
 
 
 def main(argv: list[str]) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="проверить без записи")
     args = parser.parse_args(argv)
