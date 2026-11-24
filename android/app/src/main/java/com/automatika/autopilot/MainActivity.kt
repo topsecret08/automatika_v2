@@ -16,6 +16,7 @@ import com.automatika.autopilot.ui.AutopilotViewModelFactory
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.automatika.autopilot.data.StaticContent.appContext = applicationContext
         setContent {
             AutomatikaTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

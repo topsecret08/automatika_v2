@@ -19,31 +19,40 @@ import androidx.compose.ui.unit.dp
 import com.automatika.autopilot.data.ControllerParser
 import com.automatika.autopilot.data.RecipeDetail
 import com.automatika.autopilot.data.RecipeSummary
+import com.automatika.autopilot.data.StaticContent
 import java.net.URLEncoder
 
-/** Рецепты одной категории: список, затем рецепт целиком. Данные из /api/recipes и /api/recipe. */
+/**
+ * Рецепты одной категории. Список и описание — из каталога в APK (статика).
+ * Шаги приготовления в каталоге не хранятся: их запрашиваем у контроллера (/api/recipe).
+ */
 @Composable
 fun RecipesCard(category: String, title: String, vm: AutopilotViewModel) {
     var list by remember { mutableStateOf<List<RecipeSummary>>(emptyList()) }
     var detail by remember { mutableStateOf<RecipeDetail?>(null) }
-    var status by remember { mutableStateOf("Нажмите «Обновить».") }
+    var status by remember { mutableStateOf("") }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             val current = detail
             if (current == null) {
                 OutlinedButton(onClick = {
-                    vm.execute { api ->
-                        list = ControllerParser.recipes(api.getArray("/api/recipes")).filter { it.category == category }
-                        status = if (list.isEmpty()) "Рецептов нет." else ""
-                    }
+                    list = StaticContent.recipes(category)
+                    status = if (list.isEmpty()) "Рецептов нет." else ""
                 }) { Text("Обновить") }
                 if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
                 list.forEach { recipe ->
                     Button(onClick = {
+                        val local = StaticContent.recipe(recipe.id)
+                        if (local == null) {
+                            status = "Рецепт не найден в каталоге."
+                            return@Button
+                        }
+                        detail = local
                         vm.execute { api ->
                             val encoded = URLEncoder.encode(recipe.id, "UTF-8")
-                            detail = ControllerParser.recipe(api.getJson("/api/recipe?id=$encoded"))
+                            val steps = ControllerParser.recipe(api.getJson("/api/recipe?id=$encoded")).stepsMd
+                            detail = local.copy(stepsMd = steps)
                         }
                     }) { Text(recipe.name) }
                     Text(recipe.description, style = MaterialTheme.typography.bodySmall)
@@ -54,7 +63,10 @@ fun RecipesCard(category: String, title: String, vm: AutopilotViewModel) {
                 Text("Ингредиенты", style = MaterialTheme.typography.labelLarge)
                 Text(current.ingredients, style = MaterialTheme.typography.bodyMedium)
                 Text("Шаги", style = MaterialTheme.typography.labelLarge)
-                Text(current.stepsMd, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    current.stepsMd.ifBlank { "Шаги загружаются с контроллера…" },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 OutlinedButton(onClick = { detail = null }) { Text("К списку") }
             }
         }
