@@ -41,6 +41,10 @@ esp_err_t    ota_manager_confirm_running_app(void);
 // Возвращает ESP_OK, если задача запущена.
 esp_err_t    ota_manager_start_update(const char *firmware_url);
 
+// Синхронная загрузка по HTTP(S) с проверкой подписи. Не перезагружает устройство:
+// вызывающий делает esp_restart() после ESP_OK. Общий путь для всех URL-обновлений.
+esp_err_t    ota_manager_flash_url(const char *url);
+
 ota_state_t  ota_manager_state(void);
 const char  *ota_manager_state_name(void);
 bool         ota_manager_update_running(void);

@@ -47,6 +47,24 @@ jobs:
             --map build/automatika_v2.map \
             --bin build/automatika_v2.bin
 
+      - name: Sign firmware for OTA
+        shell: bash
+        env:
+          OTA_SIGNING_KEY: ${{ secrets.OTA_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$OTA_SIGNING_KEY" || { echo "OTA_SIGNING_KEY не задан в секретах"; exit 1; }
+          pip install -q "cryptography==50.0.2"
+          KEY="$RUNNER_TEMP/ota_sign_private.pem"
+          printf '%s\n' "$OTA_SIGNING_KEY" > "$KEY"
+          python tools/sign_firmware.py sign build/automatika_v2.bin \
+            --key "$KEY" --out build/automatika_v2-signed.bin
+          # Публичный ключ в репозитории должен совпасть с секретом, иначе релиз не выходит.
+          python tools/sign_firmware.py verify build/automatika_v2-signed.bin \
+            --pub tools/keys/ota_sign_public.pem
+          mv build/automatika_v2-signed.bin build/automatika_v2.bin
+          rm -f "$KEY"
+
       - name: Build and run Unity tests in QEMU
         shell: bash
         run: |

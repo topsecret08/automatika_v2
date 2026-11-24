@@ -1,12 +1,11 @@
 #include "secure_ota.h"
 #include "config.h"
 #include "ota_guard.h"
+#include "ota_manager.h"
 
 #include "core/events.h"
 #include "core/watchdog.h"
 
-#include "esp_crt_bundle.h"
-#include "esp_https_ota.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -39,20 +38,10 @@ static bool url_allowed(const char *url) {
 static void secure_ota_task(void *arg) {
     char *url = (char *)arg;
 
-    esp_http_client_config_t http = {
-        .url = url,
-        .timeout_ms = 30000,
-        .keep_alive_enable = true,
-        .buffer_size = 4096,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-    };
-    esp_https_ota_config_t ota = {
-        .http_config = &http,
-        .partial_http_download = false,
-    };
-
+    wd_register("ota", 30000, true);
     events_log(EVENT_INFO, "Secure OTA started");
-    esp_err_t err = esp_https_ota(&ota);
+    esp_err_t err = ota_manager_flash_url(url);
+    wd_remove("ota");
 
     if (err == ESP_OK) {
         events_log(EVENT_INFO, "Secure OTA complete, restarting");

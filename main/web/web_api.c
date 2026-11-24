@@ -70,6 +70,7 @@
 #include "control/ctrl_scale.h"
 #include "core/hw_profile.h"
 #include "ota/ota_manager.h"
+#include "ota/ota_signature.h"
 #include "ota/secure_ota.h"
 #include "script/lua_engine.h"
 #include "web/mqtt_app.h"
@@ -1203,6 +1204,16 @@ static esp_err_t h_ota_post(httpd_req_t *r) {
         ota_guard_set_web_running(false);
         events_log(EVENT_ERROR, "Web OTA end failed: %s", esp_err_to_name(err));
         return send_err(r, "500 Internal Server Error", "{\"error\":\"validate\"}");
+    }
+
+    size_t image_len = 0;
+    err = ota_signature_verify(p, (size_t)r->content_len, &image_len);
+    if (err != ESP_OK) {
+        ota_guard_set_web_running(false);
+        events_log(EVENT_ERROR, "Web OTA: образ не подписан или подпись неверна, прошивка не изменена");
+        return send_err(r, "400 Bad Request",
+                        err == ESP_ERR_NOT_FOUND ? "{\"error\":\"image not signed\"}"
+                                                 : "{\"error\":\"signature invalid\"}");
     }
 
     err = esp_ota_set_boot_partition(p);

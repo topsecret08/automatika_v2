@@ -103,6 +103,7 @@ idf_component_register(
         "web/https_server.c"
         "ota/fota.c" "ota/ota_manager.c" "ota/ota_sd.c" "ota/ota_url.c"
         "ota/ota_qr.c" "ota/ota_verify.c" "ota/secure_ota.c" "ota/ota_guard.c"
+        "ota/ota_signature.c"
         "third_party/qrcodegen.c"
     INCLUDE_DIRS "." "third_party"
     # Тестовый компонент main_test (Unity) живёт в test/ и включается
