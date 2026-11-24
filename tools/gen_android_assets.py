@@ -27,6 +27,11 @@ TARGET = ROOT / "android" / "app" / "src" / "main" / "assets" / "static"
 RECIPE_FILES = ("beer.json", "spirits.json", "mash.json")
 
 
+def copy_lf(src: Path, dst: Path) -> None:
+    """Копирует файл с переводами строк LF: иначе Windows и Linux дают разные байты."""
+    dst.write_bytes(src.read_bytes().replace(b"\r\n", b"\n"))
+
+
 def build_into(out: Path) -> None:
     """Запускает генератор во временной папке и копирует нужные файлы в out."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -40,9 +45,9 @@ def build_into(out: Path) -> None:
         help_out.mkdir(parents=True)
         recipes_out.mkdir(parents=True)
         for md in sorted((src / "help").glob("*.md")):
-            shutil.copyfile(md, help_out / md.name)
+            copy_lf(md, help_out / md.name)
         for name in RECIPE_FILES:
-            shutil.copyfile(src / "recipes" / name, recipes_out / name)
+            copy_lf(src / "recipes" / name, recipes_out / name)
 
 
 def same_tree(a: Path, b: Path) -> bool:
