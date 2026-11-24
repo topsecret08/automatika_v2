@@ -25,7 +25,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "core/watchdog.h"
+#include "esp_log.h"
 #include <stdio.h>
+
+static const char *TAG = "UI";
+
+// Без дисплея LVGL не должен получать ни одного вызова: иначе падение.
+#define UI_REQUIRE_DISPLAY() do { if (!hal_display_is_ready()) return; } while (0)
 
 static menu_ctx_t g_menu;
 static lv_obj_t *g_screen = NULL;
@@ -98,6 +104,7 @@ static void clear_screen(void) {
 }
 
 void ui_main_menu(void) {
+    UI_REQUIRE_DISPLAY();
     // Старое меню по функциям заменено на 4 группы по задачам.
     // Оставляем функцию как точку совместимости для старых экранов.
     ui_menu_show_root(0);
@@ -112,6 +119,7 @@ void ui_main_menu(void) {
 }
 
 void ui_show_welcome(void) {
+    UI_REQUIRE_DISPLAY();
     clear_screen();
     lv_obj_t *t = lv_label_create(g_screen);
     lv_label_set_text(t, "АВТОМАТИКА V0.9.6\n\nДобро пожаловать!");
@@ -135,6 +143,7 @@ void ui_show_welcome(void) {
 }
 
 void ui_show_resume_dialog(void) {
+    UI_REQUIRE_DISPLAY();
     clear_screen();
     process_state_t *s = state_get();
     char msg[300];
@@ -171,6 +180,7 @@ void ui_show_resume_dialog(void) {
 }
 
 void ui_toast(const char *msg) {
+    UI_REQUIRE_DISPLAY();
     if (g_toast) lv_obj_del(g_toast);
     g_toast = lv_label_create(lv_scr_act());
     lv_label_set_text(g_toast, msg);
@@ -191,6 +201,7 @@ void ui_init(void) {
 // Дашборд в стиле glass. Живёт в ui.c, потому что использует статический
 // g_screen/clear_screen: иначе после смены экрана остался бы висячий указатель.
 void ui_screen_home_create(void) {
+    UI_REQUIRE_DISPLAY();
     ui_menu_set_state(0, 0, 0);
     clear_screen();
     ui_glass_theme_apply(lv_disp_get_default());
@@ -200,12 +211,14 @@ void ui_screen_home_create(void) {
 }
 
 void ui_screen_selection_dashboard_create(void) {
+    UI_REQUIRE_DISPLAY();
     clear_screen();
     ui_screen_selection_build(g_screen);
     s_dashboard_visible = false;
 }
 
 void ui_menu_show_root(int selected_tab) {
+    UI_REQUIRE_DISPLAY();
     ui_menu_set_state(selected_tab, 0, 0);
     clear_screen();
     ui_menu_build_root(g_screen, selected_tab);
@@ -213,6 +226,7 @@ void ui_menu_show_root(int selected_tab) {
 }
 
 void ui_menu_show_group(int tab, int selected_item) {
+    UI_REQUIRE_DISPLAY();
     ui_menu_set_state(tab, 1, selected_item);
     clear_screen();
     ui_menu_build_group(g_screen, tab, selected_item);
@@ -230,6 +244,14 @@ void ui_refresh_dashboard(void) {
 void ui_task(void *arg) {
     (void)arg;
     wd_register("ui", 2000, false);
+
+    if (!hal_display_is_ready()) {
+        ESP_LOGW(TAG, "дисплей недоступен: цикл UI в режиме ожидания");
+        while (1) {
+            WD_FEED("ui");
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
 
     // Первый кадр — glass-дашборд. Делаем это в задаче UI (ядро 1, prio 8),
     // а не в app_main, чтобы все обращения к LVGL шли из одного контекста.
@@ -281,6 +303,7 @@ lv_obj_t* ui_make_page(const char *title) {
 }
 
 void ui_show_markdown(const char *title, const char *md) {
+    UI_REQUIRE_DISPLAY();
     ui_navigate(SCR_HELP_ARTICLE);
     lv_obj_t *c = ui_make_page(title);
     lv_obj_t *l = lv_label_create(c);
@@ -291,6 +314,7 @@ void ui_show_markdown(const char *title, const char *md) {
 }
 
 void ui_show_markdown_from_file(const char *title, const char *path) {
+    UI_REQUIRE_DISPLAY();
     static char buf[4096];
     size_t n = 0;
     FILE *f = fopen(path, "r");
@@ -300,5 +324,6 @@ void ui_show_markdown_from_file(const char *title, const char *path) {
 }
 
 void ui_show_text_dialog(const char *title, const char *text) {
+    UI_REQUIRE_DISPLAY();
     ui_show_markdown(title, text);
 }

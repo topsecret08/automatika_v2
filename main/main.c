@@ -223,7 +223,9 @@ void app_main(void) {
 
     ctrl_heater_init();
     hal_relay_init();
-    hal_display_init();
+    if (hal_display_init() != ESP_OK) {
+        ESP_LOGE(TAG, "дисплей не запущен: контроллер работает без экрана");
+    }
     hal_touch_init();
     storage_init();
     flash_fs_init();
@@ -295,10 +297,14 @@ void app_main(void) {
     // того, как журнал и учётные данные уже готовы.
     health_init();
 
-    ui_init();
-    ui_physical_init();
-    ui_anim_init();
-    ui_fps_init();
+    if (hal_display_is_ready()) {
+        ui_init();
+        ui_physical_init();
+        ui_anim_init();
+        ui_fps_init();
+    } else {
+        ESP_LOGW(TAG, "UI не запущен: дисплей недоступен");
+    }
 
     menu_validate_all();
 

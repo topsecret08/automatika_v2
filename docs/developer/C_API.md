@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 358.
+Всего функций: 363.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -1106,6 +1106,43 @@ bool hal_actuator_is_binary(uint8_t id);
 ```
 
 true — канал бинарный (GPIO-сухой контакт/оптопара): 0 или 100 %.
+
+## `main/hal/hal_display.h`
+
+```c
+esp_err_t hal_display_init(void);
+```
+
+ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
+вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
+
+```c
+void hal_display_lock(void);
+```
+
+ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
+вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
+
+```c
+void hal_display_unlock(void);
+```
+
+ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
+вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
+
+```c
+void hal_display_backlight(int percent); // 0-100 int hal_display_get_backlight(void);
+```
+
+ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
+вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
+
+```c
+bool hal_display_is_ready(void);
+```
+
+ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
+вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
 
 ## `main/hal/hal_safety_relay.h`
 
