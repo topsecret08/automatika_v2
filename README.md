@@ -13,6 +13,24 @@ Android-приложения.
 > [`docs/user/BEGINNER_GUIDE.md`](docs/user/BEGINNER_GUIDE.md). Не оставляйте
 > работающий аппарат без присмотра.
 
+## Два устройства в одном репозитории
+
+Корень проекта по-прежнему — **прошивка контроллера**. Графический пульт
+вынесен на отдельную плату Waveshare ESP32-S3-Touch-LCD-7 и живёт в
+`firmware_hmi_project/`. Общий протокол RS485 — в `protocol/`,
+без git submodules.
+
+| Проект | Каталог | Прошивка | Дисплей |
+|---|---|---|---|
+| Контроллер | `.` | `automatika_v2.bin` | ST7796 480×320 |
+| HMI-панель | `firmware_hmi_project/` | `hmi_panel.bin` | RGB 800×480 |
+
+Панель — master шины и не выполняет safety-логику. E-STOP и `safety_gate`
+остаются на контроллере. Подробности:
+[`docs/developer/MONOREPO.md`](docs/developer/MONOREPO.md),
+[`docs/developer/RS485_PROTOCOL.md`](docs/developer/RS485_PROTOCOL.md),
+[`docs/FLASHING.md`](docs/FLASHING.md).
+
 ## Что умеет Автоматика
 
 Контроллер ведёт процесс от нагрева до отбора фракций. Вы задаёте программу,

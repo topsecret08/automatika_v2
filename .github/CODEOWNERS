@@ -1,0 +1,7 @@
+# Контроллер остаётся владельцем корневых путей.
+/                       @topsecret08
+/main/                  @topsecret08
+/protocol/              @topsecret08
+/firmware_hmi_project/  @topsecret08
+/firmware_hmi/          @topsecret08
+/docs/developer/        @topsecret08

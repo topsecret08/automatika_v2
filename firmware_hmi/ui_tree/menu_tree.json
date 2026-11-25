@@ -1,0 +1,2016 @@
+{
+  "meta": {
+    "name": "Automatika HMI menu tree",
+    "resolution": "800x480",
+    "lvgl": "8.3.x",
+    "header_clock": true,
+    "global_overlay": [
+      "help",
+      "calculators"
+    ],
+    "navigation": {
+      "enter": "short press",
+      "back": "hold 2s",
+      "encoder": true
+    }
+  },
+  "screens": [
+    {
+      "id": "help",
+      "title": "СПРАВКА",
+      "parent": "main",
+      "children": [
+        "help_current",
+        "help_glossary",
+        "help_safety",
+        "help_about"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "help_current",
+      "title": "Справка по экрану",
+      "parent": "help",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "help_glossary",
+      "title": "Глоссарий",
+      "parent": "help",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "help_safety",
+      "title": "Безопасность / E-STOP",
+      "parent": "help",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "help_about",
+      "title": "О версии HMI",
+      "parent": "help",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "calculators",
+      "title": "КАЛЬКУЛЯТОРЫ",
+      "parent": "main",
+      "children": [
+        "calc_strength",
+        "calc_temp",
+        "calc_flow",
+        "calc_units"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "calc_strength",
+      "title": "Крепость / объём / спирт",
+      "parent": "calculators",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "calc_temp",
+      "title": "Температура / давление",
+      "parent": "calculators",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "calc_flow",
+      "title": "Расход / время отбора",
+      "parent": "calculators",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "calc_units",
+      "title": "Конвертация единиц",
+      "parent": "calculators",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "main",
+      "title": "ГЛАВНОЕ МЕНЮ",
+      "parent": null,
+      "children": [
+        "modes",
+        "preparation",
+        "diagnostics",
+        "system"
+      ],
+      "manual": "ui_screen_menu_create",
+      "kind": "menu"
+    },
+    {
+      "id": "modes",
+      "title": "РЕЖИМЫ",
+      "parent": "main",
+      "children": [
+        "mode_distillation",
+        "mode_rectification",
+        "mode_beer",
+        "mode_pvk",
+        "mode_nbk",
+        "mode_vacuum",
+        "mode_double",
+        "mode_fermentation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "mode_distillation",
+      "title": "ДИСТИЛЯЦИЯ",
+      "parent": "modes",
+      "children": [
+        "settings_distillation",
+        "work_distillation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_distillation",
+      "title": "Настройка режима",
+      "parent": "mode_distillation",
+      "children": [
+        "params_distillation",
+        "recipes_distillation",
+        "equipment_distillation",
+        "limits_distillation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_distillation",
+      "title": "Параметры процесса",
+      "parent": "settings_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_distillation",
+      "title": "Оборудование и каналы",
+      "parent": "settings_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_distillation",
+      "title": "Пределы и безопасность",
+      "parent": "settings_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_distillation",
+      "title": "Рецепты и профили",
+      "parent": "settings_distillation",
+      "children": [
+        "recipe_load_distillation",
+        "recipe_save_distillation",
+        "recipe_io_distillation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_distillation",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_distillation",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_distillation",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_distillation",
+      "title": "Рабочий экран",
+      "parent": "mode_distillation",
+      "children": [
+        "dash_distillation",
+        "charts_distillation",
+        "journal_distillation",
+        "alarms_distillation",
+        "report_distillation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "dash_distillation",
+      "title": "Дашборд",
+      "parent": "work_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_distillation",
+      "title": "Графики",
+      "parent": "work_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_distillation",
+      "title": "Журнал режима",
+      "parent": "work_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_distillation",
+      "title": "Аварии / E-STOP",
+      "parent": "work_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_distillation",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_distillation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "mode_rectification",
+      "title": "РЕКТИФИКАЦИЯ",
+      "parent": "modes",
+      "children": [
+        "settings_rectification",
+        "work_rectification"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_rectification",
+      "title": "Настройка режима",
+      "parent": "mode_rectification",
+      "children": [
+        "params_rectification",
+        "recipes_rectification",
+        "equipment_rectification",
+        "limits_rectification"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_rectification",
+      "title": "Параметры процесса",
+      "parent": "settings_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_rectification",
+      "title": "Оборудование и каналы",
+      "parent": "settings_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_rectification",
+      "title": "Пределы и безопасность",
+      "parent": "settings_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_rectification",
+      "title": "Рецепты и профили",
+      "parent": "settings_rectification",
+      "children": [
+        "recipe_load_rectification",
+        "recipe_save_rectification",
+        "recipe_io_rectification"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_rectification",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_rectification",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_rectification",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_rectification",
+      "title": "Рабочий экран",
+      "parent": "mode_rectification",
+      "children": [
+        "dash_rectification",
+        "charts_rectification",
+        "journal_rectification",
+        "alarms_rectification",
+        "report_rectification"
+      ],
+      "manual": "ui_screen_rectification_create",
+      "kind": "menu"
+    },
+    {
+      "id": "dash_rectification",
+      "title": "Дашборд",
+      "parent": "work_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_rectification",
+      "title": "Графики",
+      "parent": "work_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_rectification",
+      "title": "Журнал режима",
+      "parent": "work_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_rectification",
+      "title": "Аварии / E-STOP",
+      "parent": "work_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_rectification",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_rectification",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "mode_beer",
+      "title": "ПИВОВАРНЯ",
+      "parent": "modes",
+      "children": [
+        "settings_beer",
+        "work_beer"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_beer",
+      "title": "Настройка режима",
+      "parent": "mode_beer",
+      "children": [
+        "params_beer",
+        "recipes_beer",
+        "equipment_beer",
+        "limits_beer"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_beer",
+      "title": "Параметры процесса",
+      "parent": "settings_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_beer",
+      "title": "Оборудование и каналы",
+      "parent": "settings_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_beer",
+      "title": "Пределы и безопасность",
+      "parent": "settings_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_beer",
+      "title": "Рецепты и профили",
+      "parent": "settings_beer",
+      "children": [
+        "recipe_load_beer",
+        "recipe_save_beer",
+        "recipe_io_beer"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_beer",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_beer",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_beer",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_beer",
+      "title": "Рабочий экран",
+      "parent": "mode_beer",
+      "children": [
+        "dash_beer",
+        "charts_beer",
+        "journal_beer",
+        "alarms_beer",
+        "report_beer"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "dash_beer",
+      "title": "Дашборд",
+      "parent": "work_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_beer",
+      "title": "Графики",
+      "parent": "work_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_beer",
+      "title": "Журнал режима",
+      "parent": "work_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_beer",
+      "title": "Аварии / E-STOP",
+      "parent": "work_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_beer",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_beer",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "mode_pvk",
+      "title": "ПВК",
+      "parent": "modes",
+      "children": [
+        "settings_pvk",
+        "work_pvk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_pvk",
+      "title": "Настройка режима",
+      "parent": "mode_pvk",
+      "children": [
+        "params_pvk",
+        "recipes_pvk",
+        "equipment_pvk",
+        "limits_pvk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_pvk",
+      "title": "Параметры процесса",
+      "parent": "settings_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_pvk",
+      "title": "Оборудование и каналы",
+      "parent": "settings_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_pvk",
+      "title": "Пределы и безопасность",
+      "parent": "settings_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_pvk",
+      "title": "Рецепты и профили",
+      "parent": "settings_pvk",
+      "children": [
+        "recipe_load_pvk",
+        "recipe_save_pvk",
+        "recipe_io_pvk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_pvk",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_pvk",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_pvk",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_pvk",
+      "title": "Рабочий экран",
+      "parent": "mode_pvk",
+      "children": [
+        "dash_pvk",
+        "charts_pvk",
+        "journal_pvk",
+        "alarms_pvk",
+        "report_pvk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "dash_pvk",
+      "title": "Дашборд",
+      "parent": "work_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_pvk",
+      "title": "Графики",
+      "parent": "work_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_pvk",
+      "title": "Журнал режима",
+      "parent": "work_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_pvk",
+      "title": "Аварии / E-STOP",
+      "parent": "work_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_pvk",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_pvk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "mode_nbk",
+      "title": "НБК",
+      "parent": "modes",
+      "children": [
+        "settings_nbk",
+        "work_nbk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_nbk",
+      "title": "Настройка режима",
+      "parent": "mode_nbk",
+      "children": [
+        "params_nbk",
+        "recipes_nbk",
+        "equipment_nbk",
+        "limits_nbk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_nbk",
+      "title": "Параметры процесса",
+      "parent": "settings_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_nbk",
+      "title": "Оборудование и каналы",
+      "parent": "settings_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_nbk",
+      "title": "Пределы и безопасность",
+      "parent": "settings_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_nbk",
+      "title": "Рецепты и профили",
+      "parent": "settings_nbk",
+      "children": [
+        "recipe_load_nbk",
+        "recipe_save_nbk",
+        "recipe_io_nbk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_nbk",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_nbk",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_nbk",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_nbk",
+      "title": "Рабочий экран",
+      "parent": "mode_nbk",
+      "children": [
+        "dash_nbk",
+        "charts_nbk",
+        "journal_nbk",
+        "alarms_nbk",
+        "report_nbk"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "dash_nbk",
+      "title": "Дашборд",
+      "parent": "work_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_nbk",
+      "title": "Графики",
+      "parent": "work_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_nbk",
+      "title": "Журнал режима",
+      "parent": "work_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_nbk",
+      "title": "Аварии / E-STOP",
+      "parent": "work_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_nbk",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_nbk",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "mode_vacuum",
+      "title": "ВАКУУМ",
+      "parent": "modes",
+      "children": [
+        "settings_vacuum",
+        "work_vacuum"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_vacuum",
+      "title": "Настройка режима",
+      "parent": "mode_vacuum",
+      "children": [
+        "params_vacuum",
+        "recipes_vacuum",
+        "equipment_vacuum",
+        "limits_vacuum"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_vacuum",
+      "title": "Параметры процесса",
+      "parent": "settings_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_vacuum",
+      "title": "Оборудование и каналы",
+      "parent": "settings_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_vacuum",
+      "title": "Пределы и безопасность",
+      "parent": "settings_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_vacuum",
+      "title": "Рецепты и профили",
+      "parent": "settings_vacuum",
+      "children": [
+        "recipe_load_vacuum",
+        "recipe_save_vacuum",
+        "recipe_io_vacuum"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_vacuum",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_vacuum",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_vacuum",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_vacuum",
+      "title": "Рабочий экран",
+      "parent": "mode_vacuum",
+      "children": [
+        "dash_vacuum",
+        "charts_vacuum",
+        "journal_vacuum",
+        "alarms_vacuum",
+        "report_vacuum"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "dash_vacuum",
+      "title": "Дашборд",
+      "parent": "work_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_vacuum",
+      "title": "Графики",
+      "parent": "work_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_vacuum",
+      "title": "Журнал режима",
+      "parent": "work_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_vacuum",
+      "title": "Аварии / E-STOP",
+      "parent": "work_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_vacuum",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_vacuum",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "mode_double",
+      "title": "ДВОЙНАЯ ПЕРЕГОНКА",
+      "parent": "modes",
+      "children": [
+        "settings_double",
+        "work_double"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_double",
+      "title": "Настройка режима",
+      "parent": "mode_double",
+      "children": [
+        "params_double",
+        "recipes_double",
+        "equipment_double",
+        "limits_double"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_double",
+      "title": "Параметры процесса",
+      "parent": "settings_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_double",
+      "title": "Оборудование и каналы",
+      "parent": "settings_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_double",
+      "title": "Пределы и безопасность",
+      "parent": "settings_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_double",
+      "title": "Рецепты и профили",
+      "parent": "settings_double",
+      "children": [
+        "recipe_load_double",
+        "recipe_save_double",
+        "recipe_io_double"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_double",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_double",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_double",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_double",
+      "title": "Рабочий экран",
+      "parent": "mode_double",
+      "children": [
+        "dash_double",
+        "charts_double",
+        "journal_double",
+        "alarms_double",
+        "report_double"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "dash_double",
+      "title": "Дашборд",
+      "parent": "work_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_double",
+      "title": "Графики",
+      "parent": "work_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_double",
+      "title": "Журнал режима",
+      "parent": "work_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_double",
+      "title": "Аварии / E-STOP",
+      "parent": "work_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_double",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_double",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "mode_fermentation",
+      "title": "БРОЖЕНИЕ",
+      "parent": "modes",
+      "children": [
+        "settings_fermentation",
+        "work_fermentation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "settings_fermentation",
+      "title": "Настройка режима",
+      "parent": "mode_fermentation",
+      "children": [
+        "params_fermentation",
+        "recipes_fermentation",
+        "equipment_fermentation",
+        "limits_fermentation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "params_fermentation",
+      "title": "Параметры процесса",
+      "parent": "settings_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "equipment_fermentation",
+      "title": "Оборудование и каналы",
+      "parent": "settings_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "limits_fermentation",
+      "title": "Пределы и безопасность",
+      "parent": "settings_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipes_fermentation",
+      "title": "Рецепты и профили",
+      "parent": "settings_fermentation",
+      "children": [
+        "recipe_load_fermentation",
+        "recipe_save_fermentation",
+        "recipe_io_fermentation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "recipe_load_fermentation",
+      "title": "Загрузить рецепт",
+      "parent": "recipes_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_save_fermentation",
+      "title": "Сохранить рецепт",
+      "parent": "recipes_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "recipe_io_fermentation",
+      "title": "Импорт / Экспорт",
+      "parent": "recipes_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "work_fermentation",
+      "title": "Рабочий экран",
+      "parent": "mode_fermentation",
+      "children": [
+        "dash_fermentation",
+        "charts_fermentation",
+        "journal_fermentation",
+        "alarms_fermentation",
+        "report_fermentation"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "dash_fermentation",
+      "title": "Дашборд",
+      "parent": "work_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "charts_fermentation",
+      "title": "Графики",
+      "parent": "work_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "journal_fermentation",
+      "title": "Журнал режима",
+      "parent": "work_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "alarms_fermentation",
+      "title": "Аварии / E-STOP",
+      "parent": "work_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "report_fermentation",
+      "title": "Отчёт / Экспорт",
+      "parent": "work_fermentation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "preparation",
+      "title": "ПОДГОТОВКА",
+      "parent": "main",
+      "children": [
+        "prep_import",
+        "prep_equipment",
+        "prep_profiles",
+        "prep_calibration",
+        "prep_check",
+        "prep_export"
+      ],
+      "manual": "ui_screen_preparation_create",
+      "kind": "menu"
+    },
+    {
+      "id": "prep_import",
+      "title": "Импорт настроек режима",
+      "parent": "preparation",
+      "children": [
+        "prep_import_file",
+        "prep_import_rs485",
+        "prep_import_verify"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "prep_import_file",
+      "title": "Из файла",
+      "parent": "prep_import",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_import_rs485",
+      "title": "С контроллера по RS485",
+      "parent": "prep_import",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_import_verify",
+      "title": "Проверка и применение",
+      "parent": "prep_import",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_equipment",
+      "title": "Доступное оборудование",
+      "parent": "preparation",
+      "children": [
+        "prep_eq_scan",
+        "prep_eq_map",
+        "prep_eq_versions"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "prep_eq_scan",
+      "title": "Сканирование",
+      "parent": "prep_equipment",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_eq_map",
+      "title": "Карта каналов",
+      "parent": "prep_equipment",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_eq_versions",
+      "title": "Версии / прошивки",
+      "parent": "prep_equipment",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_profiles",
+      "title": "Профили",
+      "parent": "preparation",
+      "children": [
+        "prep_prof_list",
+        "prep_prof_new",
+        "prep_prof_copy",
+        "prep_prof_delete"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "prep_prof_list",
+      "title": "Список",
+      "parent": "prep_profiles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_prof_new",
+      "title": "Создать",
+      "parent": "prep_profiles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_prof_copy",
+      "title": "Копировать",
+      "parent": "prep_profiles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_prof_delete",
+      "title": "Удалить / Экспорт",
+      "parent": "prep_profiles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_calibration",
+      "title": "Калибровка",
+      "parent": "preparation",
+      "children": [
+        "prep_cal_temp",
+        "prep_cal_level",
+        "prep_cal_actuators"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "prep_cal_temp",
+      "title": "Датчики температуры",
+      "parent": "prep_calibration",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_cal_level",
+      "title": "Уровень / поток / давление",
+      "parent": "prep_calibration",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_cal_actuators",
+      "title": "Исполнители и нулевые точки",
+      "parent": "prep_calibration",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_check",
+      "title": "Предпусковая проверка",
+      "parent": "preparation",
+      "children": [
+        "prep_check_list",
+        "prep_check_valves",
+        "prep_check_seal",
+        "prep_check_heat"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "prep_check_list",
+      "title": "Чек-лист",
+      "parent": "prep_check",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_check_valves",
+      "title": "Тест клапанов",
+      "parent": "prep_check",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_check_seal",
+      "title": "Герметичность",
+      "parent": "prep_check",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_check_heat",
+      "title": "Нагрев / промывка",
+      "parent": "prep_check",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "prep_export",
+      "title": "Экспорт настроек",
+      "parent": "preparation",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diagnostics",
+      "title": "ДИАГНОСТИКА",
+      "parent": "main",
+      "children": [
+        "diag_equipment",
+        "diag_test",
+        "diag_journal",
+        "diag_actuators",
+        "diag_ai",
+        "diag_network",
+        "diag_export"
+      ],
+      "manual": "ui_screen_diagnostics_create",
+      "kind": "menu"
+    },
+    {
+      "id": "diag_equipment",
+      "title": "Доступное оборудование",
+      "parent": "diagnostics",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_test",
+      "title": "Тест датчиков и исполнителей",
+      "parent": "diagnostics",
+      "children": [
+        "diag_test_sensors",
+        "diag_test_actuators",
+        "diag_test_result"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "diag_test_sensors",
+      "title": "Датчики",
+      "parent": "diag_test",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_test_actuators",
+      "title": "Клапаны / насосы / ТЭН",
+      "parent": "diag_test",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_test_result",
+      "title": "Результат теста",
+      "parent": "diag_test",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_journal",
+      "title": "Журнал",
+      "parent": "diagnostics",
+      "children": [
+        "diag_journal_events",
+        "diag_journal_alarms",
+        "diag_journal_rs485"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "diag_journal_events",
+      "title": "События",
+      "parent": "diag_journal",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_journal_alarms",
+      "title": "Аварии",
+      "parent": "diag_journal",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_journal_rs485",
+      "title": "Ошибки RS485 / CRC",
+      "parent": "diag_journal",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_actuators",
+      "title": "Приводы",
+      "parent": "diagnostics",
+      "children": [
+        "diag_act_state",
+        "diag_act_manual",
+        "diag_act_locks"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "diag_act_state",
+      "title": "Состояния",
+      "parent": "diag_actuators",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_act_manual",
+      "title": "Ручное управление",
+      "parent": "diag_actuators",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_act_locks",
+      "title": "Блокировки",
+      "parent": "diag_actuators",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_ai",
+      "title": "AI МОДУЛИ",
+      "parent": "diagnostics",
+      "children": [
+        "diag_ai_status",
+        "diag_ai_predict",
+        "diag_ai_log",
+        "diag_ai_update"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "diag_ai_status",
+      "title": "Статус моделей",
+      "parent": "diag_ai",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_ai_predict",
+      "title": "Прогнозы / рекомендации",
+      "parent": "diag_ai",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_ai_log",
+      "title": "Журнал прогнозов",
+      "parent": "diag_ai",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_ai_update",
+      "title": "Обновление моделей",
+      "parent": "diag_ai",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_network",
+      "title": "Сеть",
+      "parent": "diagnostics",
+      "children": [
+        "diag_net_rs485",
+        "diag_net_wifi",
+        "diag_net_api",
+        "diag_net_ping"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "diag_net_rs485",
+      "title": "RS485",
+      "parent": "diag_network",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_net_wifi",
+      "title": "Wi-Fi / Ethernet",
+      "parent": "diag_network",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_net_api",
+      "title": "API-клиенты",
+      "parent": "diag_network",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_net_ping",
+      "title": "Ping / задержка",
+      "parent": "diag_network",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "diag_export",
+      "title": "Экспорт отчёта",
+      "parent": "diagnostics",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "system",
+      "title": "СИСТЕМА",
+      "parent": "main",
+      "children": [
+        "sys_interface",
+        "sys_roles",
+        "sys_io",
+        "sys_update",
+        "sys_api",
+        "sys_language",
+        "sys_service"
+      ],
+      "manual": "ui_screen_system_create",
+      "kind": "menu"
+    },
+    {
+      "id": "sys_interface",
+      "title": "Интерфейс",
+      "parent": "system",
+      "children": [
+        "sys_ui_theme",
+        "sys_ui_brightness",
+        "sys_ui_font",
+        "sys_ui_input"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "sys_ui_theme",
+      "title": "Тема",
+      "parent": "sys_interface",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_ui_brightness",
+      "title": "Яркость",
+      "parent": "sys_interface",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_ui_font",
+      "title": "Размер шрифтов",
+      "parent": "sys_interface",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_ui_input",
+      "title": "Кнопки / энкодер",
+      "parent": "sys_interface",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_roles",
+      "title": "Роли",
+      "parent": "system",
+      "children": [
+        "sys_roles_list",
+        "sys_roles_rights",
+        "sys_roles_pin",
+        "sys_roles_permanent"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "sys_roles_list",
+      "title": "Список ролей",
+      "parent": "sys_roles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_roles_rights",
+      "title": "Права доступа",
+      "parent": "sys_roles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_roles_pin",
+      "title": "PIN / вход",
+      "parent": "sys_roles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_roles_permanent",
+      "title": "Включить навсегда",
+      "parent": "sys_roles",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_io",
+      "title": "Импорт и экспорт настроек",
+      "parent": "system",
+      "children": [
+        "sys_io_backup",
+        "sys_io_restore",
+        "sys_io_factory"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "sys_io_backup",
+      "title": "Backup",
+      "parent": "sys_io",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_io_restore",
+      "title": "Restore",
+      "parent": "sys_io",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_io_factory",
+      "title": "Factory reset",
+      "parent": "sys_io",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_update",
+      "title": "Обновление",
+      "parent": "system",
+      "children": [
+        "sys_update_check",
+        "sys_update_hmi",
+        "sys_update_ctrl",
+        "sys_update_rollback"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "sys_update_check",
+      "title": "Проверить версии",
+      "parent": "sys_update",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_update_hmi",
+      "title": "Обновить HMI",
+      "parent": "sys_update",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_update_ctrl",
+      "title": "Обновить контроллер",
+      "parent": "sys_update",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_update_rollback",
+      "title": "Откат / Rollback",
+      "parent": "sys_update",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_api",
+      "title": "API",
+      "parent": "system",
+      "children": [
+        "sys_api_endpoints",
+        "sys_api_token",
+        "sys_api_rate",
+        "sys_api_clients"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "sys_api_endpoints",
+      "title": "Endpoints",
+      "parent": "sys_api",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_api_token",
+      "title": "Токен",
+      "parent": "sys_api",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_api_rate",
+      "title": "Rate limit",
+      "parent": "sys_api",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_api_clients",
+      "title": "Активные клиенты",
+      "parent": "sys_api",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_language",
+      "title": "Язык",
+      "parent": "system",
+      "children": [
+        "sys_lang_ru",
+        "sys_lang_en",
+        "sys_lang_date",
+        "sys_lang_units"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "sys_lang_ru",
+      "title": "Русский",
+      "parent": "sys_language",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_lang_en",
+      "title": "English",
+      "parent": "sys_language",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_lang_date",
+      "title": "Формат даты",
+      "parent": "sys_language",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_lang_units",
+      "title": "Единицы измерения",
+      "parent": "sys_language",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_service",
+      "title": "Сервис",
+      "parent": "system",
+      "children": [
+        "sys_srv_status",
+        "sys_srv_temp",
+        "sys_srv_logs",
+        "sys_srv_reboot"
+      ],
+      "manual": null,
+      "kind": "menu"
+    },
+    {
+      "id": "sys_srv_status",
+      "title": "Uptime / Heap / PSRAM",
+      "parent": "sys_service",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_srv_temp",
+      "title": "Температура CPU",
+      "parent": "sys_service",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_srv_logs",
+      "title": "Логи HMI",
+      "parent": "sys_service",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    },
+    {
+      "id": "sys_srv_reboot",
+      "title": "Перезагрузка",
+      "parent": "sys_service",
+      "children": [],
+      "manual": null,
+      "kind": "leaf"
+    }
+  ]
+}

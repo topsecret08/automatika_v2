@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "generated": "2026-11-25",
+  "repository": "topsecret08/automatika_v2",
+  "controller": {
+    "name": "automatika_v2",
+    "version": "V0.9.6",
+    "tag": "v0.9.6-ctrl1",
+    "target": "esp32s3",
+    "path": "."
+  },
+  "hmi": {
+    "name": "automatika_hmi",
+    "version": "0.9.6-hmi1",
+    "tag": "v0.9.6-hmi1",
+    "target": "esp32s3",
+    "path": "firmware_hmi_project",
+    "display": "Waveshare ESP32-S3-Touch-LCD-7, RGB 800x480, GT911"
+  },
+  "protocol": {
+    "version": "1.0.0",
+    "path": "protocol",
+    "component": "rs485_protocol"
+  },
+  "compatibility": {
+    "controller_min": "V0.9.6",
+    "hmi_min": "0.9.6-hmi1",
+    "protocol": "1.0.0"
+  }
+}

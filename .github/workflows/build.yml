@@ -165,6 +165,39 @@ jobs:
             build/size.txt
           if-no-files-found: error
 
+  hmi-firmware:
+    name: HMI panel (esp32s3)
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Protocol host test
+        run: bash firmware_hmi_project/tests/run_test_proto.sh
+
+      - name: Build HMI firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          idf.py -C firmware_hmi_project set-target esp32s3
+          idf.py -C firmware_hmi_project build
+          idf.py -C firmware_hmi_project size | tee firmware_hmi_project/build/size.txt
+
+      - name: Upload HMI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: automatika-hmi-${{ github.sha }}
+          path: |
+            firmware_hmi_project/build/hmi_panel.bin
+            firmware_hmi_project/build/hmi_panel.elf
+            firmware_hmi_project/build/hmi_panel.map
+            firmware_hmi_project/build/bootloader/bootloader.bin
+            firmware_hmi_project/build/partition_table/partition-table.bin
+            firmware_hmi_project/build/size.txt
+          if-no-files-found: error
+
   esp-tests:
     name: ESP-IDF Unity tests in QEMU
     runs-on: ubuntu-latest

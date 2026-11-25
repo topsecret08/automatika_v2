@@ -63,3 +63,42 @@ menu "Automatika V0.7 beta"
             мешалка работают через GPIO/реле.
 
 endmenu
+
+
+menu "Automatika HMI RS485 (external panel)"
+
+    config HMI_RS485_ENABLE
+        bool "Enable RS485 slave interface for HMI panel"
+        default y
+        help
+            Контроллер отвечает на POLL/CMD/GET_CONFIG/PING от внешней панели.
+            Панель является master шины. Safety и E-STOP остаются здесь.
+
+    config HMI_RS485_UART_NUM
+        int "UART number for HMI RS485"
+        default 2
+        range 0 2
+
+    config HMI_RS485_BAUD
+        int "Baud rate"
+        default 115200
+
+    config HMI_RS485_TX_GPIO
+        int "RS485 TX GPIO (-1 = not configured)"
+        default -1
+        help
+            НЕ используйте 14, 15, 16, 17, 18, 21 — это SPI дисплея контроллера.
+            Не назначайте 22..25 (у ESP32-S3 их нет). Укажите свободный вывод
+            согласно схеме платы до первого запуска.
+
+    config HMI_RS485_RX_GPIO
+        int "RS485 RX GPIO (-1 = not configured)"
+        default -1
+
+    config HMI_RS485_DE_GPIO
+        int "RS485 DE/RE GPIO, подключён к RTS (-1 = not configured)"
+        default -1
+        help
+            DE и /RE на модуле должны быть связаны вместе.
+
+endmenu

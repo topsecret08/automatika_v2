@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>HMI 800×480 — гибридная раскладка</title>
+<style>
+  :root{
+    --bg:#0B1020; --card:#151B2E; --line:#2A3555;
+    --text:#E8EEF7; --muted:#93A4BD;
+    --blue:#2E7CF6; --green:#28C76F; --red:#FF4D4F; --amber:#FFA726;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:#05080F; color:var(--text);
+    font-family:"DejaVu Sans",Arial,sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; padding:18px;
+  }
+  .frame{
+    width:800px; height:480px; background:var(--bg);
+    border:1px solid var(--line); border-radius:14px;
+    padding:8px; display:grid; grid-template-rows:84px 1fr 77px; gap:8px;
+    box-shadow:0 18px 60px rgba(0,0,0,.6);
+  }
+  .row{display:flex; align-items:center; justify-content:space-between}
+  .box{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:10px; padding:10px;
+  }
+  .header{font-size:22px; font-weight:700; letter-spacing:.5px}
+  .header small{font-size:14px; font-weight:400; color:var(--muted)}
+  .content{display:grid; grid-template-columns:1fr 180px; gap:8px; min-height:0}
+  .main{display:grid; grid-template-rows:140px 64px 1fr; gap:8px; min-height:0}
+  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .card{
+    display:flex; flex-direction:column; justify-content:space-between;
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px;
+  }
+  .cap{font-size:14px; color:var(--muted)}
+  .kpi{font-size:32px; font-weight:700; line-height:1}
+  .unit{font-size:14px; color:var(--blue)}
+  .power{display:flex; align-items:center; gap:14px}
+  .power .lab{font-size:19px; min-width:110px}
+  .bar{flex:1; height:20px; background:#2A3555; border-radius:10px; overflow:hidden}
+  .bar > i{display:block; height:100%; width:0%; background:var(--blue); transition:width .25s}
+  .pval{font-size:24px; font-weight:700; color:var(--blue); min-width:56px; text-align:right}
+  .kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .kpis .card{padding:8px}
+  .kpis .kpi{font-size:20px}
+  .status{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:6px; display:flex; flex-direction:column; gap:5px;
+  }
+  .status .title{font-size:17px; font-weight:700; color:var(--blue); padding:1px 4px}
+  .srow{
+    height:34px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 8px; border-radius:8px; background:rgba(40,199,111,.12);
+    font-size:14px;
+  }
+  .srow.big{height:44px}
+  .srow b{font-size:18px}
+  .srow.big b{font-size:24px}
+  .srow.red{background:rgba(255,77,79,.16); color:#ffd9d9}
+  .srow.blue{background:rgba(46,124,246,.14)}
+  .srow.gray{background:rgba(147,164,189,.12); color:var(--muted)}
+  .events{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+    background:var(--card); border:1px solid var(--line);
+    border-radius:10px; padding:10px; align-items:center;
+  }
+  .events div{font-size:14px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .controls{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+  button{
+    background:#18213A; color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer;
+  }
+  button:hover{border-color:var(--blue)}
+  .hint{font-size:12px; color:var(--muted); text-align:center; max-width:800px}
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="box header row">
+    <span>AUTOMATIKA • ПАНЕЛЬ HMI</span>
+    <small>800×480 / RS485 HMI=MASTER</small>
+  </div>
+
+  <div class="content">
+    <div class="main">
+      <div class="cards">
+        <div class="card">
+          <div class="cap">T1 · ТЕМПЕРАТУРА</div>
+          <div class="kpi" id="tc">186.4</div>
+          <div class="unit">°C &nbsp;·&nbsp; масштаб 1.5</div>
+        </div>
+        <div class="card">
+          <div class="cap">T2 · УСТАВКА</div>
+          <div class="kpi" id="ts">190.0</div>
+          <div class="unit">°C &nbsp;·&nbsp; масштаб 1.5</div>
+        </div>
+        <div class="card">
+          <div class="cap">МОЩНОСТЬ</div>
+          <div class="kpi" id="p" style="color:var(--amber)">64%</div>
+          <div class="unit">регулятор · 1.5</div>
+        </div>
+      </div>
+
+      <div class="box power">
+        <span class="lab">SET POWER</span>
+        <div class="bar"><i id="bar" style="width:64%"></i></div>
+        <span class="pval" id="pval">64%</span>
+      </div>
+
+      <div class="kpis">
+        <div class="card">
+          <div class="cap">БАРО · 1.2</div>
+          <div class="kpi" id="baro" style="font-size:20px">748</div>
+        </div>
+        <div class="card">
+          <div class="cap">ПОТОК · 1.2</div>
+          <div class="kpi" id="flow" style="font-size:20px">12.6</div>
+        </div>
+        <div class="card">
+          <div class="cap">ФРАКЦИЯ · 1.2</div>
+          <div class="kpi" id="frac" style="font-size:20px">BODY</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status">
+      <div class="title">СОСТОЯНИЕ</div>
+      <div class="srow" id="r-link"><span>LINK</span><b id="link">ONLINE</b></div>
+      <div class="srow big" id="r-es"><span>E-STOP</span><b id="es">ОК</b></div>
+      <div class="srow" id="r-safety"><span>SAFETY</span><b id="safety">OK</b></div>
+      <div class="srow blue"><span>УРОВЕНЬ</span><b id="lv">72</b></div>
+      <div class="srow blue"><span>ЭТАП</span><b id="stg">3</b></div>
+      <div class="srow gray"><span>HMI</span><b style="font-size:13px">v0.9.6-hmi1</b></div>
+      <div class="srow gray"><span>CRC ERR</span><b style="font-size:13px" id="crc">0</b></div>
+    </div>
+  </div>
+
+  <div class="events">
+    <div id="ev0">t=142s · run=1 · pause=0</div>
+    <div id="ev1">heads=120 body=480 tails=36</div>
+    <div id="ev2">db=74.8 · r=1</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button onclick="toggleLink()">LINK ON/OFF</button>
+  <button onclick="toggleEstop()">E-STOP ON/OFF</button>
+  <button onclick="randomize()">UPDATE VALUES</button>
+</div>
+<div class="hint">
+  Гибрид: KPI/E-STOP — масштаб 1.5, карточки — 1.35, лог и вторичные данные — 1.2.
+  Кнопки теперь можно нажимать — проверьте читаемость.
+</div>
+
+<script>
+let link = true, estop = false, crc = 0;
+
+function setRow(id, cls){
+  const el = document.getElementById(id);
+  el.className = 'srow' + (cls ? ' ' + cls : '');
+}
+function toggleLink(){
+  link = !link;
+  document.getElementById('link').textContent = link ? 'ONLINE' : 'NO LINK';
+  setRow('r-link', link ? '' : 'red');
+  if(!link){ crc++; document.getElementById('crc').textContent = crc; }
+}
+function toggleEstop(){
+  estop = !estop;
+  document.getElementById('es').textContent = estop ? 'НАЖАТ' : 'ОК';
+  setRow('r-es', estop ? 'red' : '');
+  document.getElementById('safety').textContent = estop ? 'FAULT' : 'OK';
+  setRow('r-safety', estop ? 'red' : '');
+}
+function randomize(){
+  const tc = (180 + Math.random()*12).toFixed(1);
+  const p  = Math.round(40 + Math.random()*50);
+  document.getElementById('tc').textContent = tc;
+  document.getElementById('ts').textContent = '190.0';
+  document.getElementById('p').textContent = p + '%';
+  document.getElementById('pval').textContent = p + '%';
+  document.getElementById('bar').style.width = p + '%';
+  document.getElementById('baro').textContent = Math.round(740 + Math.random()*16);
+  document.getElementById('flow').textContent = (10 + Math.random()*6).toFixed(1);
+  document.getElementById('lv').textContent = Math.round(50 + Math.random()*40);
+  document.getElementById('ev0').textContent =
+    't=' + Math.round(Math.random()*300) + 's · run=1 · pause=0';
+}
+</script>
+</body>
+</html>
