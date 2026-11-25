@@ -202,6 +202,6 @@ idf.py -C test -p COM5 flash monitor
 # в мониторе: Unity test run <n> tests
 ```
 
-Проверено: `automatika_v2.bin` = `0x2B9280`, свободно 10 % раздела;
+Проверено: `automatika_v2.bin` = `0x2B9660`, свободно 10 % раздела;
 `automatika_test.bin` = `0x45A90`, тесты собраны и слинкованы, сборка без
 предупреждений.
