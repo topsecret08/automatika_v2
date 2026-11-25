@@ -19,6 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "main" / "core" / "menu_tree.c"
 TARGET = ROOT / "android" / "app" / "src" / "main" / "java" / "com" / "automatika" / "autopilot" / "ui" / "MenuTree.kt"
+HMI_SOURCE = ROOT / "firmware_hmi" / "ui_tree" / "menu_tree.json"
+HMI_TARGET = ROOT / "android" / "app" / "src" / "main" / "assets" / "hmi_menu_tree.json"
 
 ARRAY_HEAD = re.compile(r"static const menu_item_t (\w+)\[\]\s*=\s*\{")
 OPTION = re.compile(r'\.(\w+)\s*=\s*("((?:[^"\\]|\\.)*)"|[^,}]+)')
@@ -201,21 +203,46 @@ def generate(source_text: str) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _sync_hmi_asset(check: bool) -> bool:
+    if not HMI_SOURCE.exists():
+        print(f"HMI menu source not found: {HMI_SOURCE}", file=sys.stderr)
+        return False
+    src = HMI_SOURCE.read_text(encoding="utf-8")
+    if check:
+        cur = HMI_TARGET.read_text(encoding="utf-8") if HMI_TARGET.exists() else ""
+        if cur != src:
+            print(f"{HMI_TARGET} устарел: запустите python tools/gen_android_menu.py", file=sys.stderr)
+            return False
+        return True
+    HMI_TARGET.parent.mkdir(parents=True, exist_ok=True)
+    HMI_TARGET.write_text(src, encoding="utf-8", newline="\n")
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--check", action="store_true", help="проверить актуальность без записи")
+    parser.add_argument("--check", action="store_true", help="Проверить актуальность без записи")
     args = parser.parse_args(argv)
     generated = generate(SOURCE.read_text(encoding="utf-8"))
+    ok = True
     if args.check:
         current = TARGET.read_text(encoding="utf-8") if TARGET.exists() else ""
         if current != generated:
             print(f"{TARGET} устарел: запустите python tools/gen_android_menu.py", file=sys.stderr)
-            return 1
-        print("MenuTree.kt актуален")
-        return 0
+            ok = False
+        else:
+            print("MenuTree.kt актуален")
+        if not _sync_hmi_asset(check=True):
+            ok = False
+        else:
+            print("hmi_menu_tree.json актуален")
+        return 0 if ok else 1
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     TARGET.write_text(generated, encoding="utf-8", newline="\n")
-    print(f"записано: {TARGET}")
+    print(f"Сгенерирован: {TARGET}")
+    if not _sync_hmi_asset(check=False):
+        return 1
+    print(f"Синхронизирован: {HMI_TARGET}")
     return 0
 
 

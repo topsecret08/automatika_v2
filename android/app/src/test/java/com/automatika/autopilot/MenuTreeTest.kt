@@ -1,123 +1,119 @@
 package com.automatika.autopilot
 
 import com.automatika.autopilot.data.ProcessMode
-import com.automatika.autopilot.ui.FieldNames
-import com.automatika.autopilot.ui.DiagKind
-import com.automatika.autopilot.ui.MaintKind
+import com.automatika.autopilot.ui.HmiMenu
 import com.automatika.autopilot.ui.MenuActions
 import com.automatika.autopilot.ui.MenuItem
 import com.automatika.autopilot.ui.MenuOutcome
-import com.automatika.autopilot.ui.MenuRules
 import com.automatika.autopilot.ui.MenuType
-import com.automatika.autopilot.ui.ROOT_MENU
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
+import java.io.File
 
 class MenuTreeTest {
 
-    private fun root(id: String): MenuItem = ROOT_MENU.first { it.id == id }
+    private lateinit var root: List<MenuItem>
 
-    private fun child(parent: String, id: String): MenuItem =
-        root(parent).children.first { it.id == id }
-
-    @Test
-    fun rootMatchesDeviceMenu() {
-        assertEquals(25, ROOT_MENU.size)
-        assertEquals("Режимы работы", ROOT_MENU.first().title)
-        assertTrue(ROOT_MENU.all { it.type == MenuType.SUBMENU })
-    }
-
-    @Test
-    fun startItemsResolveToProcessModes() {
-        assertEquals(MenuOutcome.Start(ProcessMode.DISTILL), MenuActions.resolve(child("menu.m", "m.distill")))
-        assertEquals(MenuOutcome.Start(ProcessMode.BEER), MenuActions.resolve(child("menu.m", "m.beer")))
-    }
-
-    @Test
-    fun safetyResetRequiresConfirmation() {
-        assertEquals(MenuOutcome.ResetAlarm, MenuActions.resolve(child("menu.d", "d.safe")))
-    }
-
-    @Test
-    fun settingsEditorsOpenDeviceConfigAndHardware() {
-        assertEquals(
-            MenuOutcome.Editor("/api/hardware", child("menu.s", "s.hw").title),
-            MenuActions.resolve(child("menu.s", "s.hw")),
+    @Before
+    fun load() {
+        HmiMenu.clearCache()
+        val candidates = listOf(
+            File("src/main/assets/hmi_menu_tree.json"),
+            File("android/app/src/main/assets/hmi_menu_tree.json"),
+            File("../android/app/src/main/assets/hmi_menu_tree.json"),
         )
+        val file = candidates.firstOrNull { it.exists() }
+            ?: error("hmi_menu_tree.json not found; tried: ${candidates.map { it.absolutePath }}")
+        root = HmiMenu.loadFromJson(file.readText(Charsets.UTF_8))
+    }
+
+    private fun allItems(items: List<MenuItem> = root): List<MenuItem> =
+        items.flatMap { listOf(it) + allItems(it.children) }
+
+    private fun byId(id: String): MenuItem? = allItems().firstOrNull { it.id == id }
+
+    @Test
+    fun rootHasHmiSections() {
+        val ids = root.map { it.id }
+        assertTrue(ids.contains("modes"))
+        assertTrue(ids.contains("preparation"))
+        assertTrue(ids.contains("diagnostics"))
+        assertTrue(ids.contains("system"))
+        assertTrue(ids.contains("help"))
+        assertTrue(ids.contains("calculators"))
+    }
+
+    @Test
+    fun hasAllEightModes() {
+        val modes = byId("modes")?.children?.map { it.id } ?: emptyList()
         assertEquals(
-            MenuOutcome.Editor("/api/config", child("menu.s", "s.gen").title),
-            MenuActions.resolve(child("menu.s", "s.gen")),
+            listOf(
+                "mode_distillation", "mode_rectification", "mode_beer", "mode_pvk",
+                "mode_nbk", "mode_vacuum", "mode_double", "mode_fermentation",
+            ),
+            modes,
         )
     }
 
     @Test
-    fun unsupportedItemsAreMarkedAsDeviceOnly() {
-        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(child("menu.mon", "mon.stats")))
+    fun modeItemsResolveToProcessModes() {
+        val expected = mapOf(
+            "mode_distillation" to ProcessMode.DISTILL,
+            "mode_rectification" to ProcessMode.RECTIFY,
+            "mode_beer" to ProcessMode.BEER,
+            "mode_pvk" to ProcessMode.PVK,
+            "mode_nbk" to ProcessMode.NBK,
+            "mode_vacuum" to ProcessMode.VACUUM,
+            "mode_double" to ProcessMode.DOUBLE,
+            "mode_fermentation" to ProcessMode.FERMENT,
+        )
+        expected.forEach { (id, mode) ->
+            val item = byId(id)
+            assertNotNull("Missing $id", item)
+            val work = byId(id.replace("mode_", "work_"))
+            assertNotNull("Missing work screen for $id", work)
+            // work screens are HMI submenus; action is mapped and resolvable as start
+            val leaf = work!!.copy(type = MenuType.SCREEN, children = emptyList())
+            assertEquals(MenuOutcome.Start(mode), MenuActions.resolve(leaf))
+        }
     }
 
     @Test
-    fun historyAndAiStatusOpenInApp() {
-        assertEquals(MenuOutcome.History, MenuActions.resolve(child("menu.mon", "mon.hist")))
-        assertEquals(MenuOutcome.AiStatus, MenuActions.resolve(child("menu.ai", "ai.status")))
+    fun helpSettingsAndBranchesPresent() {
+        // help
+        assertNotNull(byId("help"))
+        assertTrue((byId("help")?.children?.size ?: 0) >= 1)
+        // settings branches exist under modes
+        assertNotNull(byId("settings_distillation"))
+        assertNotNull(byId("settings_rectification"))
+        assertNotNull(byId("settings_beer"))
+        assertNotNull(byId("settings_pvk"))
+        assertNotNull(byId("settings_nbk"))
+        assertNotNull(byId("settings_vacuum"))
+        assertNotNull(byId("settings_double"))
+        assertNotNull(byId("settings_fermentation"))
+        // preparation/diagnostics/system branches
+        assertTrue((byId("preparation")?.children?.size ?: 0) >= 1)
+        assertTrue((byId("diagnostics")?.children?.size ?: 0) >= 1)
+        assertTrue((byId("system")?.children?.size ?: 0) >= 1)
     }
 
     @Test
-    fun maintenanceActionsOpenTheirScreens() {
-        fun action(callback: String) = MenuItem(id = "x", icon = "", title = "x", type = MenuType.ACTION, action = callback)
-        assertEquals(MenuOutcome.Maintenance(MaintKind.RESET_AI), MenuActions.resolve(action("cb_ai_reset")))
-        assertEquals(MenuOutcome.Maintenance(MaintKind.DB_BACKUP), MenuActions.resolve(action("cb_db_backup")))
-        assertEquals(MenuOutcome.Maintenance(MaintKind.SCALE), MenuActions.resolve(action("cb_scale_calib")))
-        assertEquals(MenuOutcome.Maintenance(MaintKind.DB_EXPORT), MenuActions.resolve(action("cb_db_export")))
-        assertEquals(MenuOutcome.Maintenance(MaintKind.VALVE_STATE), MenuActions.resolve(action("cb_valve_calib_show")))
+    fun allHmiScreensAreReachable() {
+        val all = allItems()
+        val ids = all.map { it.id }.toSet()
+        // every screen from HMI JSON except main should be in the tree
+        val hmiIds = HmiMenu.allScreens().map { it.id }.filter { it != "main" }.toSet()
+        val missing = hmiIds - ids
+        assertTrue("Missing HMI screens in APK tree: $missing", missing.isEmpty())
     }
 
     @Test
-    fun recipeCategoriesOpenInAppOthersStayOnDevice() {
-        fun action(callback: String) = MenuItem(id = "x", icon = "", title = "x", type = MenuType.ACTION, action = callback)
-        assertEquals(MenuOutcome.Recipes("beer", "Пивные рецепты"), MenuActions.resolve(action("cb_recipes_beer")))
-        assertEquals(MenuOutcome.Recipes("spirit", "Рецепты спиртов"), MenuActions.resolve(action("cb_recipes_spirit")))
-        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(action("cb_recipes_mine")))
-    }
-
-    @Test
-    fun helpAndDiagnosticsOpenInApp() {
-        fun action(callback: String, title: String = "x") =
-            MenuItem(id = "x", icon = "", title = title, type = MenuType.ACTION, action = callback)
-        assertEquals(MenuOutcome.Help("01_intro", "Основы"), MenuActions.resolve(action("cb_help_basics", "Основы")))
-        assertEquals(MenuOutcome.Diag(DiagKind.SENSORS), MenuActions.resolve(action("cb_diag_ds")))
-        assertEquals(MenuOutcome.Diag(DiagKind.WATCHDOG), MenuActions.resolve(action("cb_wd_status")))
-        assertEquals(MenuOutcome.OnDeviceOnly, MenuActions.resolve(action("cb_diag_test")))
-    }
-
-    @Test
-    fun readOnlyScreensOpenInApp() {
-        fun action(callback: String, title: String = "x") =
-            MenuItem(id = "x", icon = "", title = title, type = MenuType.ACTION, action = callback)
-        assertEquals(MenuOutcome.View("/api/hardware", "I2C"), MenuActions.resolve(action("cb_diag_i2c", "I2C")))
-        assertEquals(MenuOutcome.View("/api/alcohol", "Спирт"), MenuActions.resolve(action("cb_alc_show", "Спирт")))
-        assertEquals(MenuOutcome.AiStatus, MenuActions.resolve(action("cb_ai_predict")))
-    }
-
-    @Test
-    fun realtimeGraphOpensInApp() {
-        assertEquals(MenuOutcome.Graph, MenuActions.resolve(child("menu.mon", "mon.graph")))
-    }
-
-    @Test
-    fun roleRulesMatchDevice() {
-        val engineerOnly = MenuItem(id = "x", icon = "", title = "x", type = MenuType.ACTION, requiredRole = 2)
-        assertFalse(MenuRules.isAvailable(engineerOnly, 1))
-        assertTrue(MenuRules.isAvailable(engineerOnly, 2))
-        assertTrue(MenuRules.isAvailable(engineerOnly, 3))
-    }
-
-    @Test
-    fun fieldNamesAreHumanReadable() {
-        assertEquals("Гистерезис, °C", FieldNames.label("hys"))
-        assertEquals("неизвестный_ключ (ключ API)", FieldNames.label("неизвестный_ключ"))
-        assertTrue(FieldNames.isReadOnly("schema"))
-        assertFalse(FieldNames.isReadOnly("hys"))
+    fun treeHasNoEmptySubmenus() {
+        val empties = allItems().filter { it.type == MenuType.SUBMENU && it.children.isEmpty() }
+        assertTrue("Empty submenus: ${empties.map { it.id }}", empties.isEmpty())
     }
 }

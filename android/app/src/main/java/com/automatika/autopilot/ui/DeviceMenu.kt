@@ -191,29 +191,31 @@ fun modeIconRes(action: String): Int? = when (action) {
  * Состав дерева не меняется: группировка только для экрана приложения.
  */
 private val MENU_SECTIONS: List<Pair<String, List<String>>> = listOf(
-    "Процесс" to listOf("menu.m", "menu.f", "menu.rec", "menu.c", "menu.ab", "menu.tp"),
-    "Контроль" to listOf("menu.mon", "menu.ai", "menu.al", "menu.tm"),
-    "Оборудование" to listOf("menu.v", "menu.sc", "menu.d", "menu.wd", "menu.usb"),
-    "Настройки" to listOf("menu.s", "menu.ui", "menu.r"),
-    "Данные" to listOf("menu.db", "menu.ex", "menu.qr"),
-    "Система" to listOf("menu.fo", "app.page"),
-    "Справка" to listOf("menu.h", "menu.l", "menu.dm"),
+    "Режимы" to listOf("menu.m", "menu.f", "menu.rec", "menu.c", "menu.ab", "menu.tp", "modes"),
+    "Подготовка" to listOf("menu.mon", "preparation"),
+    "Диагностика" to listOf("menu.v", "menu.sc", "menu.d", "menu.wd", "menu.usb", "diagnostics"),
+    "Система" to listOf("menu.s", "menu.ui", "menu.r", "system"),
+    "Инструменты" to listOf("menu.db", "menu.ex", "menu.qr", "menu.ai", "menu.al", "menu.tm", "calculators"),
+    "Справка" to listOf("menu.h", "menu.l", "menu.dm", "help"),
+    "Приложение" to listOf("menu.fo", "app.page"),
 )
 
-/** Пункты главного меню по разделам. Пункт вне разделов попадает в «Прочее». */
+/** Группирует корневые пункты меню по разделам. Неизвестные пункты попадают в «Прочее». */
 fun groupRootMenu(items: List<MenuItem>): List<Pair<String, List<MenuItem>>> {
     val byId = items.associateBy { it.id }
     val used = mutableSetOf<String>()
-    val groups = MENU_SECTIONS.map { (title, ids) ->
-        used += ids
-        title to ids.mapNotNull { byId[it] }
-    }.toMutableList()
+    val groups = mutableListOf<Pair<String, List<MenuItem>>>()
+    for ((title, ids) in MENU_SECTIONS) {
+        val sectionItems = ids.mapNotNull { id ->
+            if (id in used) null else byId[id]?.also { used += id }
+        }
+        if (sectionItems.isNotEmpty()) groups += title to sectionItems
+    }
     val rest = items.filter { it.id !in used }
     if (rest.isNotEmpty()) groups += "Прочее" to rest
-    return groups.filter { it.second.isNotEmpty() }
+    return groups
 }
 
-/** Плитки меню нейтральные: цвет зарезервирован за состояниями, а не за категориями. */
 private val CategoryColors = List(11) { Color(0xFF35424A) }
 
 fun categoryColor(category: Int): Color =

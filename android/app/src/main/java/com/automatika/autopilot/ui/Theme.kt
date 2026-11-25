@@ -5,26 +5,24 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Палитра по правилам UI, та же, что в PWA (littlefs/css/tokens.css) и на LCD.
-// Синий — действия, янтарный — предупреждение и уставки, красный — авария,
-// зелёный — норма. Остальное нейтрально.
+// HMI-стиль: тёмный фон, стеклянные карточки, циановый акцент.
 private val AutomatikaColors = darkColorScheme(
-    primary = Color(0xFF2F8CFF),
-    onPrimary = Color(0xFFF2F5F7),
-    primaryContainer = Color(0xFF1A242B),
-    onPrimaryContainer = Color(0xFFF2F5F7),
-    secondary = Color(0xFFAAB5BC),
+    primary = Color(0xFF4CC9F0),
+    onPrimary = Color(0xFF071018),
+    primaryContainer = Color(0xFF16324A),
+    onPrimaryContainer = Color(0xFFE6F7FF),
+    secondary = Color(0xFF8FB3C9),
     tertiary = Color(0xFFF5A524),
     tertiaryContainer = Color(0xFF3D2C10),
     onTertiaryContainer = Color(0xFFF2F5F7),
-    error = Color(0xFFD93B3B),
-    background = Color(0xFF121820),
-    onBackground = Color(0xFFF2F5F7),
-    surface = Color(0xFF1A242B),
-    onSurface = Color(0xFFF2F5F7),
-    surfaceVariant = Color(0xFF1A242B),
-    onSurfaceVariant = Color(0xFFAAB5BC),
-    outline = Color(0xFF35424A),
+    error = Color(0xFFFF5C5C),
+    background = Color(0xFF0B141C),
+    onBackground = Color(0xFFEAF2F7),
+    surface = Color(0xFF142231),
+    onSurface = Color(0xFFEAF2F7),
+    surfaceVariant = Color(0xFF1B3042),
+    onSurfaceVariant = Color(0xFF9FB6C6),
+    outline = Color(0xFF2C4A61),
 )
 
 @Composable

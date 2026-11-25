@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -58,6 +59,8 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val role = ui.settings.role
 
+    val context = LocalContext.current
+    val rootMenu = remember(context) { HmiMenu.load(context) + APP_TILE }
     val stack = remember { mutableStateListOf<MenuItem>() }
     var editor by remember { mutableStateOf<MenuOutcome.Editor?>(null) }
     var view by remember { mutableStateOf<MenuOutcome.View?>(null) }
@@ -174,7 +177,7 @@ fun AutopilotScreen(vm: AutopilotViewModel) {
                 help != null -> help?.let { HelpCard(it.articleId, it.title, vm) }
                 diag != null -> diag?.let { DiagCard(it.kind, vm) }
                 appPage -> AppPage(ui, vm)
-                stack.isEmpty() -> groupRootMenu(ROOT_MENU + APP_TILE).forEach { (section, items) ->
+                stack.isEmpty() -> groupRootMenu(rootMenu).forEach { (section, items) ->
                     Text(section, style = MaterialTheme.typography.titleMedium)
                     MenuTiles(items, role) { choose(it) }
                 }
