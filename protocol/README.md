@@ -5,12 +5,12 @@
 
 ```cmake
 # в корневом CMakeLists.txt каждого проекта, ДО project()
-set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/component")
+set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
 ```
 
-Для контроллера это `"../protocol/component"`, для `firmware_hmi_project` —
-`"../../protocol/component"`. В обоих проектах используется один приём:
-добавить `EXTRA_COMPONENT_DIRS` с путём к `protocol/component` и указать
+Для контроллера это `"../protocol/rs485_protocol"`, для `firmware_hmi_project` —
+`"../../protocol/rs485_protocol"`. В обоих проектах используется один приём:
+добавить `EXTRA_COMPONENT_DIRS` с путём к `protocol/rs485_protocol` и указать
 `rs485_protocol` в `REQUIRES` компонента `main`.
 
 ## Формат кадра

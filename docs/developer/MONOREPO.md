@@ -111,7 +111,7 @@ automatika_v2/
 1. `firmware_hmi/` — **полноценный проект**, а не подпапка `main/`. У него свой `sdkconfig`, свой `build/`, свой `partition table`.
 2. `protocol/` — **не копируется** в оба проекта. Подключается через CMake:
    ```cmake
-   set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/component")
+   set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
    ```
 3. `project()` в HMI называется `automatika_hmi`. Это попадёт в `esp_app_desc` и защитит от перепрошивки не того устройства.
 4. Папки `build/` и `firmware_hmi/build/` оба игнорируются `.gitignore`.
@@ -270,7 +270,7 @@ HMI при `PING/GET_CONFIG` сверяет `protocol_version`. Контролл
 В корневом `main/CMakeLists.txt`:
 
 ```cmake
-set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/component")
+set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
 ...
 REQUIRES ... rs485_protocol
 ```
@@ -282,7 +282,7 @@ REQUIRES ... rs485_protocol
 В `firmware_hmi/main/CMakeLists.txt` — так же:
 
 ```cmake
-set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/component")
+set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
 ...
 REQUIRES ... rs485_protocol
 ```
