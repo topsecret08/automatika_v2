@@ -6,6 +6,7 @@
 #include "freertos/task.h"
 
 #include "config.h"
+#include "rs485_hmi.h"
 #include "core/core_pinning.h"
 #include "core/control_config.h"
 #include "core/config_backup.h"
@@ -307,6 +308,7 @@ void app_main(void) {
     }
 
     menu_validate_all();
+    rs485_hmi_init();
 
     if (state_load() && flags_get_by_key("auto_restore")) {
         ui_show_resume_dialog();

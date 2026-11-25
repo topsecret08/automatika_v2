@@ -41,3 +41,11 @@ __pycache__/
 .pytest_cache/
 test-results/
 playwright-report/
+
+# HMI project (второй ESP-IDF-проект)
+firmware_hmi_project/build/
+firmware_hmi_project/sdkconfig
+firmware_hmi_project/sdkconfig.old
+firmware_hmi_project/managed_components/
+firmware_hmi_project/dependencies.lock
+node_modules/
