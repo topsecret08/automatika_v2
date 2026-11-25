@@ -251,7 +251,7 @@ void ui_screen_rectification_update(const rect_state_t *s)
     lv_label_set_text(s_valve, s->valve_open ? "ОТКРЫТ" : "ЗАКРЫТ");
     lv_obj_set_style_text_color(s_valve,
                                 s->valve_open ? c_green : c_orange, 0);
-    lv_label_set_text_fmt(s_alcohol, "%u мл", s->alcohol_ml);
+    lv_label_set_text_fmt(s_alcohol, "%lu мл", (unsigned long)s->alcohol_ml);
     lv_label_set_text_fmt(s_strength, "%u%%", s->strength);
 
     lv_chart_set_next_value(s_chart, s_kub, (int16_t)s->kub);

@@ -103,6 +103,6 @@ void ui_screen_menu_set_active(ui_menu_item_t item)
         lv_obj_set_style_border_width(s_btn[i], active ? 2 : 1, 0);
         lv_obj_set_style_shadow_width(s_btn[i], active ? 28 : 0, 0);
         lv_obj_set_style_shadow_color(s_btn[i], c_cyan, 0);
-        lv_obj_set_style_shadow_opa(s_btn[i], active ? LV_OPA_65 : LV_OPA_0, 0);
+        lv_obj_set_style_shadow_opa(s_btn[i], active ? LV_OPA_60 : LV_OPA_0, 0);
     }
 }

@@ -79,7 +79,7 @@ lv_obj_t *ui_fut_panel_active(lv_obj_t *parent)
     lv_obj_set_style_border_width(p, 2, 0);
     lv_obj_set_style_shadow_color(p, c_cyan, 0);
     lv_obj_set_style_shadow_width(p, 26, 0);
-    lv_obj_set_style_shadow_opa(p, LV_OPA_65, 0);
+    lv_obj_set_style_shadow_opa(p, LV_OPA_60, 0);
     return p;
 }
 

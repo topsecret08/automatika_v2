@@ -320,10 +320,10 @@ void ui_screen_diagnostics_update(const diag_state_t *s)
     lv_label_set_text(d_rs485, s->rs485_ok ? "OK" : "NO LINK");
     lv_obj_set_style_text_color(d_rs485,
         s->rs485_ok ? c_green : c_orange, 0);
-    lv_label_set_text_fmt(d_crc, "%u", s->crc_err);
-    lv_label_set_text_fmt(d_frames, "%u", s->frames);
+    lv_label_set_text_fmt(d_crc, "%lu", (unsigned long)s->crc_err);
+    lv_label_set_text_fmt(d_frames, "%lu", (unsigned long)s->frames);
     lv_label_set_text_fmt(d_latency, "%u мс", s->latency_ms);
-    lv_label_set_text_fmt(d_heap, "%u КБ", s->heap_kb);
+    lv_label_set_text_fmt(d_heap, "%lu КБ", (unsigned long)s->heap_kb);
     lv_label_set_text(d_valve, s->valve_open ? "ОТКРЫТ" : "ЗАКРЫТ");
     lv_label_set_text(d_pump, s->pump_on ? "ВКЛ" : "ВЫКЛ");
     lv_label_set_text_fmt(d_mixer, "%u%%", s->mixer);
