@@ -6,6 +6,7 @@
 
 | Тег | Коммит | Артефакты | Версия в прошивке | Известные отличия |
 |---|---|---|---|---|
+| `v1.0.1` | `TBD` (`main`) | GitHub Release assets (firmware/controller/HMI по CI), `SHA256SUMS-*.txt`, `sbom.spdx.json` | V1.0.1 | Релиз контроллера V1.0.1; HMI 0.9.6-hmi1, протокол 1.0.0 |
 | `v0.9.7` | `02325df` (`main`) | `Autopilot-v0.9.7.apk`, `automatika-v0.9.7.zip` (прошивка), `build-info.json`, `sbom.spdx.json`, `SHA256SUMS-apk.txt` | V0.9.6 | APK версии 0.9.7 (versionCode 8), debug-подпись. Windows-приложение может отсутствовать, если `windows-app` не собрался |
 | `v0.9.6` | `3a7d5ca` | удалён | V0.9.6 | SPI дисплея 40 МГц (исправлено в `main`) |
 | `v0.9.5-beta` | — | удалён | V0.9.5 beta | не поддерживается |

@@ -150,7 +150,7 @@ def make_page(browser, base_url, api_requests):
             elif path == "/api/health":
                 payload = {
                     "level": "ok",
-                    "version": "V0.9.6",
+                    "version": "V1.0.1",
                     "free_heap": 140000,
                     "uptime_s": 600,
                 }

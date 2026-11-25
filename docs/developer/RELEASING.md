@@ -13,9 +13,9 @@
 5. Создать два тега:
 
 ```bash
-git tag -a v0.9.6-ctrl1 -m "Controller: RS485 HMI slave"
+git tag -a v1.0.1-ctrl1 -m "Controller: RS485 HMI slave"
 git tag -a v0.9.6-hmi1  -m "HMI panel: first 800x480 build"
-git push origin v0.9.6-ctrl1 v0.9.6-hmi1
+git push origin v1.0.1-ctrl1 v0.9.6-hmi1
 ```
 
 ## Артефакты

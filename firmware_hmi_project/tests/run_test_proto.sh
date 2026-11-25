@@ -41,7 +41,7 @@ expected=bytes([0xAA,0x55,0x00,0x00,0x01,0x00,0x20,0x01,0x63,0x6E])
 assert hmi_crc16(b"\x00\x00\x01\x00\x20\x01")==0x6E63
 frame=hmi_frame_build(1,HMI_NODE_HMI,HMI_TYPE_POLL,b""); assert frame==expected
 p=hmi_frame_parse(frame); assert p and p["seq"]==1 and p["node"]==HMI_NODE_HMI and p["type"]==HMI_TYPE_POLL and p["len"]==0
-json=b'{"v":"V0.9.6","tc":78.4}'; frame=hmi_frame_build(7,HMI_NODE_HMI,HMI_TYPE_POLL,json)
+json=b'{"v":"V1.0.1","tc":78.4}'; frame=hmi_frame_build(7,HMI_NODE_HMI,HMI_TYPE_POLL,json)
 p=hmi_frame_parse(frame); assert p and p["len"]==len(json) and p["payload"]==json
 bad=bytearray(frame); bad[-1]^=0x01; assert hmi_frame_parse(bytes(bad)) is None
 bad=bytearray(frame); bad[1]=0x00; assert hmi_frame_parse(bytes(bad)) is None

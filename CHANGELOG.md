@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## V1.0.1 (2026-11-26)
+
+- Bump controller firmware version to V1.0.1 (`v1.0.1-ctrl1`).
+- Update README, setup/release docs, and version metadata.
+- Add GitHub Release for v1.0.1.
+
+
 - **APK: статические данные внутри приложения.** Справка (103 статьи) и каталог рецептов
   (пиво, спирты, затирки) вшиты в APK из `tools/gen_android_assets.py` (`assets/static`).
   Экраны справки и рецептов открываются без запроса к контроллеру. С контроллера остаются

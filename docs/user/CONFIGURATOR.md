@@ -48,11 +48,11 @@ python -m tools.configurator --host 192.168.1.50
 
 ## USB-подключение платы
 
-При старте прошивка V0.9.6 включает USB CDC: плата появляется как
+При старте прошивка V1.0.1 включает USB CDC: плата появляется как
 виртуальный COM-порт и отвечает на команду `AUTOMATIKA?` одной строкой JSON:
 
 ```json
-{"name":"Automatika","version":"V0.9.6","running":0,"api_key":"..."}
+{"name":"Automatika","version":"V1.0.1","running":0,"api_key":"..."}
 ```
 
 Поле `running` равно `1`, если процесс запущен. Поле `api_key` пустое, если

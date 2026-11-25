@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "generated": "2026-11-25",
+  "generated": "2026-11-26",
   "repository": "topsecret08/automatika_v2",
   "controller": {
     "name": "automatika_v2",
-    "version": "V0.9.6",
-    "tag": "v0.9.6-ctrl1",
+    "version": "V1.0.1",
+    "tag": "v1.0.1-ctrl1",
     "target": "esp32s3",
     "path": "."
   },
@@ -23,7 +23,7 @@
     "component": "rs485_protocol"
   },
   "compatibility": {
-    "controller_min": "V0.9.6",
+    "controller_min": "V1.0.1",
     "hmi_min": "0.9.6-hmi1",
     "protocol": "1.0.0"
   }

@@ -30,7 +30,7 @@
 - Релиз по тегу `v*` публикует:
   - `automatika-<версия>.zip`, `Automatika-<версия>.exe`, `Autopilot-<версия>.apk`,
   - `build-info.json`, `sbom.spdx.json`, `SHA256SUMS*.txt`.
-- Версия прошивки: `V0.9.6`, app-раздел почти заполнен (3% свободно).
+- Версия прошивки: `V1.0.1`, app-раздел почти заполнен (3% свободно).
 
 ### 2.2. Решение
 
@@ -156,7 +156,7 @@ automatika_v2/
 | HMI | **независимый семвер** `1.0.0`, `1.0.1`, `1.1.0` |
 | Протокол RS485 | отдельное целое число `1`, `2`, … |
 | HMI-only hotfix | новый тег `v0.9.6-hmi1`, в манифесте меняется только `firmwares.hmi.version` |
-| Controller-only hotfix | новый тег `v0.9.6-ctrl1`, меняется только `firmwares.controller.version` |
+| Controller-only hotfix | новый тег `v1.0.1-ctrl1`, меняется только `firmwares.controller.version` |
 
 ### 4.3. Generating header
 

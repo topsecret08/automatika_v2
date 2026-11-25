@@ -257,7 +257,7 @@ static char *tg_get_updates(const char *token, long long offset) {
 // ------------------------------------------------------------------
 static void send_help(const char *chat) {
     const char *text =
-        "Automatika V0.9.6\n\n"
+        "Automatika V1.0.1\n\n"
         "Выберите задачу. Внутри группы — действия; текстовые команды\n"
         "/status, /run, /stop, /power, /param, /algo, /regulator, /log\n"
         "сохранены для совместимости.";

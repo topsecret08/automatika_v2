@@ -29,7 +29,7 @@ int main(void)
     assert(parsed.len == 0);
 
     /* Пayload JSON и CRC на искажённом кадре. */
-    const char *json = "{\"v\":\"V0.9.6\",\"tc\":78.4}";
+    const char *json = "{\"v\":\"V1.0.1\",\"tc\":78.4}";
     assert(hmi_frame_build(frame, &len, 7, HMI_NODE_HMI, HMI_TYPE_POLL,
                            (const uint8_t *)json, (uint16_t)strlen(json)));
     assert(hmi_frame_parse(frame, len, &parsed));

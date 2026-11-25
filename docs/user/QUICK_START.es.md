@@ -10,7 +10,7 @@ Desde el desembalaje hasta el primer arranque. Los detalles están en
 
 ## 1. Qué necesitas
 
-- Un dispositivo Automatika montado con firmware V0.9.6.
+- Un dispositivo Automatika montado con firmware V1.0.1.
 - Un teléfono u ordenador portátil con Wi-Fi de 2,4 GHz.
 - Una toma de 220 V con toma de tierra y diferencial (RCD).
 - Agua de refrigeración y líquido para destilar (al menos el 15 % del volumen del hervidor).

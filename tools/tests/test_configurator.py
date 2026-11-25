@@ -14,7 +14,7 @@ class _OtaHandler(http.server.BaseHTTPRequestHandler):
     body = b""
     key = ""
     running = 0
-    health_version = "V0.9.6"
+    health_version = "V1.0.1"
     health_calls = 0
 
     def _json(self, payload, status=200):
@@ -67,7 +67,7 @@ class TestConfigurator(unittest.TestCase):
         _OtaHandler.key = ""
         _OtaHandler.running = 0
         _OtaHandler.health_calls = 0
-        _OtaHandler.health_version = "V0.9.6"
+        _OtaHandler.health_version = "V1.0.1"
 
     def test_upload_streams_and_reports_progress(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -120,9 +120,9 @@ class TestConfigurator(unittest.TestCase):
 
     def test_wait_for_reboot(self):
         client = core.DeviceClient(self.host)
-        health = client.wait_for_reboot("V0.9.6", timeout=3,
+        health = client.wait_for_reboot("V1.0.1", timeout=3,
                                         interval=0.01)
-        self.assertNotEqual(health["version"], "V0.9.6")
+        self.assertNotEqual(health["version"], "V1.0.1")
 
     def test_store_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:

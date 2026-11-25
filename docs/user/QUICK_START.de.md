@@ -10,7 +10,7 @@ Vom Auspacken bis zum ersten Start. Details stehen in
 
 ## 1. Was Sie brauchen
 
-- Ein zusammengebautes Gerät Automatika mit Firmware V0.9.6.
+- Ein zusammengebautes Gerät Automatika mit Firmware V1.0.1.
 - Ein Telefon oder Laptop mit WLAN 2,4 GHz.
 - Eine geerdete 220-V-Steckdose mit FI-Schutzschalter (RCD).
 - Kühlwasser und Flüssigkeit zur Destillation (mindestens 15 % des Blasenvolumens).

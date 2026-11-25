@@ -10,7 +10,7 @@ Du déballage au premier démarrage. Les détails sont dans
 
 ## 1. Ce qu'il vous faut
 
-- Un appareil Automatika assemblé avec le firmware V0.9.6.
+- Un appareil Automatika assemblé avec le firmware V1.0.1.
 - Un téléphone ou un ordinateur portable avec Wi-Fi 2,4 GHz.
 - Une prise 220 V avec terre et disjoncteur différentiel (RCD).
 - De l'eau de refroidissement et du liquide à distiller (au moins 15 % du volume de la cucurbite).
