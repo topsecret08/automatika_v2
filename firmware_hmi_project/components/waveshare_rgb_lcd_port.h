@@ -1,4 +1,4 @@
-#ifndef _RGB_LCD_H_
+﻿#ifndef _RGB_LCD_H_
 #define _RGB_LCD_H_
 
 #include <stdint.h>
@@ -9,7 +9,6 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_rgb.h"
 #include "esp_lcd_touch.h"
-#include "esp_lv_adapter.h"
 
 #define CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_GT911 1
 
@@ -62,8 +61,7 @@
 #define EXAMPLE_PIN_NUM_TOUCH_RST       (-1)
 #define EXAMPLE_PIN_NUM_TOUCH_INT       (-1)
 
-esp_err_t waveshare_esp32_s3_rgb_lcd_init(esp_lv_adapter_tear_avoid_mode_t tear_mode,
-                                          esp_lv_adapter_rotation_t rotation,
+esp_err_t waveshare_esp32_s3_rgb_lcd_init(uint8_t num_fbs,
                                           esp_lcd_panel_handle_t *panel_handle,
                                           esp_lcd_touch_handle_t *touch_handle);
 

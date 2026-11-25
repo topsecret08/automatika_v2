@@ -28,9 +28,10 @@ idf_component_register(
         rs485_protocol
         esp_lcd
         esp_timer
-        cjson
+        esp_pm
+        json
         lvgl
-        esp_lv_adapter
+        esp_lcd_touch
         esp_lcd_touch_gt911
 )
 

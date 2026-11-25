@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
@@ -88,8 +88,7 @@ esp_err_t waveshare_rgb_lcd_backlight_on(void)
     return i2c_master_write_to_device(I2C_MASTER_NUM, 0x38, &write_buf, 1, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
 }
 
-esp_err_t waveshare_esp32_s3_rgb_lcd_init(esp_lv_adapter_tear_avoid_mode_t tear_mode,
-                                          esp_lv_adapter_rotation_t rotation,
+esp_err_t waveshare_esp32_s3_rgb_lcd_init(uint8_t num_fbs,
                                           esp_lcd_panel_handle_t *panel_handle,
                                           esp_lcd_touch_handle_t *touch_handle)
 {
@@ -100,7 +99,7 @@ esp_err_t waveshare_esp32_s3_rgb_lcd_init(esp_lv_adapter_tear_avoid_mode_t tear_
     *panel_handle = NULL;
     *touch_handle = NULL;
 
-    const uint8_t num_fbs = esp_lv_adapter_get_required_frame_buffer_count(tear_mode, rotation);
+    if (num_fbs < 1) num_fbs = 2;
 
     ESP_LOGI(TAG, "Install RGB LCD panel driver");
     esp_lcd_rgb_panel_config_t panel_config = {
