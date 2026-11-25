@@ -68,6 +68,7 @@ const state = {
   estopHealthy: true,
   service: false,
   levelRequiredFault: false,
+  mode: 'distill',
   online: false
 };
 
@@ -275,6 +276,7 @@ async function pollState() {
     if (typeof data.service !== 'undefined') state.service = !!data.service;
     if (typeof data.estop_healthy !== 'undefined') state.estopHealthy = !!data.estop_healthy;
     if (typeof data.level_required_fault !== 'undefined') state.levelRequiredFault = !!data.level_required_fault;
+    if (typeof data.mode !== 'undefined') state.mode = String(data.mode);
     if (typeof data.pressure !== 'undefined') state.pressure = Number(data.pressure);
     if (typeof data.vacuum !== 'undefined') state.vacuum = Number(data.vacuum);
     if (typeof data.flow !== 'undefined') state.flow = Number(data.flow);
@@ -673,6 +675,9 @@ function renderDashboard() {
   renderLiveValues();
   buildSensorTiles();
   if (!hardwareProfile) loadHardwareProfile();
+
+  const modeSelect = $('#mode-select');
+  if (modeSelect) modeSelect.value = state.mode || 'distill';
 
   const chartCard = $('#chart-card');
   if (chartCard) {
