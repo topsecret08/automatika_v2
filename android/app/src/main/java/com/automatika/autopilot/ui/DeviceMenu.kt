@@ -164,6 +164,7 @@ object MenuActions {
         viewPaths[item.action]?.let { return MenuOutcome.View(it, item.title) }
         maintByCallback[item.action]?.let { return MenuOutcome.Maintenance(it) }
         recipeCategories[item.action]?.let { (category, title) -> return MenuOutcome.Recipes(category, title) }
+        if (item.action == "cb_help_article") return MenuOutcome.Help(item.helpId.ifBlank { item.id }, item.title)
         helpArticles[item.action]?.let { return MenuOutcome.Help(it, item.title) }
         diagKinds[item.action]?.let { return MenuOutcome.Diag(it) }
         return when (item.action) {
@@ -216,7 +217,19 @@ fun groupRootMenu(items: List<MenuItem>): List<Pair<String, List<MenuItem>>> {
     return groups
 }
 
-private val CategoryColors = List(11) { Color(0xFF35424A) }
+private val CategoryColors = listOf(
+    Color(0xFF2F8CFF), // 0 modes/process
+    Color(0xFF4CC9F0), // 1
+    Color(0xFF2ECC71), // 2
+    Color(0xFFF5A524), // 3 calculators
+    Color(0xFF8FB3C9), // 4
+    Color(0xFF6C7CFF), // 5 preparation
+    Color(0xFF5CC8A1), // 6 diagnostics/system
+    Color(0xFFB388FF), // 7
+    Color(0xFFFF8A65), // 8
+    Color(0xFF90CAF9), // 9 help
+    Color(0xFF78909C), // 10 app
+)
 
 fun categoryColor(category: Int): Color =
     CategoryColors[category.coerceIn(0, CategoryColors.lastIndex)]
@@ -231,27 +244,36 @@ fun MenuTiles(items: List<MenuItem>, role: Int, onClick: (MenuItem) -> Unit) {
         ) {
             row.forEach { item ->
                 val available = MenuRules.isAvailable(item, role)
+                val accent = categoryColor(item.colorCategory)
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .height(104.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(categoryColor(item.colorCategory).copy(alpha = if (available) 1f else 0.35f))
+                        .height(108.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (available) androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(accent.copy(alpha = 0.35f), Color(0xFF142231))
+                            ) else androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(Color(0xFF1A2632), Color(0xFF101921))
+                            )
+                        )
                         .clickable { onClick(item) }
-                        .padding(8.dp),
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(item.icon, fontSize = 26.sp)
+                    Text(item.icon, fontSize = 28.sp)
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         item.title,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
+                        color = if (available) Color(0xFFEAF2F7) else Color(0xFF7F93A3),
+                        fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
                     )
                     if (!available) {
-                        Text("нужна роль: ${Roles.name(item.requiredRole)}", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Text("Роль: ${Roles.name(item.requiredRole)}", color = Color(0xFF9FB6C6), style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -260,7 +282,6 @@ fun MenuTiles(items: List<MenuItem>, role: Int, onClick: (MenuItem) -> Unit) {
     }
 }
 
-/** Список пунктов подменю, как на дисплее. */
 @Composable
 fun MenuList(items: List<MenuItem>, role: Int, onClick: (MenuItem) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

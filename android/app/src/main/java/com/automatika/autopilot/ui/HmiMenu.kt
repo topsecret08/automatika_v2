@@ -24,7 +24,10 @@ object HmiMenu {
     fun load(context: Context): List<MenuItem> {
         rootChildren?.let { return it }
         val text = context.assets.open("hmi_menu_tree.json").bufferedReader().use { it.readText() }
-        return loadFromJson(text)
+        val items = loadFromJson(text)
+        val augmented = augmentWithLocalContent(context, items)
+        rootChildren = augmented
+        return augmented
     }
 
     fun loadFromJson(text: String): List<MenuItem> {
@@ -38,6 +41,62 @@ object HmiMenu {
         val items = childIds.mapNotNull { map[it]?.toMenuItem(map) }
         rootChildren = items
         return items
+    }
+
+    private fun augmentWithLocalContent(context: Context, items: List<MenuItem>): List<MenuItem> {
+        return items.map { item ->
+            when (item.id) {
+                "help" -> item.copy(children = buildHelpChildren(context, item.children))
+                "preparation" -> item.copy(children = ensureRecipesNode(item.children))
+                else -> item
+            }
+        }
+    }
+
+    private fun buildHelpChildren(context: Context, existing: List<MenuItem>): List<MenuItem> {
+        val existingIds = existing.map { it.id }.toMutableSet()
+        val out = existing.toMutableList()
+        val files = runCatching { context.assets.list("static/help")?.toList().orEmpty() }.getOrDefault(emptyList())
+        val articles = files.filter { it.endsWith(".md") }.sorted()
+        for (f in articles) {
+            val articleId = f.removeSuffix(".md")
+            val nodeId = "help_article_$articleId"
+            if (nodeId in existingIds) continue
+            val title = runCatching {
+                context.assets.open("static/help/$f").bufferedReader().use { br ->
+                    br.lineSequence().firstOrNull { it.trim().startsWith("#") }
+                        ?.trim()?.trimStart('#', ' ')?.ifBlank { articleId } ?: articleId
+                }
+            }.getOrDefault(articleId)
+            existingIds += nodeId
+            out += MenuItem(
+                id = nodeId,
+                icon = "📄",
+                title = title,
+                type = MenuType.SCREEN,
+                action = "cb_help_article",
+                helpId = articleId,
+                colorCategory = 9,
+            )
+        }
+        return out
+    }
+
+    private fun ensureRecipesNode(children: List<MenuItem>): List<MenuItem> {
+        if (children.any { it.id == "recipes_all" }) return children
+        val recipes = MenuItem(
+            id = "recipes_all",
+            icon = "📚",
+            title = "Рецепты",
+            type = MenuType.SUBMENU,
+            colorCategory = 0,
+            children = listOf(
+                MenuItem(id = "recipes_beer", icon = "🍺", title = "Рецепты пива", type = MenuType.SCREEN, action = "cb_recipes_beer", colorCategory = 0),
+                MenuItem(id = "recipes_spirit", icon = "🥃", title = "Рецепты дистиллятов", type = MenuType.SCREEN, action = "cb_recipes_spirit", colorCategory = 0),
+                MenuItem(id = "recipes_mash", icon = "🌾", title = "Затирание", type = MenuType.SCREEN, action = "cb_recipes_mash", colorCategory = 0),
+            ),
+        )
+        return children + recipes
     }
 
     fun clearCache() {
