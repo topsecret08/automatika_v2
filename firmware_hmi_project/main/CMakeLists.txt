@@ -35,6 +35,8 @@ idf_component_register(
         esp_lcd_touch_gt911
 )
 
+target_compile_definitions(${COMPONENT_LIB} PRIVATE LV_LVGL_H_INCLUDE_SIMPLE)
+
 idf_build_get_property(build_components BUILD_COMPONENTS)
 if("lvgl" IN_LIST build_components)
     idf_component_get_property(lvgl_lib lvgl COMPONENT_LIB)
