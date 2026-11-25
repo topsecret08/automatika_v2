@@ -336,16 +336,16 @@ void ui_screen_home_update(const hmi_telemetry_t *t)
     color_row(lv_obj_get_parent(s_safety),
               !t->link ? c_muted : (t->sa ? c_green : c_red));
 
-    lv_label_set_text_fmt(s_level, "%u", t->lv);
-    lv_label_set_text_fmt(s_stage, "%u", t->stg);
+    lv_label_set_text_fmt(s_level, "%lu", (unsigned long)t->lv);
+    lv_label_set_text_fmt(s_stage, "%lu", (unsigned long)t->stg);
     lv_label_set_text(s_ver, t->version ? t->version : "v0.0");
-    lv_label_set_text_fmt(s_crc, "%u", t->crc_err);
+    lv_label_set_text_fmt(s_crc, "%lu", (unsigned long)t->crc_err);
 
     /* Строка событий: заполняется из telemetry.ev[] в реальной прошивке */
-    lv_label_set_text_fmt(s_ev[0], "t=%us  run=%u pause=%u",
-                          t->elapsed, t->run, t->pause);
-    lv_label_set_text_fmt(s_ev[1], "heads=%u body=%u tails=%u",
-                          t->heads, t->body, t->tails);
-    lv_label_set_text_fmt(s_ev[2], "db=%.1f r=%u",
-                          (float)t->db / 10.0f, t->r);
+    lv_label_set_text_fmt(s_ev[0], "t=%lus  run=%lu pause=%lu",
+                          (unsigned long)t->elapsed, (unsigned long)t->run, (unsigned long)t->pause);
+    lv_label_set_text_fmt(s_ev[1], "heads=%lu body=%lu tails=%lu",
+                          (unsigned long)t->heads, (unsigned long)t->body, (unsigned long)t->tails);
+    lv_label_set_text_fmt(s_ev[2], "db=%.1f r=%lu",
+                          (float)t->db / 10.0f, (unsigned long)t->r);
 }
