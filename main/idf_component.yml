@@ -21,7 +21,6 @@ dependencies:
 
 # V0.5 alfa: дополнительные компоненты НЕ добавлялись намеренно.
 #   * BMP280          — собственный драйвер main/hal/baro.c (I2C, Bosch);
-#   * YF-S201         — счёт импульсов в main/hal/flow_sensor.c;
 #   * mDNS            — собственный responder main/net/mdns_service.c;
 #   * физический UI   — LED/buzzer в main/ui/ui_physical.c (LVGL уже есть).
 # Причина: офлайн-сборка не должна зависеть от реестра компонентов, а

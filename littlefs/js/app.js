@@ -279,7 +279,6 @@ async function pollState() {
     if (typeof data.mode !== 'undefined') state.mode = String(data.mode);
     if (typeof data.pressure !== 'undefined') state.pressure = Number(data.pressure);
     if (typeof data.vacuum !== 'undefined') state.vacuum = Number(data.vacuum);
-    if (typeof data.flow !== 'undefined') state.flow = Number(data.flow);
     if (typeof data.level !== 'undefined') state.level = Number(data.level);
     if (typeof data.scale_ml !== 'undefined') state.scaleMl = Number(data.scale_ml);
     if (typeof data.jacket !== 'undefined') state.jacket = Number(data.jacket);
@@ -2520,7 +2519,6 @@ async function renderSensors() {
     const env = envResponse.ok ? await envResponse.json() : {};
     const st = stateResponse.ok ? await stateResponse.json() : {};
     const baro = env.baro || {};
-    const flow = env.flow || {};
     const column = env.column || {};
 
     const rows = [
@@ -2529,7 +2527,6 @@ async function renderSensors() {
       ['Давление', Number(baro.hpa || 0).toFixed(1) + ' гПа'],
       ['Кипение', Number(baro.boiling_c || 0).toFixed(1) + ' °C'],
       ['Колонна', Number(column.kpa || 0).toFixed(2) + ' кПа'],
-      ['Проток', Number(flow.lpm || 0).toFixed(2) + ' л/мин'],
       ['Фракция', env.fraction || '—']
     ];
 
@@ -2640,7 +2637,6 @@ async function renderActuators() {
 const HW_DEVICES = [
   ['pressure', 'Давление в колонне'],
   ['vacuum', 'Датчик вакуума'],
-  ['flow', 'Расходомер охлаждения'],
   ['level', 'Датчик уровня'],
   ['scale', 'Весы HX711'],
   ['reflux', 'Флегмовый клапан'],

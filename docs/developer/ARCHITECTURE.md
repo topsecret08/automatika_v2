@@ -66,7 +66,6 @@ Core 0 (в контексте HTTP-сервера). Это осознанный 
 DS18B20 ─┐
 BMP280  ─┤
 ADS1115 ─┼─> hal_* ─> state ─> control ─> actuators
-YF-S201 ─┤             │                   (MCP4725, PCA9685, Grove SSR,
 HX711   ─┘             │                    A4988)
                        ├─> events_log() ─> ring buffer / NVS / SD
                        ├─> health_check ─> /api/health

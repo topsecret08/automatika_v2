@@ -29,7 +29,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 |---|---|---|---|
 | GET | `/api/state` | 🔓 | текущее состояние процесса |
 | GET | `/api/health` | 🔓 | уровень здоровья, heap, RSSI, reset reason |
-| GET | `/api/env` | 🔓 | барометр, давление колонны, проток, фракция, reflux |
+| GET | `/api/env` | 🔓 | барометр, давление колонны, фракция, reflux |
 | GET | `/api/ota` | 🔓 | статус OTA |
 | GET | `/api/script/state` | 🔓 | состояние Lua-движка |
 | GET | `/api/control` | 🔓 | текущие параметры регулирования |

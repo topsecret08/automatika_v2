@@ -41,7 +41,6 @@
 #include "esp_timer.h"
 #include "hal/hal_1wire.h"
 #include "hal/baro.h"
-#include "hal/flow_sensor.h"
 #include "hal/pressure_sensor.h"
 #include "modes/mode_base.h"
 #include "modes/beer_presets.h"
@@ -161,7 +160,6 @@ static esp_err_t h_state(httpd_req_t *r) {
     state_snapshot(&snap);
     process_state_t *s = &snap;
 
-    float flow = hw_has_device(HW_DEV_FLOW) ? flow_get_lpm() : -1.0f;
     float level = (hw_has_device(HW_DEV_LEVEL) && level_is_available())
                       ? level_get_percent() : -1.0f;
     float scale_ml = (hw_has_device(HW_DEV_SCALE) && scale_is_ready())
@@ -170,7 +168,6 @@ static esp_err_t h_state(httpd_req_t *r) {
                        ? hw_temp_read(HW_TEMP_JACKET) : -1.0f;
     float tank = hw_temp_available(HW_TEMP_TANK)
                      ? hw_temp_read(HW_TEMP_TANK) : -1.0f;
-    if (!isfinite(flow)) flow = -1.0f;
     if (!isfinite(level)) level = -1.0f;
     if (!isfinite(scale_ml)) scale_ml = -1.0f;
     if (!isfinite(jacket)) jacket = -1.0f;
@@ -206,7 +203,7 @@ static esp_err_t h_state(httpd_req_t *r) {
         s->heads_collected_ml, s->body_collected_ml,
         s->tails_collected_ml, s->pressure_bar, s->vacuum_mbar,
         s->is_running ? 1 : 0,
-        (double)flow, (double)level, (double)scale_ml,
+        (double)level, (double)scale_ml,
         s->scale_ready ? 1 : 0, s->scale_indicator_active ? 1 : 0,
         (double)s->scale_weight_g, (double)s->scale_flow_ml_min,
         (double)s->scale_collected_ml,
@@ -2945,12 +2942,11 @@ static esp_err_t h_env(httpd_req_t *r) {
     snprintf(json, sizeof(json),
              "{\"baro\":{\"present\":%d,\"hpa\":%.2f,\"boiling_c\":%.2f},"
              "\"column\":{\"kpa\":%.2f,\"source\":\"%s\"},"
-             "\"flow\":{\"present\":%d,\"lpm\":%.2f,\"ok\":%d},"
+             ""
              "\"fraction\":\"%s\",\"reflux_ratio\":%.2f,\"reflux\":%d}",
              baro_available() ? 1 : 0, baro_get_pressure_hpa(),
              baro_boiling_point_c(baro_get_pressure_hpa()),
              column_pressure_kpa(), pressure_sensor_source(),
-             flow_is_present() ? 1 : 0, flow_get_lpm(), flow_is_ok() ? 1 : 0,
              fraction_name(fraction_get()), reflux_get_ratio(),
              reflux_enabled() ? 1 : 0);
     return send_json(r, json);

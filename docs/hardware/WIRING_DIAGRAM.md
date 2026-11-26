@@ -21,7 +21,6 @@ I2C bus (GPIO8 SDA,      │                                          │
                          │                                          │
 DS18B20 1-Wire ◄─────────┼── GPIO4 (+4.7k to 3.3V)                  │
 HX711 DOUT/SCK ◄─────────┼── GPIO5 / GPIO6                          │
-YF-S201 flow ◄───────────┼── GPIO2 (IRQ)                            │
 E-STOP NC->GND ◄─────────┼── GPIO7 (pull-up, 100nF, active high)    │
 Level float ◄────────────┼── GPIO40                                 │
 Buzzer ◄─────────────────┼── GPIO42                                 │

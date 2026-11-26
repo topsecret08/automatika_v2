@@ -23,7 +23,6 @@ typedef enum {
 typedef enum {
     HW_DEV_PRESSURE = 0,
     HW_DEV_VACUUM,
-    HW_DEV_FLOW,
     HW_DEV_LEVEL,
     HW_DEV_SCALE,
     HW_DEV_REFLUX,

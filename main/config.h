@@ -24,7 +24,6 @@
 #define PIN_HX711_SCK       6
 #define PIN_BUZZER          42
 #define PIN_SPILL_SENSOR    1
-#define PIN_FLOW_SENSOR     2
 
 // Сервисные пины (см. docs/NEW_MODULES.md, раздел «Распиновка»).
 // Шаговый драйвер дозатора: STEP + общий ENABLE.
@@ -306,10 +305,6 @@
 #define ZMPT_RMS_MAX_V              260.0f
 #define ZMPT_CALIB_DEFAULT          1.0f
 
-// Датчик протока YF-S201 (PIN_FLOW_SENSOR = GPIO 2)
-#define FLOW_SENSOR_ENABLED 1
-#define FLOW_MIN_LPM        0.1f    // минимум воды при работающем нагреве
-#define FLOW_POLL_MS        1000
 
 // Давление в колонне (кПа): из барометра, если он есть, иначе из ADS1115.
 // SAFE_MAX_PRESSURE (бар) × 100 = кПа.

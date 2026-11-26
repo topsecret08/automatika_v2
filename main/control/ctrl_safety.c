@@ -19,7 +19,6 @@
 #include "hal/hal_mcp23017.h"
 #include "hal/hal_lsa_pwm.h"
 #include "hal/baro.h"
-#include "hal/flow_sensor.h"
 #include "hal/pressure_sensor.h"
 #include "level/level_sensor.h"
 #include "web/telegram_notify.h"
@@ -36,10 +35,8 @@
 #define SAFETY_PERIOD_MS 100
 
 // Сколько времени без протока допускается при включённом нагреве.
-#define NO_FLOW_GRACE_MS 15000u
 
 static volatile bool s_ok = true;
-static uint32_t s_no_flow_ms = 0;
 
 /* edge-детекторы для уведомлений, чтобы не спамить Telegram */
 static bool s_level_low_last = false;
@@ -60,7 +57,6 @@ const char *ctrl_safety_reset_error(void) { return s_reset_error; }
 
 void ctrl_safety_init(void) {
     s_ok = true;
-    s_no_flow_ms = 0;
     s_level_low_last = false;
     s_level_over_last = false;
     s_run_done_notified = false;
@@ -120,7 +116,6 @@ esp_err_t ctrl_safety_reset(void) {
         return reset_refused("required level sensor is not available");
 
     s_ok = true;
-    s_no_flow_ms = 0;
     s_dry_run_latched = false;
     s_reset_error[0] = '\0';
     st->emergency = false;
@@ -229,20 +224,9 @@ void ctrl_safety_task(void *arg) {
         // если датчик сконфигурирован (плата без расходомера не должна
         // уходить в аварию).
         process_type_t ptype = state_get()->type;
+        process_type_t ptype = state_get()->type;
         bool water_cooled = (ptype == PROCESS_DISTILL || ptype == PROCESS_RECTIFY ||
                              ptype == PROCESS_DOUBLE || ptype == PROCESS_GABRIEL);
-        if (water_cooled && hw_has_device(HW_DEV_FLOW)) {
-            if (running && ctrl_heater_get_percent() > 0.0f && !flow_is_ok()) {
-                s_no_flow_ms += SAFETY_PERIOD_MS;
-                if (s_no_flow_ms >= NO_FLOW_GRACE_MS) {
-                    ctrl_safety_trigger("NO_FLOW");
-                }
-            } else {
-                s_no_flow_ms = 0;
-            }
-        } else {
-            s_no_flow_ms = 0;
-        }
 
         // ---- TSA (трубка связи с атмосферой): нет потока воды/охлаждения ----
         if (hw_has_device(HW_DEV_TSA) && hw_temp_available(HW_TEMP_TSA)) {

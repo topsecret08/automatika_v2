@@ -13,7 +13,6 @@
 #include "core/events.h"
 #include "config.h"
 #include "hal/hal_1wire.h"
-#include "hal/flow_sensor.h"
 #include "hal/hal_relay.h"
 #include "level/level_sensor.h"
 
@@ -213,7 +212,7 @@ static esp_err_t h_diag_safety(httpd_req_t *req) {
         "\"source\":\"%s\",\"active_ms\":%u},"
         "\"sensors\":{\"count\":%d,\"t0\":%.2f,\"t1\":%.2f,"
         "\"t0_ok\":%d,\"t1_ok\":%d},"
-        "\"flow\":{\"present\":%d,\"ok\":%d,\"lpm\":%.2f},"
+        ""
         "\"level\":{\"available\":%d,\"low\":%d,\"overflow\":%d},"
         "\"regulator\":{\"type\":%d,\"ready\":%d,\"gpio\":%d,"
         "\"pwm_hz\":%d,\"pwm_resolution\":%d,\"pwm_inverted\":%d,"
@@ -223,7 +222,6 @@ static esp_err_t h_diag_safety(httpd_req_t *req) {
         estop_is_pressed() ? 1 : 0, estop_source_name(),
         (unsigned)estop_since_ms(),
         hal_1wire_count(), t0, t1, sensor0_ok ? 1 : 0, sensor1_ok ? 1 : 0,
-        flow_is_present() ? 1 : 0, flow_is_ok() ? 1 : 0, flow_get_lpm(),
         level_is_available() ? 1 : 0,
         level_is_too_low() ? 1 : 0, level_is_overflow() ? 1 : 0,
         (int)control_config_get_regulator(),
