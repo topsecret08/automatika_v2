@@ -2,6 +2,7 @@
 #include "ctrl_heater.h"
 #include "ctrl_dose.h"
 #include "ctrl_stepper.h"
+#include "ctrl_phlegm_pump.h"
 #include "alcohol_balance.h"
 #include "core/control_config.h"
 #include "core/estop.h"
@@ -23,11 +24,14 @@
 #include "level/level_sensor.h"
 #include "web/telegram_notify.h"
 #include "config.h"
+#include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
 #include <math.h>
+
+static const char *TAG = "safety";
 
 // Период safety-задачи. Все проверки — неблокирующие: датчики читаются
 // из кэша (1-Wire опрашивается отдельной задачей), I2C-барометр — из
@@ -223,7 +227,6 @@ void ctrl_safety_task(void *arg) {
         // Проверяем только для процессов с водяным охлаждением и только
         // если датчик сконфигурирован (плата без расходомера не должна
         // уходить в аварию).
-        process_type_t ptype = state_get()->type;
         process_type_t ptype = state_get()->type;
         bool water_cooled = (ptype == PROCESS_DISTILL || ptype == PROCESS_RECTIFY ||
                              ptype == PROCESS_DOUBLE || ptype == PROCESS_GABRIEL);
