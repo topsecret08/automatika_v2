@@ -15,7 +15,7 @@ else
     echo "gcc not found, running Python behavioral mirror of test_proto.c"
     python3 - <<'PY'
 import sys
-HMI_NODE_HMI=0x20; HMI_TYPE_POLL=0x01; HMI_MAX_PAYLOAD=512; HMI_FRAME_OVERHEAD=10; HMI_MAGIC0=0xAA; HMI_MAGIC1=0x55
+HMI_NODE_HMI=0x20; HMI_TYPE_POLL=0x01; HMI_MAX_PAYLOAD=1024; HMI_FRAME_OVERHEAD=10; HMI_MAGIC0=0xAA; HMI_MAGIC1=0x55
 def hmi_crc16(data):
     crc=0xFFFF
     for b in data:
