@@ -156,12 +156,8 @@ static esp_err_t start_provisioning(void) {
 
     // Используем внешний httpd (наш web server), чтобы не конфликтовать на :80.
     if (s_ext_httpd) {
-        esp_err_t herr = wifi_prov_scheme_softap_set_httpd_handle(s_ext_httpd);
-        if (herr != ESP_OK) {
-            ESP_LOGW(TAG, "set prov httpd handle failed: %s", esp_err_to_name(herr));
-        } else {
-            ESP_LOGI(TAG, "provisioning using external httpd handle");
-        }
+        wifi_prov_scheme_softap_set_httpd_handle(s_ext_httpd);
+        ESP_LOGI(TAG, "provisioning using external httpd handle");
     } else {
         ESP_LOGW(TAG, "no external httpd handle; provisioning may conflict on :80");
     }
