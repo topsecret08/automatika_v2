@@ -66,9 +66,9 @@ static proc_stage_t r_init(void) {
     volume_feedback_begin(&s_heads_fb);
     volume_feedback_begin(&s_body_fb);
     volume_feedback_begin(&s_tails_fb);
-    volume_feedback_set_target(&s_heads_fb, state_get()->heads_ml, state_get()->heads_ml > 0 ? state_get()->heads_ml * 1.20f : 0, 120000);
-    volume_feedback_set_target(&s_body_fb,  state_get()->body_ml,  state_get()->body_ml  > 0 ? state_get()->body_ml  * 1.20f : 0, 120000);
-    volume_feedback_set_target(&s_tails_fb, state_get()->tails_ml, state_get()->tails_ml > 0 ? state_get()->tails_ml * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_heads_fb, state_get()->target_heads_ml, state_get()->target_heads_ml > 0 ? state_get()->target_heads_ml * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_body_fb,  state_get()->target_body_ml,  state_get()->target_body_ml  > 0 ? state_get()->target_body_ml  * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_tails_fb, state_get()->target_tails_ml, state_get()->target_tails_ml > 0 ? state_get()->target_tails_ml * 1.20f : 0, 120000);
     if (hw_has_device(HW_DEV_REFLUX)) {
         reflux_set_ratio(REFLUX_RATIO_DEFAULT);
         reflux_enable(false);
