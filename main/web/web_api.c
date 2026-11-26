@@ -2448,7 +2448,8 @@ static esp_err_t h_calib_scale_start(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
     if (state_get()->is_running) return send_err(r, "409 Conflict", "{\"error\":\"process running\"}");
-    char *body = NULL; if (recv_body(r, &body) != ESP_OK) return ESP_FAIL;
+    char body[128];
+    if (recv_body(r, body, sizeof(body)) < 0) return send_err(r, "400 Bad Request", "{\"error\":\"body\"}");
     float known_g = 1000.0f;
     cJSON *root = cJSON_Parse(body);
     if (root) {
@@ -2457,7 +2458,6 @@ static esp_err_t h_calib_scale_start(httpd_req_t *r) {
             known_g = (float)kg->valuedouble;
         cJSON_Delete(root);
     }
-    free(body);
     scale_start_calibration(known_g);
     return send_json(r, "{\"ok\":true}");
 }
@@ -2488,7 +2488,8 @@ static esp_err_t h_preflight(httpd_req_t *r) {
 
 static esp_err_t h_planner_calc(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
-    char *body = NULL; if (recv_body(r, &body) != ESP_OK) return ESP_FAIL;
+    char body[256];
+    if (recv_body(r, body, sizeof(body)) < 0) return send_err(r, "400 Bad Request", "{\"error\":\"body\"}");
     cJSON *root = cJSON_Parse(body);
     float vol_l = 20.0f, abv_pct = 40.0f, power_w = 3000.0f, eff = 0.85f;
     float heads_pct = 8.0f, tails_pct = 10.0f;
@@ -2502,11 +2503,14 @@ static esp_err_t h_planner_calc(httpd_req_t *r) {
         v=cJSON_GetObjectItem(root,"tails_pct"); if(cJSON_IsNumber(v)) tails_pct=(float)v->valuedouble;
         cJSON_Delete(root);
     }
-    free(body);
-    if (vol_l < 0.1f) vol_l=0.1f; if (vol_l>500.f) vol_l=500.f;
-    if (abv_pct < 1.f) abv_pct=1.f; if (abv_pct>96.f) abv_pct=96.f;
-    if (power_w < 100.f) power_w=100.f; if (power_w>15000.f) power_w=15000.f;
-    if (eff < 0.3f) eff=0.3f; if (eff>1.f) eff=1.f;
+    if (vol_l < 0.1f) vol_l = 0.1f;
+    if (vol_l > 500.f) vol_l = 500.f;
+    if (abv_pct < 1.f) abv_pct = 1.f;
+    if (abv_pct > 96.f) abv_pct = 96.f;
+    if (power_w < 100.f) power_w = 100.f;
+    if (power_w > 15000.f) power_w = 15000.f;
+    if (eff < 0.3f) eff = 0.3f;
+    if (eff > 1.f) eff = 1.f;
     float abs_alc_l = vol_l * (abv_pct/100.0f);
     float heads_l = abs_alc_l * (heads_pct/100.0f);
     float tails_l = abs_alc_l * (tails_pct/100.0f);
