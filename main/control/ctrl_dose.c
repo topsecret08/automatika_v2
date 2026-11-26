@@ -40,11 +40,14 @@ typedef struct {
 
 static QueueHandle_t s_queue = NULL;
 
+static bool     s_gpio_ready = false;
+static bool     s_dir_ready = false;
 static volatile bool  s_busy = false;
+static volatile bool  s_stop = false;
+static volatile bool  s_nbk_feed_dir = false; // false=TAKEOFF, true=NBK_FEED
 static volatile float s_rate = 0.0f;
 static volatile float s_total_ml = 0.0f;
 
-static bool s_gpio_ready = false;
 static bool s_ledc_ready = false;
 
 static float   s_proc_accum_ml = 0.0f;
@@ -54,7 +57,7 @@ static bool    s_proc_open = false;
 // ------------------------------------------------------------------
 
 static bool guard_ok(void) {
-    return ctrl_safety_ok() && !estop_is_pressed();
+    return ctrl_safety_ok() && !estop_actions_blocked();
 }
 
 static uint32_t rate_to_step_us(float rate_mlmin, uint32_t steps_per_ml) {
@@ -70,9 +73,15 @@ static uint32_t rate_to_step_us(float rate_mlmin, uint32_t steps_per_ml) {
     return (uint32_t)us;
 }
 
+static void pump_set_dir(bool nbk_feed) {
+    if (!s_dir_ready) return;
+    gpio_set_level((gpio_num_t)PUMP_DIR_GPIO, nbk_feed ? 1 : 0);
+}
+
 static void pump_enable(bool on) {
     if (!s_gpio_ready) return;
     gpio_set_level((gpio_num_t)PUMP_STEP_GPIO, 0);
+    if (on) pump_set_dir(s_nbk_feed_dir);
     gpio_set_level((gpio_num_t)PUMP_EN_GPIO, on ? 0 : 1);   /* активен низким */
 }
 
@@ -225,9 +234,9 @@ esp_err_t ctrl_dose_init(void) {
         events_log(EVENT_WARNING,
                    "Doser pump disabled: STEP/ENABLE GPIO not configured");
     } else {
-        // step_ok/en_ok гарантируют, что оба вывода реальные (>=0).
-        // cppcheck-suppress signConversion
         uint64_t mask = (1ULL << PUMP_STEP_GPIO) | (1ULL << PUMP_EN_GPIO);
+        bool dir_ok = PUMP_DIR_GPIO >= 0 && GPIO_IS_VALID_OUTPUT_GPIO((gpio_num_t)PUMP_DIR_GPIO);
+        if (dir_ok) mask |= (1ULL << PUMP_DIR_GPIO);
         gpio_config_t io = {
             .pin_bit_mask = mask,
             .mode = GPIO_MODE_OUTPUT,
@@ -238,7 +247,10 @@ esp_err_t ctrl_dose_init(void) {
         esp_err_t err = gpio_config(&io);
         if (err != ESP_OK) return err;
         s_gpio_ready = true;
+        s_dir_ready = dir_ok;
+        if (s_dir_ready) gpio_set_level((gpio_num_t)PUMP_DIR_GPIO, 0);
         pump_enable(false);
+        ESP_LOGI(TAG, "pump DIR GPIO%d %s", PUMP_DIR_GPIO, s_dir_ready ? "ready" : "disabled");
     }
 
     if (SOLENOID_PWM_GPIO >= 0) {
@@ -253,6 +265,15 @@ esp_err_t ctrl_dose_init(void) {
     return ESP_OK;
 }
 
+
+bool ctrl_dose_set_nbk_feed(bool nbk_feed) {
+    if (s_busy) return false; // interlock: don't switch direction while running
+    s_nbk_feed_dir = nbk_feed;
+    pump_set_dir(nbk_feed);
+    return true;
+}
+
+bool ctrl_dose_is_nbk_feed(void) { return s_nbk_feed_dir; }
 void ctrl_dose_task(void *arg) {
     (void)arg;
     wd_register("doser", 30000, false);

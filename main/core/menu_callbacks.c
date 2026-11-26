@@ -471,7 +471,7 @@ static void heater_test_start(float pct) {
         ui_toast("Включите сервисный режим");
         return;
     }
-    if (!ctrl_safety_ok() || estop_is_pressed()) {
+    if (!ctrl_safety_ok() || estop_actions_blocked()) {
         ui_toast("Авария / E-STOP");
         return;
     }

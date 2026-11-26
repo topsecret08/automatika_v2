@@ -16,6 +16,8 @@
 #include "hal/hal_1wire.h"
 #include "hal/hal_adc.h"
 #include "hal/hal_relay.h"
+#include "hal/hal_mcp23017.h"
+#include "hal/hal_lsa_pwm.h"
 #include "hal/baro.h"
 #include "hal/flow_sensor.h"
 #include "hal/pressure_sensor.h"
@@ -79,6 +81,8 @@ void ctrl_safety_trigger(const char *reason) {
     hal_safety_relay_force_open();
 #endif
     hal_relay_all_off();
+            hal_mcp23017_all_off();
+            hal_lsa_pwm_force_off();
     ctrl_dose_stop();
     ctrl_stepper_stop_all();
 
@@ -106,6 +110,8 @@ esp_err_t ctrl_safety_reset(void) {
         return reset_refused("stop the process and cut heating first");
     if (estop_is_pressed())
         return reset_refused("E-STOP active (release the button first)");
+    if (estop_bench_mode())
+        return reset_refused("SENSOR_ONLY_BENCH: actions blocked");
     if (level_is_available() && level_is_too_low() &&
         hw_has_device(HW_DEV_LEVEL))
         return reset_refused("liquid level is still low");
@@ -147,7 +153,24 @@ void ctrl_safety_task(void *arg) {
             hal_safety_relay_force_open();
 #endif
 
-        // ---- E-STOP: наивысший приоритет проверки ----
+        // ---- E-STOP / bench mode: наивысший приоритет ----
+        process_state_t *pst = state_get();
+        pst->estop_active = estop_is_pressed() || estop_bench_mode();
+        pst->actions_blocked = estop_actions_blocked();
+        pst->bench_mode = estop_bench_mode();
+        if (estop_bench_mode()) {
+            snprintf(pst->actions_block_reason, sizeof(pst->actions_block_reason),
+                     "SENSOR_ONLY_BENCH");
+        } else if (estop_is_pressed()) {
+            snprintf(pst->actions_block_reason, sizeof(pst->actions_block_reason),
+                     "E-STOP active");
+        } else if (pst->actions_blocked) {
+            snprintf(pst->actions_block_reason, sizeof(pst->actions_block_reason),
+                     "blocked");
+        } else {
+            pst->actions_block_reason[0] = '\0';
+        }
+
         if (estop_is_pressed()) {
             if (!s_estop_latched) {
                 s_estop_latched = true;
@@ -161,6 +184,17 @@ void ctrl_safety_task(void *arg) {
             s_estop_latched = false;
             events_log(EVENT_WARNING, "SAFETY: E-STOP released");
             telegram_notify_alert("ИНФО", "Кнопка E-STOP отпущена, нужен сброс аварии");
+        }
+
+        if (estop_bench_mode()) {
+            ctrl_heater_force_off();
+            hal_relay_all_off();
+            hal_mcp23017_all_off();
+            hal_lsa_pwm_force_off();
+            ctrl_dose_stop();
+            ctrl_stepper_stop_all();
+            hal_safety_relay_force_open();
+            pst->is_running = false;
         }
 
         // Быстрые чтения из кэша; 1-Wire не блокирует safety-задачу.

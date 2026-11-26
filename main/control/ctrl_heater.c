@@ -4,6 +4,7 @@
 #include "regulator_driver.h"
 #include "verify/shadow.h"
 #include "hal/hal_dac.h"
+#include "hal/hal_lsa_pwm.h"
 #include "hal/hal_1wire.h"
 #include "control/ctrl_safety.h"
 #include "core/control_config.h"
@@ -45,7 +46,7 @@ static bool heater_allowed(float pct) {
     bool process_or_service = state_get()->is_running ||
                               control_config_service_enabled();
     bool level_on = hw_has_device(HW_DEV_LEVEL);
-    return heater_power_allowed(pct, estop_is_pressed(), ctrl_safety_ok(),
+    return heater_power_allowed(pct, estop_actions_blocked(), ctrl_safety_ok(),
                                 level_on && level_is_available(),
                                 level_on && level_is_too_low(),
                                 level_on && level_is_required_fault(),
@@ -85,6 +86,7 @@ static esp_err_t heater_apply(float pct) {
     // Выбранный внешний регулятор нельзя незаметно заменять DAC.
     if (control_config_get_regulator() != REGULATOR_NONE) {
         hal_dac_set_percent(0);
+    hal_lsa_pwm_force_off();
 
         if (!regulator_is_ready()) {
             regulator_emergency_off();
@@ -104,6 +106,7 @@ static esp_err_t heater_apply(float pct) {
     }
 
     hal_dac_set_percent(pct);
+    hal_lsa_pwm_set_duty_pct(pct);
     shadow_tick_heater(pct);
     return ESP_OK;
 }
@@ -119,6 +122,7 @@ void ctrl_heater_init(void) {
 
     hal_dac_init();
     hal_dac_set_percent(0);
+    hal_lsa_pwm_force_off();
 
     esp_err_t err = regulator_init_from_config();
     if (err != ESP_OK && control_config_get_regulator() != REGULATOR_NONE) {
@@ -177,6 +181,7 @@ void ctrl_heater_force_off(void) {
     state_get()->power_percent = 0.0f;
 
     hal_dac_set_percent(0);
+    hal_lsa_pwm_force_off();
     regulator_emergency_off();
     unlock();
 }

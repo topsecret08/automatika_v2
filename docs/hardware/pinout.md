@@ -14,7 +14,7 @@
 | 5 | HX711 DOUT | input | тензодатчик |
 | 6 | HX711 SCK | output | тензодатчик |
 | 7 | **E-STOP** | input, pull-up | NC-цепь на GND; в норме 0, авария/обрыв — 1. ADC1, не strapping |
-| 8 | I2C SDA | bidir | BMP280, DS3231, MCP4725, PCA9685, Grove SSR, ADS1115, FT6336 |
+| 8 | I2C SDA | bidir | BMP280, DS3231, MCP4725, PCA9685, Grove SSR, ADS1115, FT6336, MCP23017, ADS1115#2, XGZP6897D |
 | 9 | I2C SCL | output | 400 кГц |
 | 10 | microSD CS | output | SPI |
 | 11 | microSD MOSI | output | SPI |
@@ -26,8 +26,8 @@
 | 17 | `HMI_RS485_TX_GPIO` | UART2 TX | RS485 к HMI-панели |
 | 18 | `HMI_RS485_RX_GPIO` | UART2 RX | RS485 от HMI-панели |
 | 21 | `HMI_RS485_DE_GPIO` | output | RS485 DE/RE |
-| 38 | RGB LED (v1.1) | — | опционально, не используется по умолчанию |
-| 39 | — | — | не используется |
+| 38 | `LSA_PWM_GPIO` | output, LEDC PWM 2kHz | Loncont LSA-TH3P40Y через внешний PWM→0-5/0-10V |
+| 39 | `PUMP_DIR_GPIO` | output | направление шагового двигателя (TAKEOFF/NBK_FEED) |
 | 40 | Level float | input, pull-up | датчик уровня |
 | 41 | `SOLENOID_PWM_GPIO` | output, PWM 25 Гц | соленоид |
 | 42 | Buzzer | output | зуммер 5 В через транзистор |
@@ -43,6 +43,18 @@
 
 > **У ESP32-S3 нет GPIO 22–25.** GPIO 26–32 обычно заняты SPI flash/PSRAM,
 > GPIO 33–37 — Octal PSRAM. Не использовать без проверки схемы модуля.
+
+## 1.1. Расширение оборудования (модуль)
+
+| Адрес/Pin | Устройство | Назначение |
+|---|---|---|
+| I2C `0x21` | MCP23017 | 8 SSR (GPA0-7: головы/тело/хвосты/мешалка/охлаждение/флегма/3ф ТЭН разгона/резерв) + 3 входа уровня (GPB0-2) |
+| I2C `0x49` | ADS1115 #2 | A0 PT-506 4-20mA рубашка ПВК, A1-A3 ZMPT101B фазы |
+| I2C `0x6D` | XGZP6897D | давление куба/захлеб |
+| GPIO38 | LSA_PWM | PWM->0-5/0-10V -> Loncont LSA-TH3P40Y (safe 0%) |
+| GPIO39 | PUMP_DIR | направление шаговика, TAKEOFF/NBK_FEED interlock |
+
+Подробности: [`SENSORS_ACTUATORS.md`](SENSORS_ACTUATORS.md), [`SCHEMATIC_MODULES.md`](SCHEMATIC_MODULES.md).
 
 ## 2. ПВД-регулятор (SSR/MOSFET)
 

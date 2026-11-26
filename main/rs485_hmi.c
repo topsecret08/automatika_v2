@@ -32,6 +32,11 @@
 #include "control/ctrl_safety.h"
 #include "control/safety_gate.h"
 #include "hal/hal_safety_relay.h"
+#include "hal/pressure_xgzp6897d.h"
+#include "hal/pressure_pt506.h"
+#include "hal/zmpt_rms.h"
+#include "hal/hal_lsa_pwm.h"
+#include "esp_system.h"
 #include "modes/mode_base.h"
 
 static const char *TAG = "RS485_HMI";
@@ -127,13 +132,30 @@ static void fill_telemetry(char *buf, size_t len)
     if (!stage) stage = "?";
     if (!mode) mode = "?";
 
+    const bool estop_active = estop_is_pressed();
+    const bool actions_blocked = estop_actions_blocked();
+    const bool bench_mode = estop_bench_mode();
+    const float pt506_bar = pt506_pressure_bar();
+    const float xgzp_kpa = pressure_xgzp6897d_kpa();
+    const float lsa_duty = hal_lsa_pwm_get_duty_pct();
+    const float zmpt_ctrl = zmpt_rms_ctrl_v();
     snprintf(buf, len,
              "{\"st\":\"%s\",\"mode\":\"%s\",\"type\":%d,"
              "\"run\":%d,\"pause\":%d,"
              "\"tc\":%.2f,\"tk\":%.2f,\"td\":%.2f,\"tj\":%.2f,"
              "\"p\":%.3f,\"vac\":%.1f,\"flow\":%.2f,"
              "\"power\":%.1f,\"hp\":%.0f,\"bp\":%.0f,\"tp\":%.0f,"
-             "\"safety\":%d,\"estop\":%d,\"relay\":%d,\"ev\":\"\"}",
+             "\"safety\":%d,\"estop\":%d,\"relay\":%d,"
+             "\"estop_active\":%d,\"actions_blocked\":%d,\"bench_mode\":%d,"
+             "\"estop_mode\":%d,\"reason\":\"%s\","
+             "\"lsa_pwm\":%.1f,\"pt506_bar\":%.3f,\"xgzp_kpa\":%.3f,"
+             "\"zmpt_v1\":%.1f,\"zmpt_v2\":%.1f,\"zmpt_v3\":%.1f,"
+             "\"zmpt_ctrl\":%.1f,\"zmpt_fault\":%d,"
+             "\"sa\":%s,\"es\":%s,"
+             "\"ts\":%.2f,\"m\":%.3f,\"lv\":0,\"r\":%d,"
+             "\"stg\":%d,\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
+             "\"elapsed\":%u,\"frac\":\"\",\"baro\":0,\"sd\":%s,\"db\":false,"
+             "\"heap\":%u,\"epoch\":0,\"ev\":\"\"}",
              stage, mode, (int)s.type,
              s.is_running ? 1 : 0, s.is_paused ? 1 : 0,
              s.cube_temp, s.column_temp, s.deph_temp, s.jacket_temp,
@@ -141,8 +163,21 @@ static void fill_telemetry(char *buf, size_t len)
              s.power_percent,
              s.heads_collected_ml, s.body_collected_ml, s.tails_collected_ml,
              ctrl_safety_ok() ? 1 : 0,
-             estop_is_pressed() ? 1 : 0,
-             hal_safety_relay_is_closed() ? 1 : 0);
+             estop_active ? 1 : 0,
+             hal_safety_relay_is_closed() ? 1 : 0,
+             estop_active ? 1 : 0, actions_blocked ? 1 : 0, bench_mode ? 1 : 0,
+             (int)estop_get_mode(), s.actions_block_reason,
+             lsa_duty, pt506_bar, xgzp_kpa,
+             zmpt_rms_phase_v(0), zmpt_rms_phase_v(1), zmpt_rms_phase_v(2),
+             zmpt_ctrl, zmpt_rms_fault() ? 1 : 0,
+             ctrl_safety_ok() ? "true" : "false",
+             estop_active ? "true" : "false",
+             s.target_cube_t, s.pressure_bar, s.is_running ? 1 : 0,
+             (int)s.stage,
+             s.heads_collected_ml, s.body_collected_ml, s.tails_collected_ml,
+             (unsigned)s.elapsed_sec,
+             ctrl_safety_ok() ? "true" : "false",
+             (unsigned)esp_get_free_heap_size());
 }
 
 static void send_config(uint16_t seq)
@@ -201,8 +236,8 @@ static void handle_cmd(uint16_t seq, const hmi_frame_t *fr)
             snprintf(detail, sizeof(detail), "%s", why);
         } else if (!ctrl_safety_ok()) {
             snprintf(detail, sizeof(detail), "safety");
-        } else if (estop_is_pressed()) {
-            snprintf(detail, sizeof(detail), "estop");
+        } else if (estop_actions_blocked()) {
+            snprintf(detail, sizeof(detail), estop_bench_mode() ? "bench_mode" : "estop");
         } else {
             mode_set(m);
             process_state_t *st = state_get();
@@ -226,6 +261,9 @@ static void handle_cmd(uint16_t seq, const hmi_frame_t *fr)
         state_get()->is_paused = false;
         ok = true;
     } else if (strcmp(cmd, "power") == 0) {
+        if (estop_actions_blocked()) {
+            snprintf(detail, sizeof(detail), estop_bench_mode() ? "bench_mode" : "estop");
+        } else {
         const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "value");
         if (!v) v = cJSON_GetObjectItemCaseSensitive(root, "power");
         if (cJSON_IsString(v) && strcmp(v->valuestring, "auto") == 0) {
@@ -241,9 +279,12 @@ static void handle_cmd(uint16_t seq, const hmi_frame_t *fr)
         } else {
             snprintf(detail, sizeof(detail), "value");
         }
+        }
     } else if (strcmp(cmd, "safety_reset") == 0) {
         if (estop_is_pressed()) {
             snprintf(detail, sizeof(detail), "estop");
+        } else if (estop_bench_mode()) {
+            snprintf(detail, sizeof(detail), "bench_mode");
         } else if (!ctrl_safety_ok()) {
             esp_err_t err = ctrl_safety_reset();
             ok = (err == ESP_OK);

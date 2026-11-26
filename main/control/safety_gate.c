@@ -64,7 +64,7 @@ const char *safety_gate_class_name(safety_class_t cls) {
 bool safety_gate_can_apply(const char *module) {
     const module_reg_t *m = find(module);
     if (!m) return false;
-    if (!ctrl_safety_ok() || estop_is_pressed()) return false;
+    if (!ctrl_safety_ok() || estop_actions_blocked()) return false;
     if (!verify_is_enabled()) return m->cls == SAFETY_CLASS_CRITICAL;
 
     if (m->cls != SAFETY_CLASS_CRITICAL &&
@@ -94,7 +94,7 @@ esp_err_t safety_gate_apply(const char *module, float value) {
     }
 
     // Safety и E-STOP имеют безусловный приоритет.
-    if (!ctrl_safety_ok() || estop_is_pressed()) {
+    if (!ctrl_safety_ok() || estop_actions_blocked()) {
         ctrl_heater_force_off();
         return ESP_ERR_INVALID_STATE;
     }
@@ -154,7 +154,7 @@ esp_err_t safety_gate_submit_flags(uint32_t aggregate, uint32_t detail) {
 esp_err_t safety_gate_apply_valve(const char *module, int idx, float value) {
     const module_reg_t *m = find(module);
     if (!m) return ESP_ERR_NOT_FOUND;
-    if (!ctrl_safety_ok() || estop_is_pressed()) {
+    if (!ctrl_safety_ok() || estop_actions_blocked()) {
         valve_set_pct_raw(idx, 0.0f);
         return ESP_ERR_INVALID_STATE;
     }

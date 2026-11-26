@@ -33,10 +33,9 @@
 // По умолчанию дозатор отключён; задайте реальные свободные выводы платы.
 #define PUMP_STEP_GPIO      15
 #define PUMP_EN_GPIO        16
+#define PUMP_DIR_GPIO       39
 // Аварийная кнопка: нормально замкнутая, вход с подтяжкой вверх.
 // Требует свободного накопительного конденсатора 100 нФ на линии.
-// GPIO 7 (ADC1, не strapping). GPIO 26–32 на ESP32-S3-DevKitC-1 не выведены,
-// поэтому кнопка не может быть на 27. Проводка ещё не подключена.
 #define ESTOP_GPIO          7
 // E-STOP: нормально замкнутая кнопка на GND. В норме линия = 0,
 // при нажатии/обрыве провода pull-up даёт 1. Активный уровень — высокий.
@@ -44,15 +43,27 @@
 // Порог «нажатия» аварийной кнопки, мс.
 #define ESTOP_DEBOUNCE_MS   50
 
+// Режим E-STOP. REQUIRED_NC — штатный fail-safe (по умолчанию).
+// SENSOR_ONLY_BENCH — явный стендовый режим: контроллер запускается,
+// датчики/телеметрия работают, все исполнительные выходы заблокированы.
+#define ESTOP_MODE_REQUIRED_NC      0
+#define ESTOP_MODE_SENSOR_ONLY_BENCH 1
+#ifndef ESTOP_MODE_DEFAULT
+#define ESTOP_MODE_DEFAULT          ESTOP_MODE_REQUIRED_NC
+#endif
+
 // ============================================================
 // I2C
 // ============================================================
 #define I2C_ADDR_ADS1115    0x48
+#define I2C_ADDR_ADS1115_2  0x49
 #define I2C_ADDR_MCP4725    0x60
 #define I2C_ADDR_GROVE_SSR  0x11
 #define I2C_ADDR_PCA9685    0x40
 #define I2C_ADDR_BMP280     0x77
 #define I2C_ADDR_FT6336     0x38
+#define I2C_ADDR_MCP23017   0x21
+#define I2C_ADDR_XGZP6897D  0x6D
 
 // ============================================================
 // Реле
@@ -61,6 +72,17 @@
 #define RELAY_WATER_VALVE   1
 #define RELAY_STIRRER       2
 #define RELAY_EXTRA         3
+
+// MCP23017 (отдельный модуль расширения): 8-канальный SSR + цифровые входы.
+#define MCP23017_SSR_HEADS_CH       0  // GPA0
+#define MCP23017_SSR_BODY_CH        1  // GPA1
+#define MCP23017_SSR_TAILS_CH       2  // GPA2
+#define MCP23017_SSR_STIRRER_CH     3  // GPA3
+#define MCP23017_SSR_COOLING_CH     4  // GPA4
+#define MCP23017_SSR_PHLEGM_CH      5  // GPA5
+#define MCP23017_SSR_BOOST_3PH_CH   6  // GPA6
+#define MCP23017_SSR_SPARE_CH       7  // GPA7
+#define MCP23017_SSR_ACTIVE_HIGH    1  // 3.3V совместимая логика, подтверждено
 
 // ============================================================
 // Клапаны
@@ -121,6 +143,10 @@
 #define DOSER_SOLENOID_HZ     25       // частота ШИМ клапана отбора, Гц
 #define DOSER_FLOW_DEFAULT_MLMIN 60.0f // расход при 100 % открытия клапана
 #define SOLENOID_PWM_GPIO   41         // соленоид 25 Гц
+#define LSA_PWM_GPIO        38         // Loncont LSA-TH3P40Y через PWM->0-5/0-10V
+#define LSA_PWM_HZ          2000       // 1-3 kHz, уточнить по модулю преобразователя
+#define LSA_PWM_RES_BITS    10
+#define LSA_PWM_SAFE_DUTY   0
 #define PUMP_MIN_STEP_US      400      // минимальная длительность шага, мкс
 #define PUMP_STEP_US          3        // длительность импульса STEP, мкс
 
@@ -175,6 +201,15 @@
 #define LEVEL_MAX_PERCENT       95.0f
 // Автоймпульс датчика (мс), 0 — только по запросу safety.
 #define LEVEL_POLL_MS           500
+
+// Расширенные цифровые входы уровня на MCP23017 (отдельный модуль).
+// Активный уровень/полярность настраиваются в NVS; здесь дефолты.
+#define LEVEL_MCP23017_ENABLED      1
+#define LEVEL_XKC_DIOPTER_MCP_PIN   8   // GPB0
+#define LEVEL_XKC_RECEIVER_MCP_PIN  9   // GPB1
+#define LEVEL_PHLEGM_REED_MCP_PIN   10  // GPB2
+#define LEVEL_INPUT_ACTIVE_HIGH     1
+#define LEVEL_INPUT_DEBOUNCE_MS     50
 
 // ------------------------------------------------------------
 // WebSocket-телеметрия (web/ws_telemetry.c)
@@ -249,6 +284,30 @@
 #define BARO_POLL_MS        5000
 #define BOIL_CORRECTION_COEFF 0.035f   // °C на 1 гПа (Антуан, упрощённо)
 #define STANDARD_ATM_HPA    1013.25f
+
+// XGZP6897D (I2C 0x6D) — давление куба/захлеб.
+#define XGZP6897D_ENABLED           1
+#define XGZP6897D_I2C_ADDR          I2C_ADDR_XGZP6897D
+#define XGZP6897D_POLL_MS           200
+#define XGZP6897D_RANGE_KPA         100.0f   // уточнить по датчику
+#define XGZP6897D_CHOKE_KPA         30.0f    // порог захлеба, калибруется
+
+// PT-506 4-20mA — давление рубашки ПВК (ADS1115 #2).
+#define PT506_ENABLED               1
+#define PT506_ADS_ADDR              I2C_ADDR_ADS1115_2
+#define PT506_ADS_CH                0
+#define PT506_SHUNT_OHMS            165.0f   // 4-20mA -> 0.66-3.3V, 0.1%
+#define PT506_RANGE_BAR             10.0f    // уточнить по датчику
+#define PT506_JACKET_MAX_BAR        1.5f     // аварийный порог рубашки, калибруется
+
+// ZMPT101B ×3 — RMS напряжение фаз (медианный фильтр + среднее по 3 фазам).
+#define ZMPT_ENABLED                1
+#define ZMPT_PHASE_COUNT            3
+#define ZMPT_SAMPLE_WINDOW_MS       200
+#define ZMPT_MEDIAN_WINDOW          5
+#define ZMPT_RMS_MIN_V              170.0f
+#define ZMPT_RMS_MAX_V              260.0f
+#define ZMPT_CALIB_DEFAULT          1.0f
 
 // Датчик протока YF-S201 (PIN_FLOW_SENSOR = GPIO 2)
 #define FLOW_SENSOR_ENABLED 1

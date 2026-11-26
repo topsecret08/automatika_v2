@@ -21,6 +21,7 @@ static bool     s_ready = false;
 static bool     s_init_failed = false;
 static bool     s_force = false;
 static char     s_reason[48] = "";
+static volatile estop_mode_t s_mode = (estop_mode_t)ESTOP_MODE_DEFAULT;
 
 // ISR минимален: только защёлка. Она безопасна, потому что нагрев/реле
 // снимаются не из ISR, а в safety-задаче (приоритет 15, ядро 1), которая
@@ -37,6 +38,16 @@ static bool pin_down(void) {
     return estop_level_active(gpio_get_level((gpio_num_t)ESTOP_GPIO));
 }
 
+void estop_set_mode(estop_mode_t mode) {
+    s_mode = mode;
+    ESP_LOGW(TAG, "E-STOP mode set: %s",
+             mode == ESTOP_MODE_SENSOR_ONLY_BENCH ? "SENSOR_ONLY_BENCH" : "REQUIRED_NC");
+}
+
+estop_mode_t estop_get_mode(void) { return s_mode; }
+bool estop_bench_mode(void) { return s_mode == ESTOP_MODE_SENSOR_ONLY_BENCH; }
+bool estop_actions_blocked(void) { return estop_bench_mode() || estop_is_pressed(); }
+
 esp_err_t estop_init(void) {
     gpio_config_t io = {
         .pin_bit_mask = (1ULL << ESTOP_GPIO),
@@ -49,10 +60,12 @@ esp_err_t estop_init(void) {
     if (err != ESP_OK) {
         s_init_failed = true;
         s_ready = false;
-        ESP_LOGE(TAG, "gpio_config: %s; E-STOP is NOT available",
-                 esp_err_to_name(err));
-        events_log(EVENT_EMERGENCY, "E-STOP init failed: %s",
-                   esp_err_to_name(err));
+        ESP_LOGE(TAG, "gpio_config: %s; E-STOP is NOT available", esp_err_to_name(err));
+        events_log(EVENT_EMERGENCY, "E-STOP init failed: %s", esp_err_to_name(err));
+        if (estop_bench_mode()) {
+            ESP_LOGW(TAG, "bench mode: continuing without E-STOP GPIO, actions blocked");
+            return ESP_OK;
+        }
         return err;
     }
 
@@ -93,7 +106,7 @@ int estop_raw_level(void) {
 }
 
 bool estop_is_pressed(void) {
-    if (!s_ready) return true;   /* нет драйвера — считаем аварией */
+    if (!s_ready) return !estop_bench_mode();
     /* уровень линии проверяем на месте: потерянное прерывание или
        дребезг не должны позволить управлять нагревом */
     if (pin_down()) {
