@@ -12,6 +12,7 @@
 
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "nvs_flash.h"
 #include "lvgl.h"
 
 #include "waveshare_rgb_lcd_port.h"
@@ -20,6 +21,7 @@
 #include "hmi_rs485.h"
 #include "hmi_telemetry.h"
 
+#include "ai/page_predictor.h"
 #include "ui_generated.h"
 #include "ui_screen_menu.h"
 
@@ -118,6 +120,15 @@ static void lvgl_task(void *arg)
 void app_main(void)
 {
     ESP_LOGI(TAG, "Automatika HMI starting");
+
+    esp_err_t nvs_err = nvs_flash_init();
+    if (nvs_err == ESP_ERR_NVS_NO_FREE_PAGES || nvs_err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        nvs_err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(nvs_err);
+
+    hmi_predictor_init();
 
     s_lvgl_mux = xSemaphoreCreateRecursiveMutex();
     assert(s_lvgl_mux);

@@ -3,6 +3,8 @@ idf_component_register(
         "main.c"
         "hmi_rs485.c"
         "hmi_telemetry.c"
+        "ai/screen_registry.c"
+        "ai/page_predictor.c"
         "ui/ui_futuristic.c"
         "ui/ui_screen_home.c"
         "ui/ui_screen_menu.c"
@@ -22,6 +24,7 @@ idf_component_register(
         "."
         "ui"
         "ui/fonts"
+        "ai"
         "../components"
     REQUIRES
         driver
@@ -30,6 +33,7 @@ idf_component_register(
         esp_timer
         esp_pm
         json
+        nvs_flash
         lvgl
         esp_lcd_touch
         esp_lcd_touch_gt911

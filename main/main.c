@@ -76,7 +76,6 @@
 #include "modes/mode_base.h"
 #include "modes/beer_recipe.h"
 
-#include "ai/page_predictor.h"
 #include "ai/action_predictor.h"
 #include "ai/anomaly.h"
 #include "ai/tinyml_predict.h"
@@ -286,7 +285,6 @@ void app_main(void) {
 #else
     cache_init(2 * 1024 * 1024);
 #endif
-    predictor_init();
     action_predictor_init();
     anomaly_init();
     tiny_ml_init();

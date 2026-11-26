@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <stdint.h>
+#include "ai/page_predictor.h"
 
 /* Ручные (детально прорисованные) экраны */
 lv_obj_t *ui_screen_menu_create(lv_event_cb_t on_select);
@@ -1675,7 +1676,19 @@ lv_obj_t *ui_gen_screen_create(ui_gen_screen_t id,
         case UI_GEN_SYS_SRV_REBOOT: scr = gen_make_screen(id); break;
         default: scr = gen_make_screen(UI_GEN_MAIN); break;
     }
-    if (scr) lv_scr_load(scr);
+    if (scr) {
+        static hmi_screen_id_t s_prev2 = HMI_SCR_NONE;
+        static hmi_screen_id_t s_prev1 = HMI_SCR_NONE;
+        static uint32_t s_obs = 0;
+        hmi_screen_id_t cur = (hmi_screen_id_t)id;
+        hmi_predictor_observe(s_prev2, s_prev1, cur);
+        s_prev2 = s_prev1;
+        s_prev1 = cur;
+        if ((++s_obs % 10U) == 0U) {
+            hmi_predictor_train_tick();
+        }
+        lv_scr_load(scr);
+    }
     return scr;
 }
 
