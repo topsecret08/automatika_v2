@@ -66,9 +66,9 @@ static proc_stage_t r_init(void) {
     volume_feedback_begin(&s_heads_fb);
     volume_feedback_begin(&s_body_fb);
     volume_feedback_begin(&s_tails_fb);
-    volume_feedback_set_target(&s_heads_fb, st->heads_ml, st->heads_ml > 0 ? st->heads_ml * 1.20f : 0, 120000);
-    volume_feedback_set_target(&s_body_fb,  st->body_ml,  st->body_ml  > 0 ? st->body_ml  * 1.20f : 0, 120000);
-    volume_feedback_set_target(&s_tails_fb, st->tails_ml, st->tails_ml > 0 ? st->tails_ml * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_heads_fb, state_get()->heads_ml, state_get()->heads_ml > 0 ? state_get()->heads_ml * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_body_fb,  state_get()->body_ml,  state_get()->body_ml  > 0 ? state_get()->body_ml  * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_tails_fb, state_get()->tails_ml, state_get()->tails_ml > 0 ? state_get()->tails_ml * 1.20f : 0, 120000);
     if (hw_has_device(HW_DEV_REFLUX)) {
         reflux_set_ratio(REFLUX_RATIO_DEFAULT);
         reflux_enable(false);
@@ -91,7 +91,7 @@ static bool auto_heads_done(float col, float dt) {
     bool rise_sign = s_rise_acc > 120.0f;
 
     // Доп. признак: крепость/ABV падает, температура куба растёт.
-    float abv = abv_get_current();
+    float abv = abv_get_current_abv_percent();
     bool abv_sign = isfinite(abv) && abv > 0.0f && abv < 55.0f && hw_temp_rising(HW_TEMP_CUBE);
 
     s_last_col = col;
