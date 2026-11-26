@@ -10,6 +10,8 @@
 | [Разработчик](developer/ARCHITECTURE.md) | Программист | архитектура, API, сборка, тесты |
 | [Железо](hardware/pinout.md) | Инженер-схемотехник | распиновка, BOM, принципиальная схема |
 
+> **Headless-контроллер.** Прошивка контроллера по умолчанию собирается с `CONFIG_HMI_EXTERNAL_UI=y`: локальный LVGL/ST7796/FT6336 UI не входит в сборку. Управление — внешняя HMI-панель по RS485 (`firmware_hmi_project/`), Web/PWA, Android, MQTT, Telegram. См. [FLASHING.md](FLASHING.md), [hardware/pinout.md](hardware/pinout.md), [developer/RS485_PROTOCOL.md](developer/RS485_PROTOCOL.md).
+
 ## Быстрые ссылки
 
 - [QUICK_START.md](user/QUICK_START.md) — от распаковки до первого запуска.

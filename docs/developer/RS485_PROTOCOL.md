@@ -257,7 +257,7 @@
 
 ### 6.2. Совместимость
 
-- Local LCD 480×320, PWA `/`, Android и MQTT продолжают работать.
+- При `CONFIG_HMI_EXTERNAL_UI=y` контроллер headless; PWA `/`, Android и MQTT продолжают работать. Legacy local LCD 480×320 актуален только для сборки без `HMI_EXTERNAL_UI`.
 - OTA-раздел, partitions.csv и NVS-схема не меняются.
 - При отсутствии RS485-модуля прошивка собирается и работает как раньше.
 
