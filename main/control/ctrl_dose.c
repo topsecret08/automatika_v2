@@ -43,7 +43,6 @@ static QueueHandle_t s_queue = NULL;
 static bool     s_gpio_ready = false;
 static bool     s_dir_ready = false;
 static volatile bool  s_busy = false;
-static volatile bool  s_stop = false;
 static volatile bool  s_nbk_feed_dir = false; // false=TAKEOFF, true=NBK_FEED
 static volatile float s_rate = 0.0f;
 static volatile float s_total_ml = 0.0f;
