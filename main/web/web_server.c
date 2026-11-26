@@ -420,11 +420,10 @@ void web_start(void *arg) {
         return;
     }
 
-    // Пока Wi-Fi не настроен, порт 80 занят сервером провижининга на
-    // точке доступа (192.168.4.1). Ждём подключения, иначе httpd не поднимется
-    // и не поднимется потом, после настройки сети.
-    while (!wifi_prov_is_connected()) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+    // В provisioning/AP mode web server тоже нужен (менеджер на 192.168.4.1).
+    // Чтобы не конфликтовать с prov httpd на :80, отдаём handle через wifi_prov.
+    while (wifi_prov_state() == WIFI_STATE_OFF) {
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 
     wd_register("web", 10000, false);
@@ -448,11 +447,14 @@ void web_start(void *arg) {
     if (srv_err != ESP_OK) {
         ESP_LOGE(TAG, "httpd start failed (free internal RAM %u B)",
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
-        // Иначе сторож будет перезапускать уже завершённую задачу каждые 10 с.
         wd_remove("web");
         vTaskDelete(NULL);
         return;
     }
+
+    // Отдаём httpd handle provisioning manager'у, чтобы он не поднимал второй
+    // httpd на :80 и наш менеджер был доступен в AP/provisioning mode.
+    wifi_prov_set_httpd_handle(s_srv);
 
     // PWA требует HTTPS. Если сертификат/сервер не поднялись — работаем
     // только по HTTP: веб-интерфейс и API остаются доступны.
