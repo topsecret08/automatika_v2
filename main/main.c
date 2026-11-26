@@ -81,12 +81,20 @@
 #include "ai/anomaly.h"
 #include "ai/tinyml_predict.h"
 #include "ai/cache_manager.h"
+#ifndef CONFIG_HMI_EXTERNAL_UI
 #include "ai/ui_preloader.h"
+#endif
 
+#ifdef CONFIG_HMI_EXTERNAL_UI
+#include "ui/ui_headless.h"
+#else
 #include "ui/ui.h"
+#endif
+#ifndef CONFIG_HMI_EXTERNAL_UI
 #include "ui/ui_anim.h"
 #include "ui/ui_fps.h"
 #include "ui/ui_physical.h"
+#endif
 
 #include "db/db_manager.h"
 #include "db/db_logger.h"
@@ -130,8 +138,10 @@ static void verify_trace_sink(const bus_event_t *e) {
 int64_t g_current_process_id = 0;
 
 void vApplicationIdleHook(void) {
+#ifndef CONFIG_HMI_EXTERNAL_UI
     extern void ui_cpu_idle_hook(void);
     ui_cpu_idle_hook();
+#endif
 }
 
 // Порядок инициализации (V0.9 beta):
@@ -271,12 +281,18 @@ void app_main(void) {
     shadow_init();
     event_bus_register(verify_trace_sink, EV_MINOR);
 
+#ifdef CONFIG_HMI_EXTERNAL_UI
+    cache_init(256 * 1024);
+#else
     cache_init(2 * 1024 * 1024);
+#endif
     predictor_init();
     action_predictor_init();
     anomaly_init();
     tiny_ml_init();
+#ifndef CONFIG_HMI_EXTERNAL_UI
     ui_preloader_init();
+#endif
 
     fota_init();
     beer_recipe_init();
@@ -298,6 +314,7 @@ void app_main(void) {
     // того, как журнал и учётные данные уже готовы.
     health_init();
 
+#ifndef CONFIG_HMI_EXTERNAL_UI
     if (hal_display_is_ready()) {
         ui_init();
         ui_physical_init();
@@ -306,15 +323,18 @@ void app_main(void) {
     } else {
         ESP_LOGW(TAG, "UI не запущен: дисплей недоступен");
     }
+#endif
 
     menu_validate_all();
     rs485_hmi_init();
 
+#ifndef CONFIG_HMI_EXTERNAL_UI
     if (state_load() && flags_get_by_key("auto_restore")) {
         ui_show_resume_dialog();
     } else {
         ui_show_welcome();
     }
+#endif
 
     ESP_LOGI(TAG, "Starting CORE 0 tasks (network/AI)...");
     // HTTP-обработчики /api/* и /api/diag/* регистрируются здесь же и
@@ -326,7 +346,9 @@ void app_main(void) {
     SPAWN(flow_task,          "flow",      3072,              3,                 CORE_NETWORK_AI);
     SPAWN(pid_autotune_task,  "autotune",  3072,              2,                 CORE_NETWORK_AI);
     SPAWN(sd_resilience_task, "sd_safe",   4096,              2,                 CORE_NETWORK_AI);
+#ifndef CONFIG_HMI_EXTERNAL_UI
     SPAWN(ui_preloader_task,  "preloader", STACK_PRELOADER,   PRIO_PRELOADER,    CORE_NETWORK_AI);
+#endif
     SPAWN(anomaly_task,       "anomaly",   STACK_ANOMALY,     PRIO_ANOMALY,      CORE_NETWORK_AI);
     SPAWN(autolearn_task,     "autolearn", STACK_AUTOLEARN,   PRIO_AUTOLEARN,    CORE_NETWORK_AI);
     SPAWN(db_logger_task,     "dblog",     4096,              PRIO_EVENTS,       CORE_NETWORK_AI);
@@ -350,15 +372,21 @@ void app_main(void) {
     SPAWN(fsel_task,          "fsel",      4096,              5,                 CORE_REALTIME_UI);
     SPAWN(mode_task,          "mode",      STACK_MODE,        PRIO_MODE,         CORE_REALTIME_UI);
     SPAWN(ws_telemetry_task,  "ws_tel",    4096,              PRIO_TELEMETRY,    CORE_REALTIME_UI);
+#ifndef CONFIG_HMI_EXTERNAL_UI
     SPAWN(ui_task,            "ui",        STACK_UI,          PRIO_UI,           CORE_REALTIME_UI);
+#endif
     SPAWN(scale_task,         "scale",     STACK_SCALE,       PRIO_SCALE,        CORE_REALTIME_UI);
     SPAWN(ctrl_heater_task,   "heater",    3072,              PRIO_SCALE,        CORE_REALTIME_UI);
+#ifndef CONFIG_HMI_EXTERNAL_UI
     SPAWN(ui_fps_task,        "fps",       STACK_FPS,         PRIO_FPS,          CORE_REALTIME_UI);
+#endif
     SPAWN(valve_calib_task,   "vcalib",    STACK_VALVE_CALIB, PRIO_VALVE_CALIB,  CORE_REALTIME_UI);
     SPAWN(events_task,        "events",    STACK_EVENTS,      PRIO_EVENTS,       CORE_REALTIME_UI);
     SPAWN(tiny_ml_task,       "tinyml",    STACK_TINYML,      PRIO_TINYML,       CORE_REALTIME_UI);
     SPAWN(reflux_task,        "reflux",    3072,              3,                 CORE_REALTIME_UI);
+#ifndef CONFIG_HMI_EXTERNAL_UI
     SPAWN(ui_physical_task,   "ui_phys",   3072,              3,                 CORE_REALTIME_UI);
+#endif
     SPAWN(session_recovery_task, "session", 3072,             2,                 CORE_REALTIME_UI);
 
     ESP_LOGI(TAG, "=========== System started (dual-core) ===========");

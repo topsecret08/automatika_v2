@@ -31,8 +31,8 @@
 // Шаговый драйвер дозатора: STEP + общий ENABLE.
 // ВАЖНО: у ESP32-S3 нет GPIO22..25. Не назначайте выводы вслепую.
 // По умолчанию дозатор отключён; задайте реальные свободные выводы платы.
-#define PUMP_STEP_GPIO      -1
-#define PUMP_EN_GPIO        -1
+#define PUMP_STEP_GPIO      15
+#define PUMP_EN_GPIO        16
 // Аварийная кнопка: нормально замкнутая, вход с подтяжкой вверх.
 // Требует свободного накопительного конденсатора 100 нФ на линии.
 // GPIO 7 (ADC1, не strapping). GPIO 26–32 на ESP32-S3-DevKitC-1 не выведены,
@@ -120,7 +120,7 @@
 #define DOSER_MAX_DOSE_ML     2000.0f
 #define DOSER_SOLENOID_HZ     25       // частота ШИМ клапана отбора, Гц
 #define DOSER_FLOW_DEFAULT_MLMIN 60.0f // расход при 100 % открытия клапана
-#define SOLENOID_PWM_GPIO   -1         // свободного GPIO нет; задать вручную
+#define SOLENOID_PWM_GPIO   41         // соленоид 25 Гц
 #define PUMP_MIN_STEP_US      400      // минимальная длительность шага, мкс
 #define PUMP_STEP_US          3        // длительность импульса STEP, мкс
 
@@ -260,7 +260,6 @@
 #define COLUMN_PRESSURE_MAX_KPA 300.0f
 
 // Охлаждающий клапан: реле RELAY_WATER_VALVE (0 — закрыт).
-// Внешний ШИМ-пин не назначается: свободных GPIO нет (19/20 — USB, 21 — LCD CLK).
 
 // PID-автотюнинг (релейный, поверх AutoPID)
 #define PID_AUTOTUNE_MAX_MS (60 * 60 * 1000u)   // предел сеанса, 60 мин
@@ -315,7 +314,7 @@
 #define REG_UART_NUM                  1
 #define REG_UART_TX_GPIO             -1
 #define REG_UART_RX_GPIO             -1
-#define REG_SSR_GPIO                 -1
+#define REG_SSR_GPIO                 14
 #define REG_PWM_FREQ_HZ              1000
 #define REG_PWM_RESOLUTION           10
 #define REG_PWM_INVERTED             0
@@ -335,12 +334,12 @@
 
 // Аппаратное fail-safe NO-реле: heartbeat от safety_gate.
 // -1 — реле не установлено.
-#define SAFETY_RELAY_GPIO           -1
+#define SAFETY_RELAY_GPIO           47
 #define SAFETY_RELAY_TIMEOUT_MS      1000
 
 // Линия DONE внешнего сторожевого таймера (TPL5010 и аналоги), -1 — не установлен.
 // Интервал таймера задаётся его внешним резистором и должен быть больше 100 мс.
-#define EXT_WDT_DONE_GPIO            -1
+#define EXT_WDT_DONE_GPIO            48
 
 // Начальные параметры расчёта остатка спирта (abv/cfg в NVS).
 #define ABV_VOLUME_START_ML           20000.0f

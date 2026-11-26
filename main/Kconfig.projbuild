@@ -65,6 +65,10 @@ menu "Automatika V0.7 beta"
 endmenu
 
 
+config HMI_EXTERNAL_UI
+    bool "External HMI panel on RS485 (no local LVGL)"
+    default n
+
 menu "Automatika HMI RS485 (external panel)"
 
     config HMI_RS485_ENABLE
@@ -84,21 +88,20 @@ menu "Automatika HMI RS485 (external panel)"
         default 115200
 
     config HMI_RS485_TX_GPIO
-        int "RS485 TX GPIO (-1 = not configured)"
-        default -1
+        int "RS485 TX GPIO"
+        default 17
         help
-            НЕ используйте 14, 15, 16, 17, 18, 21 — это SPI дисплея контроллера.
-            Не назначайте 22..25 (у ESP32-S3 их нет). Укажите свободный вывод
-            согласно схеме платы до первого запуска.
+            После CONFIG_HMI_EXTERNAL_UI=y выводы свободны. Занято: 14 PWM,
+            15/16 дозатор, 17/18/21 RS485. Не трогать 19/20, 43/44, 22–25, 26–37.
 
     config HMI_RS485_RX_GPIO
-        int "RS485 RX GPIO (-1 = not configured)"
-        default -1
+        int "RS485 RX GPIO"
+        default 18
 
     config HMI_RS485_DE_GPIO
-        int "RS485 DE/RE GPIO, подключён к RTS (-1 = not configured)"
-        default -1
+        int "RS485 DE/RE GPIO"
+        default 21
         help
-            DE и /RE на модуле должны быть связаны вместе.
+            DE и /RE на модуле должны быть соединены вместе.
 
 endmenu

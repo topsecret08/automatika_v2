@@ -1,27 +1,11 @@
-#include "menu_engine.h"
+﻿#include "menu_engine.h"
 #include "menu_tree.h"
-#include "roles.h"
 #include "events.h"
 #include "flags.h"
-#include "help_db.h"
-#include "ui/ui.h"
-#include "ui/ui_theme.h"
-#include "ui/ui_anim.h"
 #include "nvs.h"
 #include <string.h>
-#include <stdio.h>
 
 static nvs_handle_t g_nvs;
-
-// Пул контекстов для callbacks (menu_item_t + menu_ctx_t)
-typedef struct {
-    const menu_item_t *item;
-    menu_ctx_t        *ctx;
-} menu_cb_t;
-
-#define MENU_CB_POOL 128
-static menu_cb_t s_cb_pool[MENU_CB_POOL];
-static int s_cb_pool_idx = 0;
 
 static int collect_toggles(const menu_item_t *node, const menu_item_t **out, int max, int n) {
     for (uint16_t i = 0; i < node->children_count && n < max; i++) {
@@ -67,6 +51,43 @@ bool menu_engine_toggle_set(const char *key, uint8_t value) {
     events_log(EVENT_USER_ACTION, "TOGGLE %s=%d", key, v);
     return true;
 }
+
+#ifdef CONFIG_HMI_EXTERNAL_UI
+
+void menu_engine_init(menu_ctx_t *ctx, const menu_item_t *root, void *user_ctx) {
+    memset(ctx, 0, sizeof(*ctx));
+    ctx->root = root;
+    ctx->user_ctx = user_ctx;
+    ctx->current_parent = root;
+    nvs_open("menu", NVS_READWRITE, &g_nvs);
+}
+
+void menu_engine_open(menu_ctx_t *ctx, const menu_item_t *p) {
+    if (ctx->depth < 16) ctx->stack[ctx->depth++] = ctx->current_parent;
+    ctx->current_parent = p;
+}
+
+void menu_engine_back(menu_ctx_t *ctx) {
+    if (ctx->depth > 0) ctx->current_parent = ctx->stack[--ctx->depth];
+}
+
+#else
+
+#include "roles.h"
+#include "help_db.h"
+#include "ui/ui.h"
+#include "ui/ui_theme.h"
+#include "ui/ui_anim.h"
+#include <stdio.h>
+
+typedef struct {
+    const menu_item_t *item;
+    menu_ctx_t        *ctx;
+} menu_cb_t;
+
+#define MENU_CB_POOL 128
+static menu_cb_t s_cb_pool[MENU_CB_POOL];
+static int s_cb_pool_idx = 0;
 
 void menu_engine_init(menu_ctx_t *ctx, const menu_item_t *root, void *user_ctx) {
     memset(ctx, 0, sizeof(*ctx));
@@ -150,13 +171,11 @@ void menu_engine_render(menu_ctx_t *ctx, lv_obj_t *parent) {
     const menu_item_t *cur = ctx->current_parent;
     s_cb_pool_idx = 0;
 
-    // Заголовок
     lv_obj_t *hdr = lv_label_create(parent);
     lv_label_set_text(hdr, cur->title_ru ? cur->title_ru : "Меню");
     ui_style_apply_title(hdr);
     lv_obj_align(hdr, LV_ALIGN_TOP_LEFT, 0, 0);
 
-    // Кнопка "Назад"
     if (ctx->depth > 0) {
         lv_obj_t *btn = lv_btn_create(parent);
         lv_obj_set_size(btn, 60, 40);
@@ -173,7 +192,6 @@ void menu_engine_render(menu_ctx_t *ctx, lv_obj_t *parent) {
             const menu_item_t *it = &cur->children[i];
             if (s_cb_pool_idx >= MENU_CB_POOL) break;
 
-            // Текст
             char lbl[128];
             if (it->type == MENU_ITEM_TOGGLE) {
                 uint8_t v = 0;
@@ -184,32 +202,27 @@ void menu_engine_render(menu_ctx_t *ctx, lv_obj_t *parent) {
                 snprintf(lbl, sizeof(lbl), "%s", it->title_ru);
             }
 
-            // Кнопка-строка
             lv_obj_t *btn = lv_btn_create(parent);
             lv_obj_set_size(btn, LV_PCT(100), 56);
             ui_style_apply_card(btn);
             lv_obj_set_style_shadow_width(btn, 0, 0);
             lv_obj_set_style_pad_all(btn, 10, 0);
 
-            // Иконка
             lv_obj_t *ico = lv_label_create(btn);
             lv_label_set_text(ico, it->icon ? it->icon : "");
             lv_obj_set_style_text_font(ico, &lv_font_montserrat_18, 0);
             lv_obj_align(ico, LV_ALIGN_LEFT_MID, 0, 0);
 
-            // Название
             lv_obj_t *text = lv_label_create(btn);
             lv_label_set_text(text, lbl);
             lv_obj_set_style_text_font(text, &lv_font_montserrat_14, 0);
             lv_obj_align(text, LV_ALIGN_LEFT_MID, 30, 0);
 
-            // Стрелка
             lv_obj_t *arr = lv_label_create(btn);
             lv_label_set_text(arr, LV_SYMBOL_RIGHT);
             lv_obj_set_style_text_color(arr, GLASS_GRAY, 0);
             lv_obj_align(arr, LV_ALIGN_RIGHT_MID, 0, 0);
 
-            // Контекст
             menu_cb_t *d = &s_cb_pool[s_cb_pool_idx++];
             d->item = it;
             d->ctx = ctx;
@@ -222,3 +235,5 @@ void menu_engine_render(menu_ctx_t *ctx, lv_obj_t *parent) {
         cur->on_action(ctx->user_ctx);
     }
 }
+
+#endif

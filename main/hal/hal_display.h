@@ -1,6 +1,8 @@
 #pragma once
 #include "esp_err.h"
+#ifndef CONFIG_HMI_EXTERNAL_UI
 #include "lvgl.h"
+#endif
 #include <stdbool.h>
 
 // ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:

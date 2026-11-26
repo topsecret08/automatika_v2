@@ -1,7 +1,9 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
+#ifndef CONFIG_HMI_EXTERNAL_UI
 #include "lvgl.h"
+#endif
 
 typedef enum {
     MENU_ITEM_SUBMENU,
@@ -35,14 +37,18 @@ typedef struct {
     const menu_item_t *stack[16];
     uint8_t depth;
     const menu_item_t *current_parent;
+#ifndef CONFIG_HMI_EXTERNAL_UI
     lv_obj_t *list_container;
+#endif
     void *user_ctx;
 } menu_ctx_t;
 
 void menu_engine_init(menu_ctx_t *ctx, const menu_item_t *root, void *user_ctx);
 void menu_engine_open(menu_ctx_t *ctx, const menu_item_t *parent);
 void menu_engine_back(menu_ctx_t *ctx);
+#ifndef CONFIG_HMI_EXTERNAL_UI
 void menu_engine_render(menu_ctx_t *ctx, lv_obj_t *parent);
+#endif
 
 // Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
 int          menu_engine_list_toggles(const menu_item_t **out, int max);
