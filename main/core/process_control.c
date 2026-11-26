@@ -56,11 +56,10 @@ bool process_control_hw_ready(process_type_t type, char *reason, size_t reason_l
 
     // Датчик куба на шине может быть, но не отвечать (обрыв, -127). Такое показание
     // нельзя использовать для нагрева. PVK и брожение без куба не работают с этим датчиком.
-    int cube = hw_temp_index(HW_TEMP_CUBE);
-    if (cube >= 0 && type != PROCESS_PVK && type != PROCESS_FERMENT) {
-        float t = hal_1wire_read_fast(cube);
-        if (isnan(t) || t < -55.0f || t > 125.0f) {
-            snprintf(reason, reason_len, "датчик куба не отвечает");
+    if (hw_temp_available(HW_TEMP_CUBE) && type != PROCESS_PVK && type != PROCESS_FERMENT) {
+        float t = hw_temp_read_fast(HW_TEMP_CUBE);
+        if (!isfinite(t) || t < -55.0f || t > 125.0f) {
+            snprintf(reason, reason_len, "Датчик куба не отвечает (основной и резервный)");
             return false;
         }
     }

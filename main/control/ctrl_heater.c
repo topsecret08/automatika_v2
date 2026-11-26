@@ -59,9 +59,8 @@ static float trend_guard(float pct) {
     if (pct <= 0.0f) return 0.0f;
     if (hal_1wire_count() <= 0) return pct;
 
-    int cube_idx = hw_temp_index(HW_TEMP_CUBE);
-    if (cube_idx < 0) return pct;
-    if (hal_1wire_rising(cube_idx) && pct > TREND_GUARD_MIN_PCT) {
+    if (!hw_temp_available(HW_TEMP_CUBE)) return pct;
+    if (hw_temp_rising(HW_TEMP_CUBE) && pct > TREND_GUARD_MIN_PCT) {
         float cut = pct * HEATER_TREND_CUT;
         if (cut < TREND_GUARD_MIN_PCT) cut = TREND_GUARD_MIN_PCT;
         if (cut < pct) {
@@ -209,10 +208,9 @@ void ctrl_heater_task(void *arg) {
         bool cut = s_trend_cut;
         if (cut != last_cut) {
             last_cut = cut;
-            int cube_idx = hw_temp_index(HW_TEMP_CUBE);
             events_log(EVENT_INFO, "Heater: trend guard %s (slope %.1f C/min)",
                        cut ? "ON" : "off",
-                       cube_idx >= 0 ? hal_1wire_slope(cube_idx) : 0.0f);
+                       hw_temp_slope(HW_TEMP_CUBE));
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }

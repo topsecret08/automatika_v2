@@ -864,12 +864,10 @@ void fsel_task(void *arg) {
         fsel_get_config(&cfg);
 
         float pressure = baro_get_pressure_hpa();
-        float cube = hw_temp_available(HW_TEMP_CUBE)
-                         ? hal_1wire_read_compensated(hw_temp_index(HW_TEMP_CUBE), pressure)
-                         : -127.0f;
-        float column = hw_temp_available(HW_TEMP_COLUMN)
-                           ? hal_1wire_read_compensated(hw_temp_index(HW_TEMP_COLUMN), pressure)
-                           : -127.0f;
+        float cube = hw_temp_read_compensated(HW_TEMP_CUBE, pressure);
+        if (!isfinite(cube)) cube = -127.0f;
+        float column = hw_temp_read_compensated(HW_TEMP_COLUMN, pressure);
+        if (!isfinite(column)) column = -127.0f;
         float t_stage = cube;
 
         if (cfg.sensor == FSEL_SENSOR_STEAM) {

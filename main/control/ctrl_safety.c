@@ -198,12 +198,8 @@ void ctrl_safety_task(void *arg) {
         }
 
         // Быстрые чтения из кэша; 1-Wire не блокирует safety-задачу.
-        float cube = hw_temp_available(HW_TEMP_CUBE)
-                         ? hal_1wire_read_fast(hw_temp_index(HW_TEMP_CUBE))
-                         : NAN;
-        float col = hw_temp_available(HW_TEMP_COLUMN)
-                        ? hal_1wire_read_fast(hw_temp_index(HW_TEMP_COLUMN))
-                        : NAN;
+        float cube = hw_temp_read_fast(HW_TEMP_CUBE);
+        float col  = hw_temp_read_fast(HW_TEMP_COLUMN);
         float pres = hw_has_device(HW_DEV_PRESSURE)
                          ? column_pressure_bar() : 0.0f;
         bool  running = state_get()->is_running;
@@ -217,10 +213,12 @@ void ctrl_safety_task(void *arg) {
         // -127 °C — нет ответа от DS18B20; при работающем процессе это
         // означает потерю контроля температуры. Отключённая в профиле
         // колонна не должна давать аварию.
-        if (running && cube <= -50.0f) {
+        if (running && hw_temp_available(HW_TEMP_CUBE) &&
+            (!isfinite(cube) || cube <= -50.0f || cube > 125.0f)) {
             ctrl_safety_trigger("SENSOR_FAIL");
         }
-        if (running && hw_temp_available(HW_TEMP_COLUMN) && col <= -50.0f) {
+        if (running && hw_temp_available(HW_TEMP_COLUMN) &&
+            (!isfinite(col) || col <= -50.0f || col > 125.0f)) {
             ctrl_safety_trigger("SENSOR_FAIL");
         }
 
@@ -320,10 +318,10 @@ void ctrl_safety_task(void *arg) {
             s_last_abv_us = now_abv;
             float p_hpa = baro_get_pressure_hpa();
             // Прогнать конвейер независимо от того, вызывали ли его режимы.
-            int cube_idx = hw_temp_index(HW_TEMP_CUBE);
-            int col_idx = hw_temp_index(HW_TEMP_COLUMN);
-            if (cube_idx >= 0) (void)hal_1wire_read_compensated(cube_idx, p_hpa);
-            if (col_idx >= 0)  (void)hal_1wire_read_compensated(col_idx, p_hpa);
+            if (hw_temp_available(HW_TEMP_CUBE))
+                (void)hw_temp_read_compensated(HW_TEMP_CUBE, p_hpa);
+            if (hw_temp_available(HW_TEMP_COLUMN))
+                (void)hw_temp_read_compensated(HW_TEMP_COLUMN, p_hpa);
             abv_update(cube, p_hpa);
         }
 

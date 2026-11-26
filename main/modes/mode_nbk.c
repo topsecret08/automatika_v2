@@ -95,7 +95,7 @@ static proc_stage_t n_update(float dt) {
     s_feed_ramp += ramp_step * dt;
     if (s_feed_ramp > target_rate) s_feed_ramp = target_rate;
 
-    if (hal_1wire_rising(hw_temp_index(HW_TEMP_CUBE)))
+    if (hw_temp_rising(HW_TEMP_CUBE))
         s_feed_ramp *= PREDEC_TREND_CUT;
 
     ctrl_dose_process(s_feed_ramp, dt, VALVE_BODY);
