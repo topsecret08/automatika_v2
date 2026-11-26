@@ -108,3 +108,9 @@ esp_err_t       control_config_set_service(bool on);
 // --- Многоуровневый адаптивный PID ----------------------------------
 bool            control_config_get_adaptive_pid(void);
 esp_err_t       control_config_set_adaptive_pid(bool on);
+
+// --- TSA (трубка связи с атмосферой) -------------------------------
+// Порог температуры TSA: если TSA включён в hw_profile и температура >= порога,
+// нагрев отключается (защита от отсутствия потока воды/охлаждения).
+float           control_config_get_tsa_threshold_c(void);
+esp_err_t       control_config_set_tsa_threshold_c(float c);

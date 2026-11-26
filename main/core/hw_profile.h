@@ -16,6 +16,7 @@ typedef enum {
     HW_TEMP_COLUMN,
     HW_TEMP_JACKET,
     HW_TEMP_TANK,
+    HW_TEMP_TSA,        // трубка связи с атмосферой (TSA)
     HW_TEMP_ROLE_COUNT
 } hw_temp_role_t;
 
@@ -32,6 +33,7 @@ typedef enum {
     HW_DEV_STIRRER,
     HW_DEV_DOSER,
     HW_DEV_VALVES,
+    HW_DEV_TSA,          // TSA safety enabled (atmospheric tube temp monitor)
     HW_DEV_COUNT
 } hw_device_t;
 

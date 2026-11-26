@@ -464,7 +464,7 @@ static esp_err_t h_control(httpd_req_t *r) {
                  "\"regulator_ready\":%d,\"regulator_gpio\":%d,"
                  "\"pwm_freq_hz\":%lu,\"pwm_resolution\":%u,"
                  "\"pwm_inverted\":%d,\"regulator_error\":\"%s\","
-                 "\"adaptive_pid\":%d}",
+                 "\"adaptive_pid\":%d,\"tsa_threshold_c\":%.1f}",
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
                  control_config_get_hys(),
@@ -487,7 +487,8 @@ static esp_err_t h_control(httpd_req_t *r) {
                  (unsigned)rs.pwm_resolution,
                  rs.pwm_inverted ? 1 : 0,
                  regulator_last_error(),
-                 control_config_get_adaptive_pid() ? 1 : 0);
+                 control_config_get_adaptive_pid() ? 1 : 0,
+                 (double)control_config_get_tsa_threshold_c());
         return send_json(r, json);
     }
 
@@ -525,6 +526,9 @@ static esp_err_t h_control(httpd_req_t *r) {
     v = cJSON_GetObjectItemCaseSensitive(root, "adaptive_pid");
     if (err == ESP_OK && cJSON_IsBool(v))
         err = control_config_set_adaptive_pid(cJSON_IsTrue(v));
+    v = cJSON_GetObjectItemCaseSensitive(root, "tsa_threshold_c");
+    if (err == ESP_OK && cJSON_IsNumber(v))
+        err = control_config_set_tsa_threshold_c((float)v->valuedouble);
 
     // Настройки регулятора применяются одной транзакцией: сначала новый
     // выход инициализируется, затем сохраняется в NVS. При ошибке старый
@@ -752,7 +756,7 @@ static esp_err_t h_hardware(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
         if (api_check_read_auth(r) != ESP_OK)
             return api_reject_unauthorized(r);
-        char json[2048];
+        char json[3072];
         hw_profile_json(json, sizeof(json));
         return send_json(r, json);
     }
@@ -767,7 +771,7 @@ static esp_err_t h_hardware(httpd_req_t *r) {
 
     hw_profile_t cfg = *hw_profile_get();
     static const char *const temp_keys[HW_TEMP_ROLE_COUNT] = {
-        "cube", "column", "jacket", "tank"
+        "cube", "column", "jacket", "tank", "tsa"
     };
     const cJSON *temp = cJSON_GetObjectItemCaseSensitive(root, "temp");
     if (cJSON_IsObject(temp)) {
@@ -804,7 +808,7 @@ static esp_err_t h_hardware(httpd_req_t *r) {
         return send_err(r, "400 Bad Request",
                         "{\"error\":\"invalid sensor index or mask\"}");
 
-    char json[2048];
+    char json[3072];
     hw_profile_json(json, sizeof(json));
     return send_json(r, json);
 }
@@ -1381,7 +1385,8 @@ static esp_err_t h_config(httpd_req_t *r) {
                  "\"reg_inverted\":%d,\"analog_range\":%d,"
                  "\"analog_min_pct\":%.2f,\"analog_max_pct\":%.2f,"
                  "\"ssvr_power_sqrt\":%d,\"regulator_ready\":%d,"
-                 "\"regulator_error\":\"%s\"}",
+                 "\"regulator_error\":\"%s\","
+                 "\"tsa_threshold_c\":%.1f}",
                  (unsigned)nvs_migration_schema_version(),
                  (int)control_config_get_mode(),
                  (int)control_config_get_output_device(),
@@ -1403,7 +1408,8 @@ static esp_err_t h_config(httpd_req_t *r) {
                  (double)rs.analog_min_pct, (double)rs.analog_max_pct,
                  rs.ssvr_power_sqrt ? 1 : 0,
                  regulator_is_ready() ? 1 : 0,
-                 regulator_last_error());
+                 regulator_last_error(),
+                 (double)control_config_get_tsa_threshold_c());
         return send_json(r, json);
     }
 

@@ -244,6 +244,18 @@ void ctrl_safety_task(void *arg) {
             s_no_flow_ms = 0;
         }
 
+        // ---- TSA (трубка связи с атмосферой): нет потока воды/охлаждения ----
+        if (hw_has_device(HW_DEV_TSA) && hw_temp_available(HW_TEMP_TSA)) {
+            float tsa = hw_temp_read(HW_TEMP_TSA);
+            float tsa_thr = control_config_get_tsa_threshold_c();
+            if (running && ctrl_heater_get_percent() > 0.0f &&
+                isfinite(tsa) && tsa >= tsa_thr) {
+                ESP_LOGW(TAG, "TSA %.1fC >= %.1fC - heating off", tsa, tsa_thr);
+                events_log(EVENT_EMERGENCY, "TSA overheat: %.1fC >= %.1fC", tsa, tsa_thr);
+                ctrl_safety_trigger("TSA_OVERHEAT");
+            }
+        }
+
         // ---- Пролив ----
         if (flags_get_by_key("spill_sensor")) {
             float spill = hal_adc_spill_voltage();
