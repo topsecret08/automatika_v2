@@ -50,7 +50,7 @@ static proc_stage_t v_init(void) {
     volume_feedback_begin(&s_fb);
     if (hw_has_device(HW_DEV_COOLING_PUMP)) {
         hal_relay_set(RELAY_COOLING_PUMP, true);
-        cooling_valve_set(true);
+        hal_relay_set(RELAY_WATER_VALVE, true);
     }
     pump_set(false);
     ctrl_pid_init_ext(15, 0.6f, 2.0f, 40.0f, (float)PID_TIMESTEP_MS, 0);
@@ -127,7 +127,7 @@ static void v_stop(void) {
     ctrl_valves_close_all();
     if (hw_has_device(HW_DEV_COOLING_PUMP)) {
         hal_relay_set(RELAY_COOLING_PUMP, false);
-        cooling_valve_set(false);
+        hal_relay_set(RELAY_WATER_VALVE, false);
     }
 }
 

@@ -780,7 +780,7 @@ bool fsel_mode_tick(process_state_t *st, float power_heads,
 
     // Конденсатор должен работать на всех этапах: штатный PRECHECK
     // пропускается, поэтому включаем охлаждение здесь.
-    cooling_valve_set(true);
+    hal_relay_set(RELAY_WATER_VALVE, true);
     hal_relay_set(RELAY_COOLING_PUMP, true);
 
     if (!ctrl_safety_ok()) {
