@@ -46,10 +46,9 @@
 // Режим E-STOP. REQUIRED_NC — штатный fail-safe (по умолчанию).
 // SENSOR_ONLY_BENCH — явный стендовый режим: контроллер запускается,
 // датчики/телеметрия работают, все исполнительные выходы заблокированы.
-#define ESTOP_MODE_REQUIRED_NC      0
-#define ESTOP_MODE_SENSOR_ONLY_BENCH 1
+// Значения соответствуют estop_mode_t в core/estop.h.
 #ifndef ESTOP_MODE_DEFAULT
-#define ESTOP_MODE_DEFAULT          ESTOP_MODE_REQUIRED_NC
+#define ESTOP_MODE_DEFAULT          0  /* ESTOP_MODE_REQUIRED_NC */
 #endif
 
 // ============================================================
