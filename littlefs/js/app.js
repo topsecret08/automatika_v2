@@ -2659,12 +2659,12 @@ const HW_TEMP_ROLES = [
   ['tank', 'Бак/брожение']
 ];
 
-function hwSelect(role, label, value, count) {
-  const options = ['<option value="-1">нет</option>'];
+function hwSelect(id, label, value, count) {
+  const options = ['<option value="-1">Нет</option>'];
   for (let i = 0; i < count; i++) {
     options.push(`<option value="${i}" ${i === value ? 'selected' : ''}>Датчик ${i}</option>`);
   }
-  return `<select class="input" id="hw-temp-${role}" aria-label="${label}">${options.join('')}</select>`;
+  return `<select class="input" id="${id}" aria-label="${label}">${options.join('')}</select>`;
 }
 
 async function renderHardware() {
@@ -2679,11 +2679,27 @@ async function renderHardware() {
     hardwareProfile = data;
     const count = Number(data.onewire_count || 0);
 
-    const tempRows = HW_TEMP_ROLES.map(([role, label]) => `
-      <div class="card-row">
-        <span class="card-row-title">${label}</span>
-        ${hwSelect(role, label, Number(data.temp?.[role] ?? -1), count)}
-      </div>`).join('');
+    const tempRows = HW_TEMP_ROLES.map(([role, label]) => {
+      const primary = Number(data.temp?.[role] ?? -1);
+      const backup = Number(data.temp_backup?.[role] ?? -1);
+      const red = data.temp_redundancy?.[role] || {};
+      const status = backup >= 0
+        ? `<div class="hint">Резерв: ${red.active === 'backup' ? 'активен (основной отказал)' : 'готов'}${red.bias_valid ? `, поправка ${Number(red.bias).toFixed(2)}°C` : ''}</div>`
+        : '';
+      return `
+      <div class="card">
+        <div class="card-row-title">${label}</div>
+        <div class="card-row">
+          <span class="card-row-title">Основной</span>
+          ${hwSelect(`hw-temp-${role}`, `${label} основной`, primary, count)}
+        </div>
+        <div class="card-row">
+          <span class="card-row-title">Резервный</span>
+          ${hwSelect(`hw-temp-backup-${role}`, `${label} резервный`, backup, count)}
+        </div>
+        ${status}
+      </div>`;
+    }).join('');
 
     const devRows = HW_DEVICES.map(([key, label]) => `
       <label class="card-row">
@@ -2698,10 +2714,10 @@ async function renderHardware() {
       </div>`).join('');
 
     app.innerHTML = `
-      <section class="section">
+            <section class="section">
         <div class="section-title">Датчики температуры</div>
-        <div class="card">${tempRows}</div>
-        <p class="hint">Индекс — порядок DS18B20 на шине. «Нет» отключает роль.</p>
+        ${tempRows}
+        <p class="hint">Основной — главный датчик роли. Резервный — используется при отказе основного, с автоматической поправкой при небольшом расхождении.</p>
       </section>
       <section class="section">
         <div class="section-title">Исполнительные устройства</div>
@@ -2716,15 +2732,23 @@ async function renderHardware() {
 
     $('#hw-save')?.addEventListener('click', async () => {
       const temp = {};
+      const temp_backup = {};
       for (const [role] of HW_TEMP_ROLES) {
-        temp[role] = Number($(`#hw-temp-${role}`)?.value ?? -1);
+        const pVal = Number($(`#hw-temp-${role}`)?.value ?? -1);
+        const bVal = Number($(`#hw-temp-backup-${role}`)?.value ?? -1);
+        if (pVal >= 0 && bVal === pVal) {
+          toast(`Роль ${role}: основной и резервный не могут быть одним датчиком`);
+          return;
+        }
+        temp[role] = pVal;
+        temp_backup[role] = bVal;
       }
       const devices = {};
       for (const [key] of HW_DEVICES) {
         devices[key] = !!$(`#hw-dev-${key}`)?.checked;
       }
       try {
-        const saved = await postJson('/api/hardware', { temp, devices });
+        const saved = await postJson('/api/hardware', { temp, temp_backup, devices });
         if (!saved.ok) throw new Error(String(saved.status));
         toast('Оборудование сохранено');
         renderHardware();
