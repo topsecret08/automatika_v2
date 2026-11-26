@@ -404,6 +404,24 @@
 
 // Дефлегматор / reflux: серво PCA9685, канал 3 (HEADS=0, BODY=1, TAILS=2)
 #define REFLUX_VALVE_CHANNEL 3
+
+// ------------------------------------------------------------
+// Насос перекачки флегмы (MCP23017 GPA5) + поплавок высокого уровня
+// ------------------------------------------------------------
+// Поплавок: при подъёме (высокий уровень) второй контакт замыкается на GND.
+// Аналоговый вход (AI) предпочтителен: позволяет выставить порог и гистерезис,
+// чтобы избежать коротких срабатываний ("плюнул малую порцию").
+// Цифровой режим: MCP23017 GPB2 (LEVEL_PHLEGM_REED_MCP_PIN), active-low.
+#define PHLEGM_PUMP_ENABLED          1
+#define PHLEGM_PUMP_SSR_CH           MCP23017_SSR_PHLEGM_CH
+#define PHLEGM_FLOAT_ANALOG_ENABLED  1
+#define PHLEGM_FLOAT_ADC_DEV         1   // 1=ADS1115#1(0x48), 2=ADS1115#2(0x49)
+#define PHLEGM_FLOAT_ADC_CH          3   // 0..3, ADC канал; проверь конфликт с другими датчиками
+#define PHLEGM_FLOAT_V_ON            0.8f // <=V: высокий уровень (поплавок вверх/замкнут на GND) -> насос ON
+#define PHLEGM_FLOAT_V_OFF           1.6f // >=V: уровень упал -> насос OFF (гистерезис)
+#define PHLEGM_PUMP_MIN_ON_MS        5000u // мин. время работы насоса (анти-короткий плевок)
+#define PHLEGM_PUMP_MIN_OFF_MS       2000u // мин. пауза между включениями
+#define PHLEGM_PUMP_POLL_MS          200u
 #define REFLUX_PERIOD_US     1000000LL
 #define REFLUX_RATIO_DEFAULT 3.0f
 #define REFLUX_RATIO_MAX     10.0f

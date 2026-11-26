@@ -64,6 +64,7 @@
 #include "hal/zmpt_rms.h"
 
 #include "control/ctrl_safety.h"
+#include "control/ctrl_phlegm_pump.h"
 #include "control/fraction_periodic.h"
 #include "control/alcohol_balance.h"
 #include "control/ctrl_heater.h"
@@ -292,6 +293,7 @@ void app_main(void) {
 #endif
 
     ctrl_safety_init();
+    ctrl_phlegm_pump_init();
     fsel_init();
     verify_config_init();
     alcohol_init_t abv_cfg;

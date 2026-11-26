@@ -82,6 +82,7 @@ void ctrl_safety_trigger(const char *reason) {
 #endif
     hal_relay_all_off();
             hal_mcp23017_all_off();
+            ctrl_phlegm_pump_force_off();
             hal_lsa_pwm_force_off();
     ctrl_dose_stop();
     ctrl_stepper_stop_all();
@@ -190,6 +191,7 @@ void ctrl_safety_task(void *arg) {
             ctrl_heater_force_off();
             hal_relay_all_off();
             hal_mcp23017_all_off();
+            ctrl_phlegm_pump_force_off();
             hal_lsa_pwm_force_off();
             ctrl_dose_stop();
             ctrl_stepper_stop_all();
@@ -262,6 +264,7 @@ void ctrl_safety_task(void *arg) {
         // ---- Датчик уровня ----
         bool level_enabled = hw_has_device(HW_DEV_LEVEL);
         if (level_enabled) level_sensor_poll();
+        ctrl_phlegm_pump_poll();
         if (level_enabled && level_is_required_fault()) {
             bool was_heating = ctrl_heater_get_percent() > 0.0f;
             ctrl_heater_force_off();
