@@ -65,20 +65,24 @@ TEST_CASE("ESP32-S3 PWM GPIO validation", "[regulator]") {
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(49));
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(27));  // E-STOP
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(28));  // level
-    TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(18));  // LCD
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(32));  // flash/PSRAM band
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(7));   // E-STOP
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(40));  // level sensor
     TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(42));  // buzzer
+    TEST_ASSERT_TRUE(regulator_pwm_gpio_valid(14));
+    TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(15));
+    TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(17));
+    TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(18));
+    TEST_ASSERT_FALSE(regulator_pwm_gpio_valid(21));
     TEST_ASSERT_TRUE(regulator_pwm_gpio_valid(41));
     TEST_ASSERT_TRUE(regulator_pwm_gpio_valid(47));
 }
 
 TEST_CASE("PWM GPIO next skips forbidden pins", "[regulator]") {
-    int g = regulator_pwm_gpio_next(-1, +1);
-    TEST_ASSERT_EQUAL_INT(41, g);
-    TEST_ASSERT_EQUAL_INT(41, regulator_pwm_gpio_next(7, +1));
-    TEST_ASSERT_EQUAL_INT(48, regulator_pwm_gpio_next(41, -1));
+    TEST_ASSERT_EQUAL_INT(14, regulator_pwm_gpio_next(-1, +1));
+    TEST_ASSERT_EQUAL_INT(14, regulator_pwm_gpio_next(7, +1));
+    TEST_ASSERT_EQUAL_INT(41, regulator_pwm_gpio_next(14, +1));
+    TEST_ASSERT_EQUAL_INT(14, regulator_pwm_gpio_next(41, -1));
 }
 
 TEST_CASE("PWM frequency and resolution validation", "[regulator]") {

@@ -9,7 +9,11 @@
 #include "core/sd_content.h"
 #include "modes/mode_base.h"
 #include "modes/beer_recipe.h"
+#ifdef CONFIG_HMI_EXTERNAL_UI
+#include "ui/ui_headless.h"
+#else
 #include "ui/ui.h"
+#endif
 #include "web/qr_wifi.h"
 #include "web/brewfather.h"
 #include "web/calendar.h"

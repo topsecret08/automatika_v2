@@ -1,7 +1,11 @@
 #include "help_db.h"
 #include "sd_content.h"
 #include "esp_log.h"
+#ifdef CONFIG_HMI_EXTERNAL_UI
+#include "ui/ui_headless.h"
+#else
 #include "ui/ui.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>

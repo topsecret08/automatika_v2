@@ -1,10 +1,10 @@
-# Корень PWA-оболочки. Файлы лежат в ../littlefs, потому что оттуда же
-# собирается образ раздела `assets` (littlefs, 1 МБ). Одни и те же исходники
-# используются дважды:
-#   1) EMBED_FILES — встроенная копия, работает без /lfs и всегда
-#      соответствует прошивке (авторитетная для HTTP-обработчиков);
-#   2) automatika_littlefs_image — образ build/assets.bin: канонический
-#      источник файлов и артефакт прошивки раздела.
+# PWA-оболочка. Файлы лежат в ../littlefs, потому что эта папка уже
+# собирается образом раздела `assets` (littlefs, 1 МБ). Чтобы не дублировать
+# хранение, используем двойной подход:
+#   1) EMBED_FILES — актуальная сборка, встроенная как /lfs в бинарнике
+#      прошивки (источник правды для HTTP-обработчиков);
+#   2) automatika_littlefs_image — образ build/assets.bin: позволяет
+#      обновлять PWA-файлы по отдельности прошивки раздела.
 set(WEB_DIR "${CMAKE_CURRENT_LIST_DIR}/../littlefs")
 
 idf_component_register(
@@ -35,7 +35,7 @@ idf_component_register(
         "hal/sensor_trust.c" "hal/zone_consensus.c"
         "hal/hal_actuator_readback.c" "hal/hal_safety_relay.c" "hal/hal_ext_watchdog.c"
         "hal/hal_adc.c" "hal/hal_dac.c"
-        "hal/hal_relay.c" "hal/hal_display.c" "hal/hal_touch.c"
+        "hal/hal_relay.c" "hal/hal_headless.c"
         "hal/hal_sd.c" "hal/hal_hx711.c" "hal/hal_usb.c"
         "hal/baro.c" "hal/flow_sensor.c" "hal/pressure_sensor.c"
         "control/ctrl_safety.c" "control/ctrl_pid.c" "control/autopid_glue.cpp"
@@ -69,33 +69,14 @@ idf_component_register(
         "script/capability.c"
         "ai/screen_registry.c" "ai/page_predictor.c"
         "ai/action_predictor.c" "ai/anomaly.c" "ai/tinyml_predict.c"
-        "ai/cache_manager.c" "ai/ui_preloader.c"
+        "ai/cache_manager.c"
         "ai/nn_pie.c" "ai/screen_serialize.c"
-        "ui/ui.c" "ui/ui_theme.c" "ui/ui_glass_theme.c" "ui/ui_screen_home.c"
-        "ui/ui_menu.c" "ui/ui_gestures.c" "ui/haptic.c"
-        "ui/ui_session_indicator.c"
-        "ui/ui_power_control.c"
-        "ui/ui_screen_advanced.c"
-        "ui/ui_screen_selection.c"
-        "ui/fonts/lv_font_cyr_16.c" "ui/fonts/lv_font_cyr_24.c"
-        "ui/ui_builder.c"
-        "ui/ui_screens.c" "ui/ui_screens_full.c" "ui/ui_welcome.c"
-        "ui/ui_graph_sqlite.c"
-        "ui/ui_beer_editor.c" "ui/ui_beer_editor_callbacks.c"
-        "ui/ui_anim.c" "ui/ui_fps.c" "ui/ui_wd.c"
-        "ui/ui_ai.c" "ui/ui_ai_warnings.c" "ui/ui_scale.c" "ui/ui_scale_calib.c"
-        "ui/ui_usb.c" "ui/ui_fota.c"
-        "ui/ui_valve_calib.c" "ui/ui_alcohol_balance.c"
-        "ui/ui_sensor_calib.c" "ui/ui_sensor_calib_callbacks.c"
-        "ui/ui_roles.c" "ui/ui_learning.c" "ui/ui_recipes.c"
-        "ui/ui_calc_loader.c" "ui/ui_scheme.c" "ui/ui_scheme_menu.c"
-        "ui/ui_scheme_canvas.c" "ui/ui_markdown.c" "ui/ui_help.c"
-        "ui/ui_icons.c" "ui/ui_physical.c"
+        "ui/ui_headless.c"
         "db/db_manager.c" "db/db_logger.c" "db/db_psram_alloc.c"
         "db/db_migrations.c" "db/db_export.c" "db/db_import.c" "db/db_queries.c"
         "web/web_server.c" "web/web_api.c" "web/web_alice.c" "web/api_auth.c"
         "web/actuator_test.c" "web/rate_limit.c" "web/tg_backup.c"
-        "web/qr_wifi.c" "web/brewfather.c" "web/calendar.c"
+        "web/brewfather.c" "web/calendar.c"
         "web/mqtt_client.c" "web/telegram_bot.c" "web/telegram_commands.c"
         "web/telegram_notify.c" "web/ws_telemetry.c"
         "web/remote.c" "web/remote_blynk.c" "web/remote_mqtt.c"
@@ -127,11 +108,9 @@ idf_component_register(
         nvs_flash esp_wifi esp_http_server esp_https_server esp_timer
         rs485_protocol
         esp_netif json driver fatfs sdmmc spi_flash
-        app_update mqtt esp_http_client esp_lcd spiffs vfs esp_event esp_https_ota
+        app_update mqtt esp_http_client spiffs vfs esp_event esp_https_ota
         mbedtls lwip wifi_provisioning
-        lvgl__lvgl espressif__esp_lcd_touch espressif__esp_lcd_st7796
         esp_sqlite3 espressif__esp_tinyusb
-        espressif__esp_lcd_touch_ft5x06
         espressif__onewire_bus espressif__ds18b20
         espressif__lua hayschan__autopid_for_esp_idf joltwallet__littlefs
 )

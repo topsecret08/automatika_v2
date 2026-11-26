@@ -1,5 +1,7 @@
 #pragma once
+#ifndef CONFIG_HMI_EXTERNAL_UI
 #include "lvgl.h"
+#endif
 #include "core/state.h"
 
 typedef struct {
@@ -8,7 +10,9 @@ typedef struct {
     proc_stage_t (*init)(void);
     proc_stage_t (*update)(float dt);
     void         (*stop)(void);
+#ifndef CONFIG_HMI_EXTERNAL_UI
     void         (*render)(lv_obj_t *parent);
+#endif
     bool         (*is_safe)(void);
 } process_mode_t;
 
