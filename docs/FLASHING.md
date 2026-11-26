@@ -5,7 +5,7 @@
 
 | Проект | Каталог | Артефакт | Куда |
 |---|---|---|---|
-| Контроллер | `.` (корень) | `build/automatika_v2.bin` | ESP32-S3 контроллера (ST7796 480×320) |
+| Контроллер | `.` (корень) | `build/automatika_v2.bin` | ESP32-S3 контроллера (headless / внешняя HMI по RS485) |
 | HMI-панель | `firmware_hmi_project/` | `firmware_hmi_project/build/hmi_panel.bin` | Waveshare ESP32-S3-Touch-LCD-7 (RGB 800×480) |
 
 ## Сборка

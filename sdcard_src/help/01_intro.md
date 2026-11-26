@@ -19,7 +19,7 @@
 ## Архитектура
 - ESP32-S3 (dual-core 240 МГц)
 - 16 МБ Flash, 8 МБ PSRAM
-- LCD 480×320 ST7796
+- Внешняя HMI-панель по RS485
 - LVGL 8.3 + SQLite + TinyUSB
 
 ## С чего начать

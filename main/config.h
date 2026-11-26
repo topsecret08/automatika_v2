@@ -19,7 +19,6 @@
 #define PIN_LCD_BL          17
 #define PIN_LCD_MOSI        18
 #define PIN_LCD_CLK         21
-// Тач FT6336U идёт по I2C (PIN_I2C_SDA/SCL), отдельных GPIO у него нет.
 // Линии CTP_INT / CTP_RST на плате пока не подключены, драйвер их не использует.
 #define PIN_HX711_DOUT      5
 #define PIN_HX711_SCK       6
@@ -60,7 +59,6 @@
 #define I2C_ADDR_GROVE_SSR  0x11
 #define I2C_ADDR_PCA9685    0x40
 #define I2C_ADDR_BMP280     0x77
-#define I2C_ADDR_FT6336     0x38
 #define I2C_ADDR_MCP23017   0x21
 #define I2C_ADDR_XGZP6897D  0x6D
 

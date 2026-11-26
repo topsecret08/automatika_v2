@@ -16,7 +16,6 @@ MANIFEST = 'main/idf_component.yml'
 
 PINNED = {
     'lvgl/lvgl': '~8.3.11',
-    'espressif/esp_lcd_st7796': '^1.0.0',
     'espressif/esp_lcd_touch': '^1.1.2',
     'espressif/esp_lcd_touch_ft5x06': '^1.0.6',
     'espressif/esp_tinyusb': '^1.4.0',
