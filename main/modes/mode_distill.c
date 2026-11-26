@@ -49,6 +49,9 @@ static proc_stage_t d_init(void) {
     volume_feedback_begin(&s_heads_fb);
     volume_feedback_begin(&s_body_fb);
     volume_feedback_begin(&s_tails_fb);
+    volume_feedback_set_target(&s_heads_fb, st->heads_ml, st->heads_ml > 0 ? st->heads_ml * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_body_fb,  st->body_ml,  st->body_ml  > 0 ? st->body_ml  * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_tails_fb, st->tails_ml, st->tails_ml > 0 ? st->tails_ml * 1.20f : 0, 120000);
 
     // Новый прогон — чистое окно верификации. Иначе накопленный dt/тренд
     // с прошлого запуска даёт ложный NO_RESPONSE на первом такте.

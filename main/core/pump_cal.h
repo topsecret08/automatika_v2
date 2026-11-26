@@ -8,3 +8,4 @@ typedef struct {
 
 void  pump_cal_load_defaults(pump_cal_t *c);
 float pump_cal_flow(const pump_cal_t *c, float speed_pct);
+float pump_cal_speed_for_flow(const pump_cal_t *c, float flow_ml_min);

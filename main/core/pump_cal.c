@@ -50,3 +50,16 @@ float pump_cal_flow(const pump_cal_t *c, float x) {
     float h11 = t * t * (t - 1.0f);
     return h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1;
 }
+
+float pump_cal_speed_for_flow(const pump_cal_t *c, float flow_ml_min) {
+    if (!c || c->n < 2 || !isfinite(flow_ml_min) || flow_ml_min <= 0.0f) return 0.0f;
+    float max_flow = pump_cal_flow(c, 100.0f);
+    if (flow_ml_min >= max_flow) return 100.0f;
+    float lo = 0.0f, hi = 100.0f;
+    for (int i = 0; i < 24; i++) {
+        float mid = (lo + hi) * 0.5f;
+        float f = pump_cal_flow(c, mid);
+        if (f < flow_ml_min) lo = mid; else hi = mid;
+    }
+    return (lo + hi) * 0.5f;
+}

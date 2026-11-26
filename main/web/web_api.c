@@ -36,6 +36,8 @@
 #include "core/flags.h"
 #include "core/loop_verify.h"
 #include "core/hw_profile.h"
+#include "core/storage.h"
+#include "hal/zmpt_rms.h"
 #include "core/watchdog.h"
 #include "hal/hal_safety_relay.h"
 #include "esp_timer.h"
@@ -2442,6 +2444,85 @@ static esp_err_t h_calib_scale_tare(httpd_req_t *r) {
     return send_json(r, "{\"ok\":true}");
 }
 
+static esp_err_t h_calib_scale_start(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    if (state_get()->is_running) return send_err(r, "409 Conflict", "{\"error\":\"process running\"}");
+    char *body = NULL; if (recv_body(r, &body) != ESP_OK) return ESP_FAIL;
+    float known_g = 1000.0f;
+    cJSON *root = cJSON_Parse(body);
+    if (root) {
+        cJSON *kg = cJSON_GetObjectItem(root, "known_g");
+        if (cJSON_IsNumber(kg) && kg->valuedouble > 1.0f && kg->valuedouble < 50000.0f)
+            known_g = (float)kg->valuedouble;
+        cJSON_Delete(root);
+    }
+    free(body);
+    scale_start_calibration(known_g);
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_preflight(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    process_state_t *st = state_get();
+    bool cube_ok = hw_temp_available(HW_TEMP_CUBE);
+    bool col_ok = hw_temp_available(HW_TEMP_COLUMN);
+    bool scale_ok = scale_is_ready();
+    bool zmpt_ok = !zmpt_rms_fault();
+    bool estop_ok = !estop_actions_blocked();
+    bool sd_ok = storage_sd_ready();
+    int warn = (!col_ok ? 1:0) + (!scale_ok ? 1:0) + (!zmpt_ok ? 1:0) + (!sd_ok ? 1:0);
+    bool ok = cube_ok && estop_ok;
+    char json[512];
+    snprintf(json, sizeof(json),
+        "{\"ok\":%s,\"ready\":%s,\"checks\":{"
+        "\"cube_sensor\":%s,\"column_sensor\":%s,\"scale\":%s,"
+        "\"zmpt\":%s,\"estop_clear\":%s,\"sd\":%s,\"running\":%s},"
+        "\"warnings\":%d}",
+        ok?"true":"false", (ok && warn==0)?"true":"false",
+        cube_ok?"true":"false", col_ok?"true":"false", scale_ok?"true":"false",
+        zmpt_ok?"true":"false", estop_ok?"true":"false", sd_ok?"true":"false",
+        st->is_running?"true":"false", warn);
+    return send_json(r, json);
+}
+
+static esp_err_t h_planner_calc(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    char *body = NULL; if (recv_body(r, &body) != ESP_OK) return ESP_FAIL;
+    cJSON *root = cJSON_Parse(body);
+    float vol_l = 20.0f, abv_pct = 40.0f, power_w = 3000.0f, eff = 0.85f;
+    float heads_pct = 8.0f, tails_pct = 10.0f;
+    if (root) {
+        cJSON *v;
+        v=cJSON_GetObjectItem(root,"volume_l"); if(cJSON_IsNumber(v)) vol_l=(float)v->valuedouble;
+        v=cJSON_GetObjectItem(root,"abv_pct"); if(cJSON_IsNumber(v)) abv_pct=(float)v->valuedouble;
+        v=cJSON_GetObjectItem(root,"power_w"); if(cJSON_IsNumber(v)) power_w=(float)v->valuedouble;
+        v=cJSON_GetObjectItem(root,"efficiency"); if(cJSON_IsNumber(v)) eff=(float)v->valuedouble;
+        v=cJSON_GetObjectItem(root,"heads_pct"); if(cJSON_IsNumber(v)) heads_pct=(float)v->valuedouble;
+        v=cJSON_GetObjectItem(root,"tails_pct"); if(cJSON_IsNumber(v)) tails_pct=(float)v->valuedouble;
+        cJSON_Delete(root);
+    }
+    free(body);
+    if (vol_l < 0.1f) vol_l=0.1f; if (vol_l>500.f) vol_l=500.f;
+    if (abv_pct < 1.f) abv_pct=1.f; if (abv_pct>96.f) abv_pct=96.f;
+    if (power_w < 100.f) power_w=100.f; if (power_w>15000.f) power_w=15000.f;
+    if (eff < 0.3f) eff=0.3f; if (eff>1.f) eff=1.f;
+    float abs_alc_l = vol_l * (abv_pct/100.0f);
+    float heads_l = abs_alc_l * (heads_pct/100.0f);
+    float tails_l = abs_alc_l * (tails_pct/100.0f);
+    float body_l = (abs_alc_l - heads_l - tails_l) * eff;
+    if (body_l < 0) body_l = 0;
+    float energy_kwh = (vol_l * 4.186f * 60.0f + vol_l * (abv_pct/100.0f) * 0.8f * 2260.0f) / 3600.0f;
+    float time_h = (power_w > 0) ? (energy_kwh * 1000.0f / power_w) : 0.0f;
+    char json[512];
+    snprintf(json,sizeof(json),
+        "{\"ok\":true,\"input\":{\"volume_l\":%.2f,\"abv_pct\":%.2f,\"power_w\":%.0f},"
+        "\"estimate\":{\"absolute_alcohol_l\":%.3f,\"heads_l\":%.3f,\"body_l\":%.3f,\"tails_l\":%.3f,"
+        "\"time_h\":%.2f,\"energy_kwh\":%.2f}}",
+        vol_l,abv_pct,power_w,abs_alc_l,heads_l,body_l,tails_l,time_h,energy_kwh);
+    return send_json(r, json);
+}
+
 static esp_err_t h_calib_sensors_abort(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
@@ -3055,6 +3136,9 @@ void web_api_register(httpd_handle_t srv) {
 { .uri="/api/diag/watchdog",       .method=HTTP_GET,  .handler=h_diag_watchdog },
 { .uri="/api/recipe",              .method=HTTP_GET,  .handler=h_recipe_get },
 { .uri="/api/calib/scale/tare",    .method=HTTP_POST, .handler=h_calib_scale_tare },
+        { .uri="/api/calib/scale/start",   .method=HTTP_POST, .handler=h_calib_scale_start },
+        { .uri="/api/preflight",           .method=HTTP_GET,  .handler=h_preflight },
+        { .uri="/api/planner/calc",        .method=HTTP_POST, .handler=h_planner_calc },
 { .uri="/api/calib/sensors/abort", .method=HTTP_POST, .handler=h_calib_sensors_abort },
         { .uri="/api/verify/state",        .method=HTTP_GET,  .handler=h_verify_state },
         { .uri="/api/verify/shadow",       .method=HTTP_POST, .handler=h_verify_shadow },
