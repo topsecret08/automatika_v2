@@ -14,6 +14,7 @@
 #include "control/alcohol_balance.h"
 #include "control/fraction_periodic.h"
 #include "control/adaptive_pid.h"
+#include "control/ctrl_scale.h"
 #include "verify/shadow.h"
 #include "modes/mode_base.h"
 
@@ -111,6 +112,7 @@ esp_err_t process_control_start(const char *mode_id) {
     s->type = type;
     s->is_running = true;
     s->is_paused = false;
+    scale_update_state(s, false, 0.0f);
     ctrl_heater_force_off();
     ctrl_heater_set_auto();
     session_note_process_running(true);
@@ -133,6 +135,7 @@ void process_control_stop(void) {
     process_state_t *s = state_get();
     s->is_running = false;
     s->is_paused = false;
+    scale_update_state(s, false, 0.0f);
     session_note_process_running(false);
     if (control_config_get_adaptive_pid()) {
         (void)adaptive_pid_run_finish(adaptive_pid_global(),

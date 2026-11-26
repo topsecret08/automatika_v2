@@ -186,6 +186,8 @@ static esp_err_t h_state(httpd_req_t *r) {
         "\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
         "\"pressure\":%.2f,\"vacuum\":%.0f,\"running\":%d,"
         "\"flow\":%.2f,\"level\":%.0f,\"scale_ml\":%.0f,"
+        "\"scale_ready\":%d,\"scale_active\":%d,\"scale_g\":%.1f,"
+        "\"scale_flow\":%.2f,\"scale_collected_ml\":%.1f,"
         "\"jacket\":%.1f,\"tank\":%.1f,"
         "\"paused\":%d,\"elapsed\":%u,\"safety\":%d,"
         "\"estop\":%d,\"estop_healthy\":%d,\"estop_active\":%d,\"actions_blocked\":%d,\"bench_mode\":%d,\"estop_mode\":%d,\"actions_block_reason\":\"%s\",\"service\":%d,"
@@ -205,6 +207,9 @@ static esp_err_t h_state(httpd_req_t *r) {
         s->tails_collected_ml, s->pressure_bar, s->vacuum_mbar,
         s->is_running ? 1 : 0,
         (double)flow, (double)level, (double)scale_ml,
+        s->scale_ready ? 1 : 0, s->scale_indicator_active ? 1 : 0,
+        (double)s->scale_weight_g, (double)s->scale_flow_ml_min,
+        (double)s->scale_collected_ml,
         (double)jacket, (double)tank,
         s->is_paused ? 1 : 0, (unsigned)s->elapsed_sec,
         ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0,

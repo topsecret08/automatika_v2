@@ -97,6 +97,19 @@ bool  scale_is_stable(void)          { return s.stable; }
 bool  scale_is_ready(void)           { return s.state == SCALE_READY; }
 float scale_get_flow_ml_min(void)    { return s.flow_ml_per_min; }
 float scale_get_total_ml(void)       { return s.total_ml; }
+float scale_get_weight_g(void)        { return s.grams_filtered; }
+
+void scale_update_state(process_state_t *st, bool indicator_active, float collected_ml)
+{
+    if (!st) return;
+    bool ready = scale_is_ready();
+    st->scale_ready = ready;
+    st->scale_indicator_active = ready && indicator_active;
+    st->scale_weight_g = ready ? s.grams_filtered : 0.0f;
+    st->scale_flow_ml_min = ready ? s.flow_ml_per_min : 0.0f;
+    st->scale_collected_ml = (ready && indicator_active && isfinite(collected_ml) && collected_ml > 0.0f)
+                                  ? collected_ml : 0.0f;
+}
 
 void scale_task(void *arg) {
     (void)arg;

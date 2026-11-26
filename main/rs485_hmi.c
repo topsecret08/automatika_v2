@@ -154,6 +154,7 @@ static void fill_telemetry(char *buf, size_t len)
              "\"sa\":%s,\"es\":%s,"
              "\"ts\":%.2f,\"m\":%.3f,\"lv\":0,\"r\":%d,"
              "\"stg\":%d,\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
+             "\"sc_rdy\":%d,\"sc_act\":%d,\"sc_g\":%.1f,\"sc_flow\":%.2f,\"sc_ml\":%.1f,"
              "\"elapsed\":%u,\"frac\":\"\",\"baro\":0,\"sd\":%s,\"db\":false,"
              "\"heap\":%u,\"epoch\":0,\"ev\":\"\"}",
              stage, mode, (int)s.type,
@@ -175,6 +176,8 @@ static void fill_telemetry(char *buf, size_t len)
              s.target_cube_t, s.pressure_bar, s.is_running ? 1 : 0,
              (int)s.stage,
              s.heads_collected_ml, s.body_collected_ml, s.tails_collected_ml,
+             s.scale_ready ? 1 : 0, s.scale_indicator_active ? 1 : 0,
+             (double)s.scale_weight_g, (double)s.scale_flow_ml_min, (double)s.scale_collected_ml,
              (unsigned)s.elapsed_sec,
              ctrl_safety_ok() ? "true" : "false",
              (unsigned)esp_get_free_heap_size());

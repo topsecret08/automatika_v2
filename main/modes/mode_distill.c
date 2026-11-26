@@ -17,6 +17,7 @@
 #include "control/fraction_logic.h"
 #include "control/fraction_periodic.h"
 #include "control/volume_feedback.h"
+#include "control/ctrl_scale.h"
 #include "core/hw_profile.h"
 #include "core/loop_verify.h"
 #include "hal/hal_actuator_readback.h"
@@ -128,7 +129,11 @@ static proc_stage_t d_update(float dt) {
     // штатный fraction_update/valve/dose не должен работать: иначе два
     // алгоритма одновременно управляют одним клапаном. Нагрев, reflux и
     // охлаждение берёт на себя fsel_mode_tick().
-    if (fsel_mode_tick(st, 40.0f, BODY_POWER, TAIL_POWER)) return st->stage;
+    if (fsel_mode_tick(st, 40.0f, BODY_POWER, TAIL_POWER)) {
+        float total_ml = st->heads_collected_ml + st->body_collected_ml + st->tails_collected_ml;
+        scale_update_state(st, true, total_ml);
+        return st->stage;
+    }
 
     float rate = st->body_rate_ml_min;
     float total_ml = st->heads_collected_ml + st->body_collected_ml +
@@ -243,6 +248,12 @@ static proc_stage_t d_update(float dt) {
     }
 
     st->stage = s_stage;
+    {
+        float collected = st->heads_collected_ml + st->body_collected_ml + st->tails_collected_ml;
+        bool active = (s_stage == ST_HEADS || s_stage == ST_BODY || s_stage == ST_TAILS ||
+                       s_stage == ST_COOLDOWN || s_stage == ST_DONE);
+        scale_update_state(st, active, collected);
+    }
 
 #if !defined(CONFIG_LOOP_VERIFY_ENABLE) || CONFIG_LOOP_VERIFY_ENABLE
     int64_t now = esp_timer_get_time();

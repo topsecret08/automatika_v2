@@ -29,6 +29,7 @@
 #include "control/ctrl_valve_control.h"
 #include "control/ctrl_safety.h"
 #include "control/ctrl_scale.h"
+#include "control/ctrl_scale.h"
 #include "core/control_config.h"
 #include "core/estop.h"
 #include "core/process_control.h"
@@ -88,8 +89,10 @@ void cb_pause(void *c) { (void)c;
 
 void cb_stop(void *c) { (void)c;
     if (mode_get() && mode_get()->stop) mode_get()->stop();
-    state_get()->is_running = false;
-    state_get()->is_paused = false;
+    process_state_t *st = state_get();
+    st->is_running = false;
+    st->is_paused = false;
+    scale_update_state(st, false, 0.0f);
     events_log(EVENT_USER_ACTION, "STOP");
     ui_toast("Процесс остановлен");
 }

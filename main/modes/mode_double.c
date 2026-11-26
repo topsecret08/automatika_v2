@@ -9,14 +9,18 @@
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/fraction_periodic.h"
+#include "control/ctrl_scale.h"
+#include "control/volume_feedback.h"
 #include "esp_timer.h"
 
 #include <math.h>
 
 static int s_pass = 1;
+static volume_feedback_t s_fb;
 
 static proc_stage_t db_init(void) {
     s_pass = 1;
+    volume_feedback_begin(&s_fb);
     return ST_PRECHECK;
 }
 
@@ -24,13 +28,19 @@ static proc_stage_t db_update(float dt) {
     (void)dt;
     float cube = hw_temp_read(HW_TEMP_CUBE);
     if (!isfinite(cube)) {
-        state_get()->stage = ST_ERROR;
+        process_state_t *st_err = state_get();
+        st_err->stage = ST_ERROR;
+        scale_update_state(st_err, false, 0.0f);
         return ST_ERROR;
     }
-    state_get()->cube_temp = cube;
+    process_state_t *st = state_get();
+    st->cube_temp = cube;
 
-    if (fsel_mode_tick(state_get(), 60.0f, 65.0f, 75.0f))
-        return state_get()->stage;
+    if (fsel_mode_tick(st, 60.0f, 65.0f, 75.0f)) {
+        float measured = volume_feedback_ml(&s_fb);
+        scale_update_state(st, true, measured >= 0.0f ? measured : 0.0f);
+        return st->stage;
+    }
 
     float p_hpa = baro_get_pressure_hpa();
     float stop1 = baro_correct_boiling_point(98.0f, p_hpa);
@@ -46,10 +56,19 @@ static proc_stage_t db_update(float dt) {
     } else if (cube > stop2 && s_pass == 2) {
         ctrl_heater_force_off();
         ctrl_valves_close_all();
-        state_get()->is_running = false;
+        st->is_running = false;
+        st->stage = ST_DONE;
+        {
+            float measured = volume_feedback_ml(&s_fb);
+            scale_update_state(st, true, measured >= 0.0f ? measured : 0.0f);
+        }
         return ST_DONE;
     }
-    state_get()->stage = ST_RUNNING;
+    st->stage = ST_RUNNING;
+    {
+        float measured = volume_feedback_ml(&s_fb);
+        scale_update_state(st, true, measured >= 0.0f ? measured : 0.0f);
+    }
     return ST_RUNNING;
 }
 

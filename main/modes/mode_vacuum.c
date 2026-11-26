@@ -13,6 +13,8 @@
 #include "control/ctrl_valves.h"
 #include "control/ctrl_valve_control.h"
 #include "control/fraction_periodic.h"
+#include "control/ctrl_scale.h"
+#include "control/volume_feedback.h"
 #include "esp_timer.h"
 
 #include <math.h>
@@ -21,6 +23,7 @@ static bool s_pump_on;
 static bool s_leak_warned;
 static float s_leak_time;
 static float s_leak_start_mbar;
+static volume_feedback_t s_fb;
 
 // Давление насыщения воды при заданной температуре, мбар.
 static float pressure_for_temp(float t_c) {
@@ -45,6 +48,7 @@ static proc_stage_t v_init(void) {
     s_leak_warned = false;
     s_leak_time = 0;
     s_leak_start_mbar = 0;
+    volume_feedback_begin(&s_fb);
     if (hw_has_device(HW_DEV_COOLING_PUMP)) {
         hal_relay_set(RELAY_COOLING_PUMP, true);
         cooling_valve_set(true);
@@ -64,11 +68,15 @@ static proc_stage_t v_update(float dt) {
 
     if (!isfinite(cube) || !isfinite(vac)) {
         st->stage = ST_ERROR;
+        scale_update_state(st, false, 0.0f);
         return ST_ERROR;
     }
 
-    if (fsel_mode_tick(st, 50.0f, 60.0f, 70.0f))
+    if (fsel_mode_tick(st, 50.0f, 60.0f, 70.0f)) {
+        float measured = volume_feedback_ml(&s_fb);
+        scale_update_state(st, true, measured >= 0.0f ? measured : 0.0f);
         return st->stage;
+    }
 
     float target_t = st->target_cube_t > 0.0f ? st->target_cube_t : 40.0f;
     float target_mbar = pressure_for_temp(target_t);
@@ -107,6 +115,10 @@ static proc_stage_t v_update(float dt) {
         valve_set_pct(VALVE_BODY, 10.0f);
 
     st->stage = ST_RUNNING;
+    {
+        float measured = volume_feedback_ml(&s_fb);
+        scale_update_state(st, true, measured >= 0.0f ? measured : 0.0f);
+    }
     return ST_RUNNING;
 }
 

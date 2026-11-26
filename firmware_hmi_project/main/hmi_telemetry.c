@@ -113,6 +113,13 @@ void hmi_telemetry_from_json(const uint8_t *payload, uint16_t len)
     s_t.zmpt_ctrl = jnum(root, "zmpt_ctrl", 0.0f);
     s_t.zmpt_fault = jbool(root, "zmpt_fault", false);
 
+    /* scale indicator (HX711) */
+    s_t.scale_ready  = jbool(root, "sc_rdy", false);
+    s_t.scale_active = jbool(root, "sc_act", false);
+    s_t.scale_g      = jnum(root, "sc_g", 0.0f);
+    s_t.scale_flow   = jnum(root, "sc_flow", 0.0f);
+    s_t.scale_ml     = jnum(root, "sc_ml", 0.0f);
+
     cJSON_Delete(root);
 }
 

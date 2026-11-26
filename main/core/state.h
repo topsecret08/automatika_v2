@@ -54,6 +54,13 @@ typedef struct {
     bool actions_blocked;
     bool bench_mode;
     char actions_block_reason[48];
+
+    // Scale indicator (HX711) - indicator only, not a control trigger.
+    bool  scale_ready;
+    bool  scale_indicator_active;
+    float scale_weight_g;
+    float scale_flow_ml_min;
+    float scale_collected_ml;
 } process_state_t;
 
 void             state_init(void);
