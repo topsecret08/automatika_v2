@@ -6,6 +6,8 @@
 
 static hw_profile_t base_profile(void) {
     hw_profile_t p = {0};
+    for (int i = 0; i < HW_TEMP_ROLE_COUNT; i++)
+        p.temp_backup[i] = -1;
     p.temp[HW_TEMP_CUBE] = 0;
     p.temp[HW_TEMP_COLUMN] = 1;
     p.temp[HW_TEMP_JACKET] = 2;
