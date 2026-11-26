@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "hal/hal_hx711.h"
+#include "core/state.h"
 
 typedef enum {
     SCALE_IDLE = 0,
@@ -47,6 +48,8 @@ void   scale_start_calibration(float known_weight_g);
 bool   scale_calibration_step(void);
 float  scale_get_flow_ml_min(void);
 float  scale_get_total_ml(void);
+float  scale_get_weight_g(void);
 bool   scale_is_stable(void);
 bool   scale_is_ready(void);
 void   scale_set_density(float d);
+void   scale_update_state(process_state_t *st, bool indicator_active, float collected_ml);

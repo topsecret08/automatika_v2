@@ -10,6 +10,7 @@
 #include "control/ctrl_heater.h"
 #include "control/ctrl_pid.h"
 #include "control/fraction_periodic.h"
+#include "control/ctrl_scale.h"
 
 #include <math.h>
 
@@ -32,11 +33,14 @@ static proc_stage_t p_update(float dt) {
 
     if (!isfinite(jacket)) {
         st->stage = ST_ERROR;
+        scale_update_state(st, false, 0.0f);
         return ST_ERROR;
     }
 
-    if (fsel_mode_tick(st, 50.0f, 60.0f, 75.0f))
+    if (fsel_mode_tick(st, 50.0f, 60.0f, 75.0f)) {
+        scale_update_state(st, true, 0.0f);
         return st->stage;
+    }
 
     // Уровень в рубашке/баке, если датчик отмечен в профиле.
     if (hw_has_device(HW_DEV_LEVEL) && level_is_available() &&
@@ -47,16 +51,18 @@ static proc_stage_t p_update(float dt) {
             events_log(EVENT_WARNING, "PVK: low level, heating blocked");
         }
         st->stage = ST_ERROR;
+        scale_update_state(st, false, 0.0f);
         return ST_ERROR;
     }
     s_low_level_latched = false;
 
     // Предел давления: сначала срезаем мощность, затем снимаем нагрев.
-    float scale = 1.0f;
-    if (pres > 2.5f) scale = 0.5f;
+    float pwr_scale = 1.0f;
+    if (pres > 2.5f) pwr_scale = 0.5f;
     if (pres > 3.0f) {
         ctrl_heater_force_off();
         st->stage = ST_ERROR;
+        scale_update_state(st, false, 0.0f);
         return ST_ERROR;
     }
 
@@ -75,11 +81,13 @@ static proc_stage_t p_update(float dt) {
     }
 
     ctrl_pid_set_setpoint(target);
-    ctrl_pid_compute_and_apply_scaled(jacket, scale);
+    ctrl_pid_compute_and_apply_scaled(jacket, pwr_scale);
 
     st->stage = ST_RUNNING;
+    scale_update_state(st, true, 0.0f);
     return ST_RUNNING;
 }
+
 
 static void p_stop(void) {
     ctrl_heater_force_off();

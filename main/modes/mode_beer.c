@@ -100,16 +100,19 @@ static proc_stage_t b_init(void) {
 
 static proc_stage_t b_update(float dt) {
     s_step_time += dt;
+    process_state_t *st = state_get();
     float t = hw_temp_read(HW_TEMP_CUBE);
     if (!isfinite(t)) t = hw_temp_read(HW_TEMP_TANK);
-    if (isfinite(t)) state_get()->cube_temp = t;
+    if (isfinite(t)) st->cube_temp = t;
 
     if (s_step >= s_step_count) {
         ctrl_heater_force_off();
         cooling_set(false);
         pump_set(false);
         stirrer_set(false);
-        state_get()->is_running = false;
+        st->is_running = false;
+        st->stage = ST_DONE;
+        scale_update_state(st, true, 0.0f);
         return ST_DONE;
     }
 
@@ -121,6 +124,8 @@ static proc_stage_t b_update(float dt) {
             events_log(EVENT_WARNING, "Beer: chill skipped, no cooling");
             s_step++;
             s_step_started = false;
+            st->stage = ST_RUNNING;
+            scale_update_state(st, true, 0.0f);
             return ST_RUNNING;
         }
         ctrl_heater_force_off();
@@ -133,7 +138,8 @@ static proc_stage_t b_update(float dt) {
             s_step++;
             s_step_started = false;
         }
-        state_get()->stage = ST_RUNNING;
+        st->stage = ST_RUNNING;
+        scale_update_state(st, true, 0.0f);
         return ST_RUNNING;
     }
 
@@ -144,7 +150,8 @@ static proc_stage_t b_update(float dt) {
             s_step++;
             s_step_started = false;
         }
-        state_get()->stage = ST_RUNNING;
+        st->stage = ST_RUNNING;
+        scale_update_state(st, true, 0.0f);
         return ST_RUNNING;
     }
 
@@ -173,7 +180,8 @@ static proc_stage_t b_update(float dt) {
         s_step_started = false;
     }
 
-    state_get()->stage = ST_RUNNING;
+    st->stage = ST_RUNNING;
+    scale_update_state(st, true, 0.0f);
     return ST_RUNNING;
 }
 

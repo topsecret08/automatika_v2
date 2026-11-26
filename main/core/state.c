@@ -58,6 +58,11 @@ bool state_load(void) {
     tmp.is_running = false;
     tmp.is_paused = true;
     tmp.interrupted_ago_sec = 0;
+    tmp.scale_ready = false;
+    tmp.scale_indicator_active = false;
+    tmp.scale_weight_g = 0.0f;
+    tmp.scale_flow_ml_min = 0.0f;
+    tmp.scale_collected_ml = 0.0f;
 
     state_lock();
     s = tmp;

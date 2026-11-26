@@ -48,6 +48,13 @@ typedef struct {
     float    zmpt_ctrl;
     bool     zmpt_fault;
 
+    /* scale indicator (HX711) */
+    bool     scale_ready;
+    bool     scale_active;
+    float    scale_g;
+    float    scale_flow;
+    float    scale_ml;
+
     /* link diagnostics */
     uint32_t crc_err;
     uint32_t frames;

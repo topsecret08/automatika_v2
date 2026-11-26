@@ -16,6 +16,7 @@
 #include "control/ctrl_forecast.h"
 #include "control/fraction_periodic.h"
 #include "control/volume_feedback.h"
+#include "control/ctrl_scale.h"
 #include "control/reflux.h"
 #include "core/stab_detect.h"
 #include "esp_timer.h"
@@ -128,8 +129,13 @@ static proc_stage_t r_update(float dt) {
     st->column_temp = col;
     st->pressure_bar = p_bar;
 
-    if (fsel_mode_tick(st, 45.0f, 50.0f, 70.0f))
+    if (fsel_mode_tick(st, 45.0f, 50.0f, 70.0f)) {
+        float collected = st->heads_collected_ml + st->body_collected_ml + st->tails_collected_ml;
+        bool active = (st->stage == ST_HEADS || st->stage == ST_BODY || st->stage == ST_TAILS ||
+                       st->stage == ST_COOLDOWN || st->stage == ST_DONE);
+        scale_update_state(st, active, collected);
         return st->stage;
+    }
 
     if (flood_detected(col, dt, p_bar, has_pres)) flood_enter(col);
     if (s_flooded) {
@@ -137,6 +143,12 @@ static proc_stage_t r_update(float dt) {
         st->stage = s_stage;
         if (s_flood_hold <= 0.0f) flood_release();
         s_last_col = col;
+        {
+            float collected = st->heads_collected_ml + st->body_collected_ml + st->tails_collected_ml;
+            bool active = (s_stage == ST_HEADS || s_stage == ST_BODY || s_stage == ST_TAILS ||
+                           s_stage == ST_COOLDOWN || s_stage == ST_DONE);
+            scale_update_state(st, active, collected);
+        }
         return s_stage;
     }
 
@@ -287,6 +299,13 @@ static proc_stage_t r_update(float dt) {
 
     s_last_col = col;
     st->stage = s_stage;
+    {
+        float collected = st->heads_collected_ml + st->body_collected_ml + st->tails_collected_ml;
+        // Индикатор весов: после стабилизации/выхода на рабочий режим.
+        bool active = (s_stage == ST_HEADS || s_stage == ST_BODY || s_stage == ST_TAILS ||
+                       s_stage == ST_COOLDOWN || s_stage == ST_DONE);
+        scale_update_state(st, active, collected);
+    }
     return s_stage;
 }
 
