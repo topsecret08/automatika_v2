@@ -2673,11 +2673,16 @@ async function renderHardware() {
   app.innerHTML = '<div class="empty">Загрузка…</div>';
 
   try {
-    const response = await api('/api/hardware');
-    if (!response.ok) throw new Error(String(response.status));
-    const data = await response.json();
+    const [hwResp, cfgResp] = await Promise.all([
+      api('/api/hardware'),
+      api('/api/config'),
+    ]);
+    if (!hwResp.ok) throw new Error(String(hwResp.status));
+    const data = await hwResp.json();
+    const cfg = cfgResp.ok ? await cfgResp.json().catch(() => ({})) : {};
     hardwareProfile = data;
     const count = Number(data.onewire_count || 0);
+    const tsaThr = Number(cfg.tsa_threshold_c ?? 55);
 
     const tempRows = HW_TEMP_ROLES.map(([role, label]) => {
       const primary = Number(data.temp?.[role] ?? -1);
@@ -2727,6 +2732,16 @@ async function renderHardware() {
         <div class="section-title">Готовность режимов</div>
         <div class="card">${modeRows}</div>
       </section>
+            <section class="section">
+        <div class="section-title">ТСА — защита от отсутствия охлаждения</div>
+        <div class="card">
+          <div class="card-row">
+            <span class="card-row-title">Порог отключения нагрева, °C</span>
+            <input class="input" id="hw-tsa-thr" type="number" min="30" max="120" step="0.5" value="${tsaThr}">
+          </div>
+          <p class="hint">Если ТСА включена в оборудовании и температура ТСА >= порога, нагрев отключается.</p>
+        </div>
+      </section>
       <button id="hw-save" class="btn btn-primary btn-block" type="button">Сохранить</button>
     `;
 
@@ -2747,9 +2762,14 @@ async function renderHardware() {
       for (const [key] of HW_DEVICES) {
         devices[key] = !!$(`#hw-dev-${key}`)?.checked;
       }
+      const tsaThrVal = Number($('#hw-tsa-thr')?.value ?? 55);
       try {
-        const saved = await postJson('/api/hardware', { temp, temp_backup, devices });
+        const [saved, savedCfg] = await Promise.all([
+          postJson('/api/hardware', { temp, temp_backup, devices }),
+          postJson('/api/config', { tsa_threshold_c: tsaThrVal }),
+        ]);
         if (!saved.ok) throw new Error(String(saved.status));
+        if (!savedCfg.ok) throw new Error(String(savedCfg.status));
         toast('Оборудование сохранено');
         renderHardware();
       } catch (_) {

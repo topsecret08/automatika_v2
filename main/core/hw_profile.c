@@ -107,12 +107,14 @@ static float hw_temp_read_with_fallback(hw_temp_role_t role, temp_read_fn_t read
 static const char *const DEV_KEYS[HW_DEV_COUNT] = {
     "pressure", "vacuum", "flow", "level", "scale", "reflux",
     "cooling", "water_valve", "vacuum_pump", "stirrer", "doser", "valves",
+    "tsa",
 };
 
 static const char *const DEV_NAMES[HW_DEV_COUNT] = {
     "Давление в колонне", "Датчик вакуума", "Расходомер", "Датчик уровня",
     "Весы HX711", "Флегмовый клапан", "Насос охлаждения", "Клапан воды",
-    "Вакуумный насос", "Мешалка", "Дозатор", "Клапаны фракций",
+    "Вакуумный насос", "Мешалка", "Дозатор", "Клапаны фракций",,
+    "TSA (трубка связи с атмосферой)",
 };
 
 const char *hw_device_key(hw_device_t dev) {
@@ -310,19 +312,22 @@ void hw_profile_json(char *out, size_t cap) {
 
     int off = snprintf(out, cap,
         "{\"onewire_count\":%u,"
-        "\"temp\":{\"cube\":%d,\"column\":%d,\"jacket\":%d,\"tank\":%d},"
-        "\"temp_backup\":{\"cube\":%d,\"column\":%d,\"jacket\":%d,\"tank\":%d},"
+        "\"temp\":{\"cube\":%d,\"column\":%d,\"jacket\":%d,\"tank\":%d,\"tsa\":%d},"
+        "\"temp_backup\":{\"cube\":%d,\"column\":%d,\"jacket\":%d,\"tank\":%d,\"tsa\":%d},"
         "\"temp_redundancy\":{"
         "\"cube\":{\"active\":\"%s\",\"bias\":%.3f,\"bias_valid\":%s},"
         "\"column\":{\"active\":\"%s\",\"bias\":%.3f,\"bias_valid\":%s},"
         "\"jacket\":{\"active\":\"%s\",\"bias\":%.3f,\"bias_valid\":%s},"
-        "\"tank\":{\"active\":\"%s\",\"bias\":%.3f,\"bias_valid\":%s}},"
+        "\"tank\":{\"active\":\"%s\",\"bias\":%.3f,\"bias_valid\":%s},"
+        "\"tsa\":{\"active\":\"%s\",\"bias\":%.3f,\"bias_valid\":%s}},"
         "\"devices\":{",
         (unsigned)hal_1wire_count(),
         s_cfg.temp[HW_TEMP_CUBE], s_cfg.temp[HW_TEMP_COLUMN],
         s_cfg.temp[HW_TEMP_JACKET], s_cfg.temp[HW_TEMP_TANK],
+        s_cfg.temp[HW_TEMP_TSA],
         s_cfg.temp_backup[HW_TEMP_CUBE], s_cfg.temp_backup[HW_TEMP_COLUMN],
         s_cfg.temp_backup[HW_TEMP_JACKET], s_cfg.temp_backup[HW_TEMP_TANK],
+        s_cfg.temp_backup[HW_TEMP_TSA],
         s_red[HW_TEMP_CUBE].using_backup ? "backup" : "primary",
         s_red[HW_TEMP_CUBE].bias_valid ? s_red[HW_TEMP_CUBE].bias : 0.0f,
         s_red[HW_TEMP_CUBE].bias_valid ? "true" : "false",
@@ -334,7 +339,10 @@ void hw_profile_json(char *out, size_t cap) {
         s_red[HW_TEMP_JACKET].bias_valid ? "true" : "false",
         s_red[HW_TEMP_TANK].using_backup ? "backup" : "primary",
         s_red[HW_TEMP_TANK].bias_valid ? s_red[HW_TEMP_TANK].bias : 0.0f,
-        s_red[HW_TEMP_TANK].bias_valid ? "true" : "false");
+        s_red[HW_TEMP_TANK].bias_valid ? "true" : "false",
+        s_red[HW_TEMP_TSA].using_backup ? "backup" : "primary",
+        s_red[HW_TEMP_TSA].bias_valid ? s_red[HW_TEMP_TSA].bias : 0.0f,
+        s_red[HW_TEMP_TSA].bias_valid ? "true" : "false");
 
     for (int i = 0; i < HW_DEV_COUNT && off < (int)cap; i++) {
         off += snprintf(out + off, cap - off, "%s\"%s\":%d",

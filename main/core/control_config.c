@@ -37,6 +37,7 @@ static float            s_ana_min = REG_ANALOG_MIN_PCT;
 static float            s_ana_max = REG_ANALOG_MAX_PCT;
 static bool             s_ssvr_sqrt = REG_SSVR_POWER_SQRT ? true : false;
 static bool             s_adaptive_pid = false;
+static float            s_tsa_threshold_c = 55.0f;
 
 // ---------------------------------------------------------------------
 
@@ -106,6 +107,11 @@ static void load(void) {
     u8 = 0;
     if (nvs_get_u8(s_nvs, "ad_pid", &u8) == ESP_OK)
         s_adaptive_pid = (u8 != 0);
+
+    i32 = 0;
+    if (nvs_get_i32(s_nvs, "tsa_thr", &i32) == ESP_OK &&
+        i32 >= 300 && i32 <= 1200)
+        s_tsa_threshold_c = (float)i32 / 10.0f;
 
     u32 = 0;
     if (nvs_get_u32(s_nvs, "reg_baud", &u32) == ESP_OK &&
@@ -569,5 +575,26 @@ esp_err_t control_config_set_adaptive_pid(bool on) {
     unlock();
 
     ESP_LOGI(TAG, "adaptive PID: %s", on ? "ON" : "off");
+    return err;
+}
+
+float control_config_get_tsa_threshold_c(void) {
+    lock();
+    float v = s_tsa_threshold_c;
+    unlock();
+    return v;
+}
+
+esp_err_t control_config_set_tsa_threshold_c(float c) {
+    if (!s_ready || c < 30.0f || c > 120.0f) return ESP_ERR_INVALID_ARG;
+
+    lock();
+    s_tsa_threshold_c = c;
+    int32_t ix = (int32_t)lroundf(c * 10.0f);
+    esp_err_t err = nvs_set_i32(s_nvs, "tsa_thr", ix);
+    if (err == ESP_OK) err = nvs_commit(s_nvs);
+    unlock();
+
+    ESP_LOGI(TAG, "TSA threshold: %.1f C", c);
     return err;
 }

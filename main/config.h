@@ -409,12 +409,11 @@
 // Насос перекачки флегмы (MCP23017 GPA5) + поплавок высокого уровня
 // ------------------------------------------------------------
 // Поплавок: при подъёме (высокий уровень) второй контакт замыкается на GND.
-// Аналоговый вход (AI) предпочтителен: позволяет выставить порог и гистерезис,
-// чтобы избежать коротких срабатываний ("плюнул малую порцию").
-// Цифровой режим: MCP23017 GPB2 (LEVEL_PHLEGM_REED_MCP_PIN), active-low.
+// Цифровой режим (по умолчанию): MCP23017 GPB2, HIGH/LOW, active-low.
+// Аналоговый режим (опционально): ADS1115 AI, порог/гистерезис по напряжению.
 #define PHLEGM_PUMP_ENABLED          1
 #define PHLEGM_PUMP_SSR_CH           MCP23017_SSR_PHLEGM_CH
-#define PHLEGM_FLOAT_ANALOG_ENABLED  1
+#define PHLEGM_FLOAT_ANALOG_ENABLED  0  // 0=digital GPB2 (HIGH/LOW), 1=analog ADS1115
 #define PHLEGM_FLOAT_ADC_DEV         1   // 1=ADS1115#1(0x48), 2=ADS1115#2(0x49)
 #define PHLEGM_FLOAT_ADC_CH          3   // 0..3, ADC канал; проверь конфликт с другими датчиками
 #define PHLEGM_FLOAT_V_ON            0.8f // <=V: высокий уровень (поплавок вверх/замкнут на GND) -> насос ON
