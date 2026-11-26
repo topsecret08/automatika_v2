@@ -238,7 +238,7 @@ static proc_stage_t r_update(float dt) {
                 st->predec_count++;
             }
         }
-        if (hal_1wire_rising(hw_temp_index(HW_TEMP_CUBE)))
+        if (hw_temp_rising(HW_TEMP_CUBE))
             rate *= PREDEC_TREND_CUT;
 
         ctrl_heater_set_percent(50.0f);

@@ -277,7 +277,7 @@ static proc_stage_t d_update(float dt) {
           .response_window_sec = 120 },
     };
     lv_result_t lr;
-    int64_t sensor_us = hal_1wire_last_update_us(hw_temp_index(HW_TEMP_CUBE));
+    int64_t sensor_us = hw_temp_last_update_us(HW_TEMP_CUBE);
     if (sensor_us <= 0) sensor_us = now;
     lv_tick(sensor_us, sf, n_s, &pf, af, 1, &lr);
 #endif

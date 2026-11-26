@@ -35,9 +35,13 @@ typedef enum {
     HW_DEV_COUNT
 } hw_device_t;
 
+#define HW_TEMP_REDUNDANCY_MAX_DELTA_C  3.0f
+#define HW_TEMP_REDUNDANCY_BIAS_ALPHA   0.05f
+
 typedef struct {
-    int8_t   temp[HW_TEMP_ROLE_COUNT];  // индекс 1-Wire или -1
-    uint32_t devices;                   // битовая маска HW_DEV_*
+    int8_t   temp[HW_TEMP_ROLE_COUNT];         // index 1-Wire or -1
+    int8_t   temp_backup[HW_TEMP_ROLE_COUNT];  // backup 1-Wire index or -1
+    uint32_t devices;                          // bitmask HW_DEV_*
 } hw_profile_t;
 
 typedef struct {
@@ -52,8 +56,16 @@ esp_err_t hw_profile_set(const hw_profile_t *in);
 
 bool hw_has_device(hw_device_t dev);
 int  hw_temp_index(hw_temp_role_t role);
+int  hw_temp_backup_index(hw_temp_role_t role);
 bool hw_temp_available(hw_temp_role_t role);
-float hw_temp_read(hw_temp_role_t role);   // NAN, если роль не подключена
+bool hw_temp_is_redundant(hw_temp_role_t role);
+float hw_temp_read(hw_temp_role_t role);              // NAN, если роль не подключена; с fallback+коррекцией
+float hw_temp_read_fast(hw_temp_role_t role);         // быстрое чтение с fallback+коррекцией
+float hw_temp_read_compensated(hw_temp_role_t role, float pressure_hpa); // с компенсацией давления
+int   hw_temp_active_index(hw_temp_role_t role);
+bool  hw_temp_rising(hw_temp_role_t role);
+float hw_temp_slope(hw_temp_role_t role);
+int64_t hw_temp_last_update_us(hw_temp_role_t role);
 
 // Проверка минимального набора для режима. Чистая функция: count задаётся
 // вызывающим, чтобы её можно было тестировать без железа.

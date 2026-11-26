@@ -5,7 +5,8 @@
 static bool temp_valid(const hw_profile_t *p, hw_temp_role_t role,
                        uint8_t count) {
     int idx = p->temp[role];
-    return idx >= 0 && idx < (int)count;
+    int bidx = p->temp_backup[role];
+    return (idx >= 0 && idx < (int)count) || (bidx >= 0 && bidx < (int)count);
 }
 
 void hw_profile_check(const hw_profile_t *p, uint8_t onewire_count,

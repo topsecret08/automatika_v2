@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 369.
+Всего функций: 370.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -689,6 +689,13 @@ bool help_show_article(const char *id);
 Показ статьи: встроенная → SD → сообщение об отсутствии.
 
 ## `main/core/hw_profile.h`
+
+```c
+void hw_profile_check(const hw_profile_t *p, uint8_t onewire_count, process_type_t type, hw_mode_status_t *out);
+```
+
+Проверка минимального набора для режима. Чистая функция: count задаётся
+вызывающим, чтобы её можно было тестировать без железа.
 
 ```c
 void hw_profile_check_mode(process_type_t type, hw_mode_status_t *out);

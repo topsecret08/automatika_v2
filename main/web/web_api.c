@@ -752,7 +752,7 @@ static esp_err_t h_hardware(httpd_req_t *r) {
     if (r->method == HTTP_GET) {
         if (api_check_read_auth(r) != ESP_OK)
             return api_reject_unauthorized(r);
-        char json[1536];
+        char json[2048];
         hw_profile_json(json, sizeof(json));
         return send_json(r, json);
     }
@@ -777,6 +777,14 @@ static esp_err_t h_hardware(httpd_req_t *r) {
             if (cJSON_IsNumber(v)) cfg.temp[i] = (int8_t)v->valueint;
         }
     }
+    const cJSON *temp_backup = cJSON_GetObjectItemCaseSensitive(root, "temp_backup");
+    if (cJSON_IsObject(temp_backup)) {
+        for (int i = 0; i < HW_TEMP_ROLE_COUNT; i++) {
+            const cJSON *v = cJSON_GetObjectItemCaseSensitive(
+                temp_backup, temp_keys[i]);
+            if (cJSON_IsNumber(v)) cfg.temp_backup[i] = (int8_t)v->valueint;
+        }
+    }
 
     const cJSON *devices = cJSON_GetObjectItemCaseSensitive(root, "devices");
     if (cJSON_IsObject(devices)) {
@@ -796,7 +804,7 @@ static esp_err_t h_hardware(httpd_req_t *r) {
         return send_err(r, "400 Bad Request",
                         "{\"error\":\"invalid sensor index or mask\"}");
 
-    char json[1536];
+    char json[2048];
     hw_profile_json(json, sizeof(json));
     return send_json(r, json);
 }
