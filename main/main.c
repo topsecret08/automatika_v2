@@ -57,7 +57,6 @@
 #include "hal/hal_hx711.h"
 #include "hal/hal_usb.h"
 #include "hal/baro.h"
-#include "hal/flow_sensor.h"
 #include "hal/pressure_sensor.h"
 #include "hal/pressure_xgzp6897d.h"
 #include "hal/pressure_pt506.h"
@@ -253,9 +252,6 @@ void app_main(void) {
     pressure_sensor_init();
     pressure_xgzp6897d_init();
     zmpt_rms_init();
-    if (flow_init() != ESP_OK) {
-        ESP_LOGW(TAG, "flow sensor unavailable");
-    }
     time_sync_init();
 
     ctrl_heater_init();
@@ -369,7 +365,6 @@ void app_main(void) {
     SPAWN(wifi_prov_task,     "wifi",      4096,              PRIO_WIFI,         CORE_NETWORK_AI);
     SPAWN(time_sync_task,     "time",      3072,              2,                 CORE_NETWORK_AI);
     SPAWN(baro_task,          "baro",      3072,              2,                 CORE_NETWORK_AI);
-    SPAWN(flow_task,          "flow",      3072,              3,                 CORE_NETWORK_AI);
     SPAWN(expansion_sensors_task, "exp_sens", 4096,          2,                 CORE_NETWORK_AI);
     SPAWN(pid_autotune_task,  "autotune",  3072,              2,                 CORE_NETWORK_AI);
     SPAWN(sd_resilience_task, "sd_safe",   4096,              2,                 CORE_NETWORK_AI);

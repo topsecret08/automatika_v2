@@ -2,7 +2,6 @@
 #include "hw_profile_rules.h"
 
 #include "hal/hal_1wire.h"
-#include "hal/flow_sensor.h"
 #include "level/level_sensor.h"
 #include "control/ctrl_scale.h"
 #include "core/events.h"
@@ -105,16 +104,15 @@ static float hw_temp_read_with_fallback(hw_temp_role_t role, temp_read_fn_t read
 }
 
 static const char *const DEV_KEYS[HW_DEV_COUNT] = {
-    "pressure", "vacuum", "flow", "level", "scale", "reflux",
+    "pressure", "vacuum", "level", "scale", "reflux",
     "cooling", "water_valve", "vacuum_pump", "stirrer", "doser", "valves",
     "tsa",
 };
 
 static const char *const DEV_NAMES[HW_DEV_COUNT] = {
-    "Давление в колонне", "Датчик вакуума", "Расходомер", "Датчик уровня",
-    "Весы HX711", "Флегмовый клапан", "Насос охлаждения", "Клапан воды",
-    "Вакуумный насос", "Мешалка", "Дозатор", "Клапаны фракций",,
-    "TSA (трубка связи с атмосферой)",
+    "Давление в колонне", "Датчик вакуума", "Датчик уровня", "Весы HX711",
+    "Флегмовый клапан", "Насос охлаждения", "Клапан воды", "Вакуумный насос",
+    "Мешалка", "Дозатор", "Клапаны фракций", "TSA (трубка связи с атмосферой)",
 };
 
 const char *hw_device_key(hw_device_t dev) {
@@ -143,7 +141,6 @@ static void defaults(hw_profile_t *p) {
                  (1u << HW_DEV_DOSER) |
                  (1u << HW_DEV_VALVES);
 
-    if (flow_is_present()) p->devices |= 1u << HW_DEV_FLOW;
     if (level_is_available()) p->devices |= 1u << HW_DEV_LEVEL;
     if (scale_is_ready()) p->devices |= 1u << HW_DEV_SCALE;
     // Давление, вакуум и вакуумный насос включаются оператором: надёжно
@@ -165,8 +162,20 @@ void hw_profile_init(void) {
             if (nvs_get_u8(s_nvs, bkey, &u8) == ESP_OK)
                 s_cfg.temp_backup[i] = (u8 == 0xFF) ? -1 : (int8_t)u8;
         }
-        if (nvs_get_u32(s_nvs, "dev", &mask) == ESP_OK)
+        if (nvs_get_u32(s_nvs, "dev", &mask) == ESP_OK) {
+            uint8_t dev_ver = 0;
+            nvs_get_u8(s_nvs, "dev_ver", &dev_ver);
+            if (dev_ver < 2) {
+                // v1->v2: HW_DEV_FLOW removed at bit 2, shift higher bits down
+                mask = (mask & 0x03u) | ((mask & ~0x07u) >> 1);
+                nvs_set_u32(s_nvs, "dev", mask);
+                nvs_set_u8(s_nvs, "dev_ver", 2);
+                nvs_commit(s_nvs);
+            }
             s_cfg.devices = mask;
+        } else {
+            nvs_set_u8(s_nvs, "dev_ver", 2);
+        }
     }
 
     ESP_LOGI(TAG, "onewire=%d cube=%d column=%d jacket=%d tank=%d dev=0x%lx",

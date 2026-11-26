@@ -7,7 +7,6 @@ U5,Grove 4-Channel SSR,5 V / 2 A,Module,1,Seeed,6.50,"I2C 0x11; cooling pump, wa
 U6,PCA9685,16-ch PWM,Module,1,NXP/Generic,2.00,"I2C 0x40; valves HEADS/BODY/TAILS + reflux servo"
 U7,MCP4725,12-bit DAC,SOT-23-6,1,Microchip,1.20,"I2C 0x60; 0-3.3 V control for heater SSR"
 U10,DS18B20,Waterproof probe,TO-92/cable,2,Maxim,1.80,"1-Wire on GPIO4; cube + column, 4.7k pull-up"
-U11,YF-S201,Flow sensor 1-30 L/min,Module,1,Generic,2.50,"GPIO2 pulse input"
 U12,HX711,24-bit load cell amp,Module,1,Avia,1.50,"DOUT 5, SCK 6"
 U13,A4988,Stepper driver,Module,1,Allegro,1.50,"STEP 25, ENABLE 26"
 M1,NEMA17,1.8 deg stepper,42 mm,1,Generic,8.00,"Dosing pump"

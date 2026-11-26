@@ -4,7 +4,6 @@
 #include "core/hw_profile.h"
 #include "hal/hal_1wire.h"
 #include "hal/hal_relay.h"
-#include "hal/flow_sensor.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_valve_control.h"
 
