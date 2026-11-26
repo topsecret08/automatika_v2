@@ -34,7 +34,7 @@ static void stirrer_set(bool on) {
 static void cooling_set(bool on) {
     if (!hw_has_device(HW_DEV_COOLING_PUMP)) return;
     hal_relay_set(RELAY_COOLING_PUMP, on);
-    cooling_valve_set(on);
+    hal_relay_set(RELAY_WATER_VALVE, on);
 }
 
 static void pump_set(bool on) {

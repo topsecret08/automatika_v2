@@ -146,7 +146,7 @@ static proc_stage_t d_update(float dt) {
     case ST_PRECHECK:
         if (hw_has_device(HW_DEV_COOLING_PUMP)) {
             hal_relay_set(RELAY_COOLING_PUMP, true);
-            cooling_valve_set(true);
+            hal_relay_set(RELAY_WATER_VALVE, true);
         }
         if (!ctrl_safety_ok()) { s_stage = ST_ERROR; break; }
         s_stage = ST_HEATUP;
@@ -237,7 +237,7 @@ static proc_stage_t d_update(float dt) {
     case ST_DONE:
         if (has_cooling) {
             hal_relay_set(RELAY_COOLING_PUMP, false);
-            cooling_valve_set(false);
+            hal_relay_set(RELAY_WATER_VALVE, false);
         }
         st->is_running = false;
         break;

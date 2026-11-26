@@ -39,13 +39,13 @@ static proc_stage_t f_update(float dt) {
         ctrl_heater_force_off();
         if (cool) {
             hal_relay_set(RELAY_COOLING_PUMP, true);
-            cooling_valve_set(true);
+            hal_relay_set(RELAY_WATER_VALVE, true);
         }
     } else {
         ctrl_heater_force_off();
         if (cool) {
             hal_relay_set(RELAY_COOLING_PUMP, false);
-            cooling_valve_set(false);
+            hal_relay_set(RELAY_WATER_VALVE, false);
         }
     }
 
@@ -57,7 +57,7 @@ static void f_stop(void) {
     ctrl_heater_force_off();
     if (hw_has_device(HW_DEV_COOLING_PUMP)) {
         hal_relay_set(RELAY_COOLING_PUMP, false);
-        cooling_valve_set(false);
+        hal_relay_set(RELAY_WATER_VALVE, false);
     }
 }
 
