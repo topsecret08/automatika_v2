@@ -182,7 +182,7 @@ static esp_err_t h_state(httpd_req_t *r) {
         "\"power\":%.1f,\"power_auto\":%.1f,\"power_manual\":%d,"
         "\"heads\":%.0f,\"body\":%.0f,\"tails\":%.0f,"
         "\"pressure\":%.2f,\"vacuum\":%.0f,\"running\":%d,"
-        "\"flow\":%.2f,\"level\":%.0f,\"scale_ml\":%.0f,"
+        "\"level\":%.0f,\"scale_ml\":%.0f,"
         "\"scale_ready\":%d,\"scale_active\":%d,\"scale_g\":%.1f,"
         "\"scale_flow\":%.2f,\"scale_collected_ml\":%.1f,"
         "\"jacket\":%.1f,\"tank\":%.1f,"
