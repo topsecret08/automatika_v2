@@ -1,7 +1,7 @@
 #include "ui_glass_theme.h"
 
 void ui_glass_theme_apply(lv_disp_t *disp) {
-    // Тёмная тема: на LCD 480x320 белый фон даёт засветку и блики.
+    // Тёмная тема: белый фон даёт засветку и блики.
     lv_theme_t *th = lv_theme_default_init(disp,
         UI_GLASS_ACCENT, UI_GLASS_RED, true, &lv_font_cyr_16);
     if (th && disp) {

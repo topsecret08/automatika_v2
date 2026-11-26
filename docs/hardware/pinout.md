@@ -14,7 +14,7 @@
 | 5 | HX711 DOUT | input | тензодатчик |
 | 6 | HX711 SCK | output | тензодатчик |
 | 7 | **E-STOP** | input, pull-up | NC-цепь на GND; в норме 0, авария/обрыв — 1. ADC1, не strapping |
-| 8 | I2C SDA | bidir | BMP280, DS3231, MCP4725, PCA9685, Grove SSR, ADS1115, FT6336, MCP23017, ADS1115#2, XGZP6897D |
+| 8 | I2C SDA | bidir | BMP280, DS3231, MCP4725, PCA9685, Grove SSR, ADS1115, MCP23017, ADS1115#2, XGZP6897D |
 | 9 | I2C SCL | output | 400 кГц |
 | 10 | microSD CS | output | SPI |
 | 11 | microSD MOSI | output | SPI |
@@ -34,11 +34,10 @@
 | 47 | `SAFETY_RELAY_GPIO` | output | fail-safe реле |
 | 48 | `EXT_WDT_DONE_GPIO` | output | внешний watchdog DONE |
 
-> `CONFIG_HMI_EXTERNAL_UI=y`: локальный LVGL/ST7796/FT6336 не используется.
+> `CONFIG_HMI_EXTERNAL_UI=y`: локальный дисплей не используется, управление через внешнюю HMI по RS485.
 > Выводы 14–18,21 освобождены от LCD и назначены под RS485/актуаторы.
 > **GPIO 15 TXD / 16 RXD HMI-панели не трогать** — это выводы панели, а не контроллера.
 
-> FT6336 (адрес `0x38`) работает по I2C (GPIO 8/9). Выводы CTP_INT/CTP_RST
 > не заданы в `config.h` и не используются.
 
 > **У ESP32-S3 нет GPIO 22–25.** GPIO 26–32 обычно заняты SPI flash/PSRAM,
@@ -100,7 +99,6 @@ ESP32-S3 LEDC (3,3 В PWM) → преобразователь PWM→аналог
 | Адрес | Устройство | Назначение | Обязательно |
 |---:|---|---|---|
 | `0x11` | Grove 4-Channel SSR | реле 0–3: охлаждение, вода, мешалка, резерв | да |
-| `0x38` | FT6336 | ёмкостный тачскрин (не используется при headless) | нет |
 | `0x40` | PCA9685 | клапаны HEADS/BODY/TAILS + дефлегматор | да |
 | `0x48` | ADS1115 | давление (A0), вакуум (A1), пролив (A2), пары (A3) | опционально |
 | `0x60` | MCP4725 | аналоговый сигнал 0–3.3 В на SSR нагрева | да |

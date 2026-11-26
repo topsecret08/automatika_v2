@@ -36,7 +36,7 @@ source ./export.sh
 Подтягиваются из [ESP Component Registry](https://components.espressif.com)
 по `main/idf_component.yml`:
 
-- `lvgl/lvgl ~8.3.11`, `espressif/esp_lcd_st7796`, `espressif/esp_lcd_touch`,
+- `lvgl/lvgl ~8.3.11`, `espressif/esp_lcd_touch`,
   `espressif/esp_lcd_touch_ft5x06`, `espressif/esp_tinyusb`,
   `espressif/onewire_bus`, `espressif/ds18b20`
 - `espressif/lua ^5.5.1` (скрипты)

@@ -68,11 +68,12 @@ void zmpt_rms_poll(void) {
         if (s_hist_cnt[p] < ZMPT_MEDIAN_WINDOW) s_hist_cnt[p]++;
         if (!isfinite(v) || v < ZMPT_RMS_MIN_V || v > ZMPT_RMS_MAX_V) any_fault = true;
     }
+    // ZMPT RMS: медианный фильтр по окну каждой фазы + среднее арифметическое по 3 фазам.
     float m[3];
     for (int p=0;p<3;p++) m[p] = medianf(s_hist[p], s_hist_cnt[p]);
     float sum = 0; int n=0;
     for (int p=0;p<3;p++) if (isfinite(m[p])) { sum += m[p]; n++; }
-    s_ctrl_v = n ? (sum / (float)n) : NAN;
+    s_ctrl_v = n ? (sum / (float)n) : NAN; // среднее арифметическое медианных значений фаз
     s_fault = any_fault || !isfinite(s_ctrl_v);
 }
 

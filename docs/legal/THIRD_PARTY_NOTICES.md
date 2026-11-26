@@ -18,7 +18,7 @@
 | qrcodegen (Project Nayuki) | `main/third_party/` | MIT | да | `main/third_party/LICENSE.qrcodegen` |
 | LVGL 8.3.11 | `idf_component.yml`, UI | MIT | нет | managed-компонент, проверить в реестре |
 | espressif/lua 5.5 | скрипты Lua | MIT (Lua) | нет | проверить лицензию компонента |
-| espressif/ds18b20, esp_lcd_st7796, esp_lcd_touch, esp_lcd_touch_ft5x06, onewire_bus | драйверы | Apache-2.0 (типично) | нет | проверить по каждому компоненту |
+| espressif/ds18b20, esp_lcd_touch, onewire_bus | драйверы | Apache-2.0 (типично) | нет | проверить по каждому компоненту |
 | littlefs (joltwallet) | раздел assets | BSD-3-Clause (типично) | нет | проверить по компоненту |
 | **autopid_for_esp_idf (hayschan)** | PID, `control/autopid_glue.cpp` | **неизвестно** | **нет** | репозиторий недоступен по проверенным ссылкам; лицензия не установлена |
 | Шрифты `main/ui/fonts/lv_font_cyr_16.c`, `lv_font_cyr_24.c` | экраны LCD | Inter Regular 4.0, SIL OFL 1.1 | да | заменены с Segoe UI (проприетарный шрифт Microsoft); текст лицензии в `docs/legal/fonts/Inter-LICENSE.txt` |
