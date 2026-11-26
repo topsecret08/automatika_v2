@@ -28,7 +28,7 @@
 #define HMI_TYPE_PING             0x04u
 #define HMI_TYPE_PONG             0x84u
 
-#define HMI_MAX_PAYLOAD           512u
+#define HMI_MAX_PAYLOAD           1024u
 #define HMI_FRAME_OVERHEAD        10u
 #define HMI_FRAME_MAX             (HMI_FRAME_OVERHEAD + HMI_MAX_PAYLOAD)
 

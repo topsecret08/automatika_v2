@@ -60,7 +60,7 @@ static const char *TAG = "RS485_HMI";
 #define CONFIG_HMI_RS485_DE_GPIO (-1)
 #endif
 
-#define RS485_STACK_BYTES   4096
+#define RS485_STACK_BYTES   6144
 #define RS485_TASK_PRIO     5
 #define RS485_READ_TICK_MS  20
 
@@ -306,7 +306,7 @@ static void handle_cmd(uint16_t seq, const hmi_frame_t *fr)
 
 static void handle_frame(const hmi_frame_t *fr)
 {
-    char json[HMI_MAX_PAYLOAD + 1];
+    static char json[HMI_MAX_PAYLOAD + 1];
 
     switch (fr->type) {
     case HMI_TYPE_POLL:
