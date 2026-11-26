@@ -31,6 +31,12 @@ static volatile wifi_state_t s_state = WIFI_STATE_OFF;
 static volatile bool s_prov_running = false;
 static bool s_prov_ready = false;
 static bool s_ap_netif_ready = false;
+static volatile bool s_need_prov = false;
+static httpd_handle_t s_ext_httpd = NULL;
+
+void wifi_prov_set_httpd_handle(httpd_handle_t handle) {
+    s_ext_httpd = handle;
+}
 
 static void set_state(wifi_state_t st) {
     if (s_state == st) return;
@@ -148,6 +154,18 @@ static esp_err_t start_provisioning(void) {
     s_prov_running = true;
     set_state(WIFI_STATE_PROVISIONING);
 
+    // Используем внешний httpd (наш web server), чтобы не конфликтовать на :80.
+    if (s_ext_httpd) {
+        esp_err_t herr = wifi_prov_scheme_softap_set_httpd_handle(s_ext_httpd);
+        if (herr != ESP_OK) {
+            ESP_LOGW(TAG, "set prov httpd handle failed: %s", esp_err_to_name(herr));
+        } else {
+            ESP_LOGI(TAG, "provisioning using external httpd handle");
+        }
+    } else {
+        ESP_LOGW(TAG, "no external httpd handle; provisioning may conflict on :80");
+    }
+
     const char *pop = PROV_POP_SECRET ? PROV_POP_TEXT : NULL;
     esp_err_t err = wifi_prov_mgr_start_provisioning(
         PROV_POP_SECRET ? WIFI_PROV_SECURITY_1 : WIFI_PROV_SECURITY_0,
@@ -155,6 +173,8 @@ static esp_err_t start_provisioning(void) {
     if (err != ESP_OK) {
         s_prov_running = false;
         ESP_LOGE(TAG, "start_provisioning failed: %s", esp_err_to_name(err));
+    } else {
+        s_need_prov = false;
     }
     return err;
 }
@@ -215,10 +235,21 @@ esp_err_t wifi_prov_init(void) {
         ESP_LOGI(TAG, "credentials present, connecting as STA");
     } else {
         esp_netif_create_default_wifi_sta();
-        esp_wifi_set_mode(WIFI_MODE_STA);
+        // Поднимаем AP сразу, чтобы пользователь мог подключиться к 192.168.4.1.
+        // Провижининг-менеджер стартуем позже, когда web server отдаст httpd handle,
+        // иначе prov httpd конфликтует с нашим web server на порту 80.
+        if (!s_ap_netif_ready) {
+            if (esp_netif_create_default_wifi_ap()) {
+                s_ap_netif_ready = true;
+            } else {
+                ESP_LOGE(TAG, "AP netif create failed");
+            }
+        }
+        esp_wifi_set_mode(WIFI_MODE_APSTA);
         esp_wifi_start();
-        start_provisioning();
-        ESP_LOGW(TAG, "no credentials → provisioning AP '%s'", PROV_AP_SSID);
+        set_state(WIFI_STATE_PROVISIONING);
+        s_need_prov = true;
+        ESP_LOGW(TAG, "no credentials -> provisioning AP '%s' (waiting web httpd)", PROV_AP_SSID);
     }
 
     events_log(EVENT_INFO, "Wi-Fi manager ready (%s)",
@@ -253,9 +284,23 @@ void wifi_prov_task(void *arg) {
     int64_t connecting_since = 0;
     bool mdns_done = false;
     bool fallback_done = false;
+    int prov_wait_ticks = 0;
 
     while (1) {
         WD_FEED("wifi_mgr");
+
+        // Отложенный запуск provisioning: ждём httpd handle от web server,
+        // чтобы не конфликтовать на порту 80. Fallback - через ~30с.
+        if (s_need_prov && !s_prov_running && s_prov_ready) {
+            if (s_ext_httpd || prov_wait_ticks >= 30) {
+                if (!s_ext_httpd) {
+                    ESP_LOGW(TAG, "starting provisioning without external httpd handle");
+                }
+                start_provisioning();
+            } else {
+                prov_wait_ticks++;
+            }
+        }
 
         /* успех провижининга: остановить AP, перейти в STA */
         if (s_prov_running && credentials_stored() && wifi_prov_is_connected()) {

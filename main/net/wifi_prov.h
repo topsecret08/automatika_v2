@@ -1,5 +1,6 @@
 #pragma once
 #include "esp_err.h"
+#include "esp_http_server.h"
 #include <stdbool.h>
 
 // Wi-Fi provisioning (SoftAP + captive portal + защищённый транспорт)
@@ -34,3 +35,7 @@ esp_err_t  wifi_prov_start(void);
 // Забыть сеть и уйти в provisioning.
 esp_err_t  wifi_prov_reset(void);
 const char *wifi_prov_status_json(void);
+
+// Передать внешний httpd handle, чтобы provisioning использовал наш web server
+// (избегает конфликта порта 80 в режиме AP/provisioning).
+void wifi_prov_set_httpd_handle(httpd_handle_t handle);
