@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 368.
+Всего функций: 369.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -1356,6 +1356,13 @@ const char *wifi_prov_status_json(void);
 
 Принудительный старт provisioning (кнопка/API), даже если credentials есть.
 Забыть сеть и уйти в provisioning.
+
+```c
+void wifi_prov_set_httpd_handle(httpd_handle_t handle);
+```
+
+Передать внешний httpd handle, чтобы provisioning использовал наш web server
+(избегает конфликта порта 80 в режиме AP/provisioning).
 
 ## `main/ota/ota_guard.h`
 
