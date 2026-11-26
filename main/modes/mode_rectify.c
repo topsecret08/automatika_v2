@@ -15,9 +15,14 @@
 #include "control/ctrl_forecast.h"
 #include "control/fraction_periodic.h"
 #include "control/volume_feedback.h"
+#include "control/alcohol_balance.h"
+#include "control/flood_detector.h"
 #include "control/ctrl_scale.h"
 #include "control/reflux.h"
+#include "core/eq_lock.h"
 #include "core/stab_detect.h"
+#include "control/ctrl_safety.h"
+#include "core/estop.h"
 #include "esp_timer.h"
 #include "config.h"
 #include <math.h>
@@ -26,13 +31,16 @@ static proc_stage_t s_stage = ST_IDLE;
 static float s_stab_time = 0;
 static float s_head_stable_time = 0;
 static float s_last_col = 0;
+static float s_rise_acc = 0.0f;
 static float s_flood_time = 0;
 static float s_flood_hold = 0;
 static bool  s_flooded = false;
 static stab_detector_t s_stab;
+static eq_lock_t s_eq;
 static volume_feedback_t s_heads_fb;
 static volume_feedback_t s_body_fb;
 static volume_feedback_t s_tails_fb;
+static flood_detector_t s_flood_det;
 
 #define HEADS_END_T       78.5f
 #define BODY_END_T        92.0f
@@ -47,14 +55,20 @@ static proc_stage_t r_init(void) {
     s_stab_time = 0;
     s_head_stable_time = 0;
     s_last_col = 0;
+    s_rise_acc = 0.0f;
     s_flood_time = 0;
     s_flood_hold = 0;
     s_flooded = false;
     stab_init(&s_stab, 0.1f, 0.01f, 60.0f, 3600.0f,
               esp_timer_get_time());
+    eq_lock_init(&s_eq);
+    flood_detector_init(&s_flood_det);
     volume_feedback_begin(&s_heads_fb);
     volume_feedback_begin(&s_body_fb);
     volume_feedback_begin(&s_tails_fb);
+    volume_feedback_set_target(&s_heads_fb, st->heads_ml, st->heads_ml > 0 ? st->heads_ml * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_body_fb,  st->body_ml,  st->body_ml  > 0 ? st->body_ml  * 1.20f : 0, 120000);
+    volume_feedback_set_target(&s_tails_fb, st->tails_ml, st->tails_ml > 0 ? st->tails_ml * 1.20f : 0, 120000);
     if (hw_has_device(HW_DEV_REFLUX)) {
         reflux_set_ratio(REFLUX_RATIO_DEFAULT);
         reflux_enable(false);
@@ -66,8 +80,22 @@ static proc_stage_t r_init(void) {
 static bool auto_heads_done(float col, float dt) {
     if (fabsf(col - s_last_col) < STAB_TOL) s_head_stable_time += dt;
     else s_head_stable_time = 0;
+    bool stable_long = s_head_stable_time > STAB_TIME;
+
+    // Признаковый авто-детект: после плато температура колонны уверенно растёт,
+    // что часто означает переход от голов к телу.
+    float slope = hw_temp_slope(HW_TEMP_COLUMN);
+    bool rising_sign = isfinite(slope) && slope > 0.03f && col > 77.0f;
+    if (rising_sign) s_rise_acc += dt; else if (s_rise_acc > 0.0f) s_rise_acc -= dt * 0.5f;
+    if (s_rise_acc < 0.0f) s_rise_acc = 0.0f;
+    bool rise_sign = s_rise_acc > 120.0f;
+
+    // Доп. признак: крепость/ABV падает, температура куба растёт.
+    float abv = abv_get_current();
+    bool abv_sign = isfinite(abv) && abv > 0.0f && abv < 55.0f && hw_temp_rising(HW_TEMP_CUBE);
+
     s_last_col = col;
-    return s_head_stable_time > STAB_TIME;
+    return stable_long || rise_sign || (rising_sign && abv_sign);
 }
 
 static float corrected(float t, float p_hpa) {
@@ -78,11 +106,21 @@ static float corrected(float t, float p_hpa) {
 // при заметной мощности. Логика не срабатывает, если датчик давления
 // не отмечен в профиле.
 static bool flood_detected(float col, float dt, float p_bar, bool has_pres) {
+    flood_input_t fin = {
+        .pressure_hpa = has_pres ? p_bar * 10.0f : NAN, // bar->hPa approx? p_bar here is bar over atm in codebase; keep consistent
+        .cube_c = NAN,
+        .column_c = col,
+        .power_pct = ctrl_heater_get_percent(),
+        .dt_s = dt,
+    };
+    // p_bar in this function is bar over atmosphere (FLOOD_PRESSURE 0.20 bar)
+    fin.pressure_hpa = has_pres ? p_bar * 1000.0f : NAN;
+    flood_detector_tick(&s_flood_det, &fin);
     bool pressure_high = has_pres && p_bar > FLOOD_PRESSURE;
     bool temp_drop = (s_last_col > 0.0f) &&
                      (s_last_col - col > FLOOD_DROP_T) &&
                      ctrl_heater_get_percent() > 30.0f;
-    if (pressure_high || temp_drop) {
+    if (pressure_high || temp_drop || flood_detector_active(&s_flood_det)) {
         s_flood_time += dt;
     } else {
         s_flood_time = 0;
@@ -169,21 +207,40 @@ static proc_stage_t r_update(float dt) {
         break;
 
     case ST_STABILIZE:
-        ctrl_heater_set_percent(50.0f);
         if (has_reflux) {
-            // На стабилизации — максимальный возврат флегмы.
             reflux_set_ratio(8.0f);
             reflux_enable(true);
         }
         s_stab_time += dt;
         {
+            int64_t now = esp_timer_get_time();
+            if (eq_lock_phase(&s_eq) == EQ_IDLE) {
+                eq_lock_engage(&s_eq, ctrl_heater_get_percent(), 3600, now);
+            }
+            eq_lock_input_t eq_in = {
+                .cube_c = cube,
+                .column_c = col,
+                .body_valve_closed = true,
+                .safety_ok = ctrl_safety_ok() && !estop_actions_blocked(),
+            };
+            eq_lock_tick(&s_eq, &eq_in, dt, now);
+            eq_phase_t eq_ph = eq_lock_phase(&s_eq);
+            if (eq_ph == EQ_RAMP_DOWN || eq_ph == EQ_EQUILIBRATE || eq_ph == EQ_LOCKED) {
+                ctrl_heater_set_percent(s_eq.power_current);
+            } else {
+                ctrl_heater_set_percent(50.0f);
+            }
+
             float target = st->target_column_t > 0.0f
                                ? corrected(st->target_column_t, p_hpa)
                                : corrected(HEADS_END_T, p_hpa);
-            bool converged = stab_tick(&s_stab, col, target,
-                                       esp_timer_get_time());
+            bool converged = stab_tick(&s_stab, col, target, now);
+            bool eq_locked = (eq_ph == EQ_LOCKED);
+            if (eq_locked) eq_lock_release(&s_eq);
+
             if ((flags_get_by_key("autodetect_heads") &&
-                 auto_heads_done(col, dt)) || converged) {
+                 auto_heads_done(col, dt)) || converged || eq_locked) {
+                if (eq_lock_phase(&s_eq) != EQ_IDLE) eq_lock_release(&s_eq);
                 s_stage = ST_HEADS;
                 volume_feedback_begin(&s_heads_fb);
                 events_log(EVENT_STAGE_CHANGE, "-> HEADS (stab)");
@@ -204,6 +261,17 @@ static proc_stage_t r_update(float dt) {
             float measured = volume_feedback_ml(&s_heads_fb);
             if (measured >= 0.0f) st->heads_collected_ml = measured;
             else st->heads_collected_ml += est;
+            volume_feedback_tick(&s_heads_fb, has_valves, (uint32_t)(esp_timer_get_time()/1000));
+            if (volume_feedback_overflow(&s_heads_fb)) {
+                events_log(EVENT_WARNING, "Heads overflow guard triggered");
+                s_stage = ST_BODY; volume_feedback_begin(&s_body_fb);
+                events_log(EVENT_STAGE_CHANGE, "-> BODY (overflow guard)");
+                break;
+            }
+            if (volume_feedback_no_flow(&s_heads_fb)) {
+                events_log(EVENT_WARNING, "Heads no-flow detected, closing valve");
+                if (has_valves) valve_set_pct(VALVE_HEADS, 0.0f);
+            }
         }
         if (st->heads_collected_ml > st->target_heads_ml ||
             col >= corrected(HEADS_END_T, p_hpa)) {

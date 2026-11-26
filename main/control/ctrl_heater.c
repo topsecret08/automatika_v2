@@ -6,6 +6,9 @@
 #include "hal/hal_dac.h"
 #include "hal/hal_lsa_pwm.h"
 #include "hal/hal_1wire.h"
+#include "hal/zmpt_rms.h"
+#include "predictive_heat.h"
+#include "energy_anomaly.h"
 #include "control/ctrl_safety.h"
 #include "core/control_config.h"
 #include "core/state.h"
@@ -71,7 +74,42 @@ static float trend_guard(float pct) {
     return pct;
 }
 
-// Применение к выбранному выходу. Вызывается под mutex.
+static float s_power_v_nom = 220.0f;
+static bool  s_zmpt_anomaly = false;
+static energy_anomaly_t s_ea;
+static bool s_ea_init = false;
+
+static float power_compensate_pct(float pct) {
+    if (pct <= 0.0f) return 0.0f;
+    if (zmpt_rms_fault()) {
+        if (!s_zmpt_anomaly) {
+            s_zmpt_anomaly = true;
+            events_log(EVENT_WARNING, "ZMPT: fault, power compensation disabled");
+        }
+        return pct;
+    }
+    float v = zmpt_rms_ctrl_v();
+    if (!isfinite(v) || v < 150.0f || v > 260.0f) return pct;
+
+    bool anomaly = (v < 195.0f || v > 245.0f);
+    if (anomaly && !s_zmpt_anomaly) {
+        s_zmpt_anomaly = true;
+        events_log(EVENT_WARNING, "ZMPT: voltage anomaly %.1fV, compensating", v);
+    } else if (!anomaly && s_zmpt_anomaly) {
+        s_zmpt_anomaly = false;
+        events_log(EVENT_INFO, "ZMPT: voltage back to normal %.1fV", v);
+    }
+
+    float ratio = s_power_v_nom / v;
+    float compensated = pct * ratio * ratio;
+    float max_boost = pct * 1.30f;
+    if (compensated > max_boost) compensated = max_boost;
+    if (compensated > 100.0f) compensated = 100.0f;
+    if (compensated < 0.0f) compensated = 0.0f;
+    return compensated;
+}
+
+// Применение мощности с компенсацией просадки/аномалий ZMPT. Вызывать под mutex.
 static esp_err_t heater_apply(float pct) {
     pct = clamp_power(pct);
 
@@ -79,13 +117,30 @@ static esp_err_t heater_apply(float pct) {
         pct = 0.0f;
 
     pct = trend_guard(pct);
+    // Модельно-предиктивное ограничение: не допускаем прогнозируемый перегрев колонны.
+    if (hw_temp_available(HW_TEMP_COLUMN)) {
+        float col = hw_temp_read(HW_TEMP_COLUMN);
+        float tgt = state_get()->target_column_t;
+        if (isfinite(col) && isfinite(tgt) && tgt > 0.0f) {
+            pred_heat_in_t pin = {
+                .target_c = tgt,
+                .current_c = col,
+                .rate_c_min = hw_temp_slope(HW_TEMP_COLUMN),
+                .dt_s = 0.5f,
+                .max_power_pct = pct,
+            };
+            pred_heat_out_t pout = predictive_heat_limit(&pin);
+            if (pout.active && pout.cap_pct < pct) pct = pout.cap_pct;
+        }
+    }
+    float apply_pct = power_compensate_pct(pct);
     s_pct = pct;
     state_get()->power_percent = pct;
 
-    // Выбранный внешний регулятор нельзя незаметно заменять DAC.
+    // Внешний регулятор получает логическую мощность; DAC/LSA — компенсированную.
     if (control_config_get_regulator() != REGULATOR_NONE) {
         hal_dac_set_percent(0);
-    hal_lsa_pwm_force_off();
+        hal_lsa_pwm_force_off();
 
         if (!regulator_is_ready()) {
             regulator_emergency_off();
@@ -104,9 +159,9 @@ static esp_err_t heater_apply(float pct) {
         return err;
     }
 
-    hal_dac_set_percent(pct);
-    hal_lsa_pwm_set_duty_pct(pct);
-    shadow_tick_heater(pct);
+    hal_dac_set_percent(apply_pct);
+    hal_lsa_pwm_set_duty_pct(apply_pct);
+    shadow_tick_heater(apply_pct);
     return ESP_OK;
 }
 
@@ -200,8 +255,11 @@ bool ctrl_heater_service_set(float pct) {
 void ctrl_heater_task(void *arg) {
     (void)arg;
     wd_register("heater", 3000, false);
+    energy_anomaly_init(&s_ea);
+    s_ea_init = true;
 
     bool last_cut = false;
+    bool last_ea = false;
     while (1) {
         WD_FEED("heater");
 
@@ -212,6 +270,20 @@ void ctrl_heater_task(void *arg) {
                        cut ? "ON" : "off",
                        hw_temp_slope(HW_TEMP_CUBE));
         }
+
+        energy_sample_t es = {
+            .v = zmpt_rms_ctrl_v(),
+            .power_pct = s_pct,
+            .temp_cube = hw_temp_read(HW_TEMP_CUBE),
+            .dt_s = 0.5f,
+        };
+        energy_anomaly_tick(&s_ea, &es);
+        bool ea = energy_anomaly_any(&s_ea);
+        if (ea && !last_ea) {
+            events_log(EVENT_WARNING, "Energy anomaly: %s", energy_anomaly_reason(&s_ea));
+        }
+        last_ea = ea;
+
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }

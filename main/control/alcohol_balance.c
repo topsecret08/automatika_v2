@@ -2,6 +2,7 @@
 #include "config.h"
 
 #include "core/state.h"
+#include "core/vle_ew.h"
 
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -170,6 +171,12 @@ static float bubble_pressure_pa(float t_c, float x_e, float x_w) {
 }
 
 static float boiling_point_c(float p_abs_pa, float x_e, float x_w) {
+    float p_mmhg = p_abs_pa / 133.322f;
+    float t_vle = NAN, y1 = NAN;
+    if (vle_bubble_point(&VLE_ETHANOL_WATER, p_mmhg, x_e, &t_vle, &y1) && isfinite(t_vle)) {
+        return t_vle;
+    }
+    (void)x_w;
     float lo = 30.0f, hi = 130.0f;
     for (int i = 0; i < 40; i++) {
         float mid = (lo + hi) * 0.5f;

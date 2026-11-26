@@ -8,6 +8,7 @@
 #include "core/control_config.h"
 #include "core/estop.h"
 #include "core/events.h"
+#include "core/pump_cal.h"
 #include "core/state.h"
 #include "core/watchdog.h"
 
@@ -52,6 +53,35 @@ static bool s_ledc_ready = false;
 static float   s_proc_accum_ml = 0.0f;
 static int     s_proc_valve = VALVE_BODY;
 static bool    s_proc_open = false;
+
+static pump_cal_t s_pump_cal;
+static bool       s_pump_cal_ready = false;
+
+static float pump_full_flow_mlmin(void) {
+    float cfg = control_config_get_flow_ml_min();
+    if (isfinite(cfg) && cfg > 0.0f) return cfg;
+    if (s_pump_cal_ready) {
+        float cal = pump_cal_flow(&s_pump_cal, 100.0f);
+        if (isfinite(cal) && cal > 0.1f) return cal;
+    }
+    return 1.0f;
+}
+
+static float pump_rate_to_frac(float rate_mlmin) {
+    if (!isfinite(rate_mlmin) || rate_mlmin <= 0.0f) return 0.0f;
+    float full = pump_full_flow_mlmin();
+    if (full <= 0.0f) return 0.0f;
+    if (s_pump_cal_ready) {
+        // Use PCHIP shape normalized to configured full flow.
+        float cal_full = pump_cal_flow(&s_pump_cal, 100.0f);
+        if (isfinite(cal_full) && cal_full > 0.1f) {
+            float cal_target = rate_mlmin * cal_full / full;
+            float spd = pump_cal_speed_for_flow(&s_pump_cal, cal_target);
+            if (isfinite(spd)) return spd / 100.0f;
+        }
+    }
+    return rate_mlmin / full;
+}
 
 // ------------------------------------------------------------------
 
@@ -177,8 +207,8 @@ static void exec_volume(float volume_ml, float rate_mlmin) {
         err = pump_run_steps(total, rate_to_step_us(rate_mlmin, spm));
         done_ml = (total < 0xFFFFFFFFu) ? (float)total / (float)spm : volume_ml;
     } else if (s_ledc_ready) {
-        float full = control_config_get_flow_ml_min();
-        float frac = (full > 0.0f) ? rate_mlmin / full : 0.05f;
+        float frac = pump_rate_to_frac(rate_mlmin);
+        if (frac <= 0.0f) frac = 0.05f;
         if (frac > 0.8f) frac = 0.8f;
         if (frac < 0.005f) frac = 0.005f;
         solenoid_duty(frac * 1000.0f);
@@ -191,8 +221,8 @@ static void exec_volume(float volume_ml, float rate_mlmin) {
         solenoid_duty(0);
     } else {
         /* серво-клапан: доля открытия задаётся на всё время выдачи */
-        float full = control_config_get_flow_ml_min();
-        float frac = (full > 0.0f) ? rate_mlmin / full : 0.05f;
+        float frac = pump_rate_to_frac(rate_mlmin);
+        if (frac <= 0.0f) frac = 0.05f;
         if (frac > 0.9f) frac = 0.9f;
         if (frac < 0.02f) frac = 0.02f;
         valve_set_pct(VALVE_BODY, frac * 100.0f);
@@ -220,6 +250,9 @@ static void exec_volume(float volume_ml, float rate_mlmin) {
 esp_err_t ctrl_dose_init(void) {
     s_queue = xQueueCreate(CTRL_DOSE_QUEUE_LEN, sizeof(dose_msg_t));
     if (!s_queue) return ESP_ERR_NO_MEM;
+
+    pump_cal_load_defaults(&s_pump_cal);
+    s_pump_cal_ready = (s_pump_cal.n >= 2);
 
     bool step_ok = PUMP_STEP_GPIO >= 0 &&
                    GPIO_IS_VALID_OUTPUT_GPIO((gpio_num_t)PUMP_STEP_GPIO);

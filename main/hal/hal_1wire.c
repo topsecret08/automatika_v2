@@ -4,6 +4,7 @@
 #include "core/event_bus.h"
 #include "temp_filter.h"
 #include "sensor_pipeline.h"
+#include "zone_consensus.h"
 #include "config.h"
 #include "nvs.h"
 #include "onewire_bus.h"
@@ -261,18 +262,37 @@ float hal_1wire_read(int idx) {
     xSemaphoreTake(s_cache_mtx, portMAX_DELAY);
     float v = cache_fresh(idx, now) ? s_calibrated[idx] : -127.0f;
     if (cache_fresh(idx, now)) {
+        float zvals[MAX_SENSORS] = {0};
+        int zids[MAX_SENSORS] = {0};
+        int zn = 0;
+        for (int j = 0; j < count && zn < MAX_SENSORS; j++) {
+            if (cache_fresh(j, now) && s_calibrated[j] > -50.0f) {
+                zids[zn] = j;
+                zvals[zn] = s_calibrated[j];
+                zn++;
+            }
+        }
+        zone_result_t zr = {0};
+        zone_consensus(zvals, zids, zn, &zr);
+        bool self_outlier = (zn >= 3) && ((zr.outlier_mask & (1u << idx)) != 0);
+
         float peers[MAX_SENSORS] = {0};
         int pn = 0;
         for (int j = 0; j < count && pn < MAX_SENSORS; j++) {
-            if (j != idx && cache_fresh(j, now) && s_calibrated[j] > -50.0f)
-                peers[pn++] = s_calibrated[j];
+            if (j == idx || !cache_fresh(j, now) || s_calibrated[j] <= -50.0f)
+                continue;
+            if (zn >= 3 && (zr.outlier_mask & (1u << j)))
+                continue;
+            peers[pn++] = s_calibrated[j];
         }
         float score = sensor_trust_score(&s_trust[idx], v, now, peers, pn);
+        if (self_outlier) score *= 0.7f;
         bool accepted = sensor_trust_accept(&s_trust[idx], score);
         trust_dashboard_push((uint8_t)idx, score, now);
         if (!accepted) {
             bus_event_t ev = { EV_MAJOR, "TRUST_DROP", (uint8_t)idx,
-                               "sensor rejected by trust", now };
+                               self_outlier ? "sensor rejected by trust/consensus"
+                                            : "sensor rejected by trust", now };
             event_bus_publish(&ev);
             xSemaphoreGive(s_cache_mtx);
             return -127.0f;
