@@ -67,7 +67,7 @@ bool process_control_hw_ready(process_type_t type, char *reason, size_t reason_l
 }
 
 esp_err_t process_control_start(const char *mode_id) {
-    if (!ctrl_safety_ok() || estop_is_pressed()) {
+    if (!ctrl_safety_ok() || estop_actions_blocked()) {
         events_log(EVENT_WARNING, "Start rejected: safety/estop");
         return ESP_ERR_INVALID_STATE;
     }

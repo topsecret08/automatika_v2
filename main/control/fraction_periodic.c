@@ -200,7 +200,7 @@ static void apply_output(bool open, const fsel_config_t *cfg) {
     if (!cfg) return;
 
     // Safety/E-STOP всегда важнее FSEL.
-    if (open && (estop_is_pressed() || !ctrl_safety_ok())) open = false;
+    if (open && (estop_actions_blocked() || !ctrl_safety_ok())) open = false;
 
     float rate = control_config_get_rate_ml_min();
     if (rate <= 0.0f) rate = 60.0f;
@@ -338,7 +338,7 @@ void fsel_update(float t_stage, float t_cube, float pressure_hpa) {
     s_last_t_stage = t_stage;
 
     // Авария/E-STOP: закрыть выход независимо от расписания.
-    if (estop_is_pressed() || !ctrl_safety_ok()) {
+    if (estop_actions_blocked() || !ctrl_safety_ok()) {
         if (s_st.valve_open) {
             s_st.valve_open = false;
             apply_output(false, &cfg);

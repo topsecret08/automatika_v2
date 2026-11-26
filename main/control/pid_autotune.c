@@ -70,7 +70,7 @@ static void save_gains(float kp, float ki, float kd) {
 
 esp_err_t pid_autotune_start(float target_temp) {
     if (pid_autotune_is_running()) return ESP_ERR_INVALID_STATE;
-    if (estop_is_pressed() || !ctrl_safety_ok()) return ESP_ERR_INVALID_STATE;
+    if (estop_actions_blocked() || !ctrl_safety_ok()) return ESP_ERR_INVALID_STATE;
     if (!isfinite(target_temp) || target_temp < 20.0f || target_temp > 120.0f)
         return ESP_ERR_INVALID_ARG;
 
@@ -141,7 +141,7 @@ void pid_autotune_task(void *arg) {
                 ctrl_pid_autotune_stop();
                 s_running = false;
                 events_log(EVENT_WARNING, "PID autotune timeout");
-            } else if (!ctrl_safety_ok() || estop_is_pressed()) {
+            } else if (!ctrl_safety_ok() || estop_actions_blocked()) {
                 ESP_LOGW(TAG, "autotune aborted by safety");
                 ctrl_pid_autotune_stop();
                 s_running = false;

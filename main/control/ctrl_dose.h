@@ -47,6 +47,11 @@ esp_err_t ctrl_dose_set_steps_per_ml(uint32_t steps);
 
 esp_err_t ctrl_dose_enable_solenoid_pwm(int gpio);
 
+// Direction interlock: one stepper, TAKEOFF vs NBK_FEED mutually exclusive.
+// Direction can only be changed when doser is idle.
+bool ctrl_dose_set_nbk_feed(bool nbk_feed);
+bool ctrl_dose_is_nbk_feed(void);
+
 // Вызывается из mode_task: непрерывный отбор и учёт объёма.
 //  - в режиме насоса дозирует порции n = rate·dt;
 //  - в режиме клапана задаёт долю открытия и добавляет rate·dt/60 к объёму.

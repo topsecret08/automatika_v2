@@ -48,6 +48,12 @@ typedef struct {
 
     bool is_running, is_paused, emergency;
     char emergency_reason[64];
+
+    // E-STOP / bench mode status (telemetry-facing)
+    bool estop_active;
+    bool actions_blocked;
+    bool bench_mode;
+    char actions_block_reason[48];
 } process_state_t;
 
 void             state_init(void);

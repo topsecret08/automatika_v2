@@ -188,7 +188,7 @@ static esp_err_t h_state(httpd_req_t *r) {
         "\"flow\":%.2f,\"level\":%.0f,\"scale_ml\":%.0f,"
         "\"jacket\":%.1f,\"tank\":%.1f,"
         "\"paused\":%d,\"elapsed\":%u,\"safety\":%d,"
-        "\"estop\":%d,\"estop_healthy\":%d,\"service\":%d,"
+        "\"estop\":%d,\"estop_healthy\":%d,\"estop_active\":%d,\"actions_blocked\":%d,\"bench_mode\":%d,\"estop_mode\":%d,\"actions_block_reason\":\"%s\",\"service\":%d,"
         "\"level_required_fault\":%d,"
         "\"slope0\":%.2f,\"rising0\":%d,"
         "\"mode\":\"%s\",\"ctrl_mode\":%d,\"out_dev\":%d,"
@@ -209,6 +209,7 @@ static esp_err_t h_state(httpd_req_t *r) {
         s->is_paused ? 1 : 0, (unsigned)s->elapsed_sec,
         ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0,
         estop_is_healthy() ? 1 : 0,
+        s->estop_active ? 1 : 0, s->actions_blocked ? 1 : 0, s->bench_mode ? 1 : 0, (int)estop_get_mode(), s->actions_block_reason,
         control_config_service_enabled() ? 1 : 0,
         level_is_required_fault() ? 1 : 0,
         (double)slope, rising,
@@ -1578,14 +1579,14 @@ static esp_err_t h_ws(httpd_req_t *r) {
     if (httpd_ws_recv_frame(r, &in, sizeof(inbuf)) != ESP_OK)
         return ESP_OK;   /* кадр не нужен: отвечаем состоянием */
 
-    char buf[224];
+    char buf[320];
     process_state_t *s = state_get();
     snprintf(buf, sizeof(buf),
         "{\"cube\":%.2f,\"col\":%.2f,\"pwr\":%.1f,\"stg\":%d,"
-        "\"run\":%d,\"safe\":%d,\"estop\":%d,\"slope\":%.2f}",
+        "\"run\":%d,\"safe\":%d,\"estop\":%d,\"estop_active\":%d,\"actions_blocked\":%d,\"bench_mode\":%d,\"slope\":%.2f}",
         s->cube_temp, s->column_temp, s->power_percent, (int)s->stage,
         s->is_running ? 1 : 0, ctrl_safety_ok() ? 1 : 0,
-        estop_is_pressed() ? 1 : 0, hal_1wire_slope(0));
+        estop_is_pressed() ? 1 : 0, s->estop_active ? 1 : 0, s->actions_blocked ? 1 : 0, s->bench_mode ? 1 : 0, hal_1wire_slope(0));
 
     httpd_ws_frame_t f = { .type = HTTPD_WS_TYPE_TEXT };
     f.payload = (uint8_t*)buf;

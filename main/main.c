@@ -48,6 +48,8 @@
 #include "hal/hal_1wire.h"
 #include "hal/hal_dac.h"
 #include "hal/hal_relay.h"
+#include "hal/hal_mcp23017.h"
+#include "hal/hal_lsa_pwm.h"
 #include "hal/hal_actuator_readback.h"
 #include "hal/hal_safety_relay.h"
 #include "hal/hal_ext_watchdog.h"
@@ -57,6 +59,9 @@
 #include "hal/baro.h"
 #include "hal/flow_sensor.h"
 #include "hal/pressure_sensor.h"
+#include "hal/pressure_xgzp6897d.h"
+#include "hal/pressure_pt506.h"
+#include "hal/zmpt_rms.h"
 
 #include "control/ctrl_safety.h"
 #include "control/fraction_periodic.h"
@@ -150,6 +155,18 @@ void vApplicationIdleHook(void) {
 // ota_manager_init() вызывается до создания задач: если образ новый, он
 // помечает раздел PENDING_VERIFY и запускает окно health-check. Само
 // подтверждение делает ota_manager_task (не по таймауту, а по здоровью).
+static void expansion_sensors_task(void *arg) {
+    (void)arg;
+    wd_register("exp_sens", 5000, true);
+    while (1) {
+        WD_FEED("exp_sens");
+        if (XGZP6897D_ENABLED) (void)pressure_xgzp6897d_kpa();
+        if (PT506_ENABLED) (void)pt506_pressure_bar();
+        if (ZMPT_ENABLED) zmpt_rms_poll();
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+
 void app_main(void) {
     ESP_LOGI(TAG, "=========== %s ===========", FW_NAME);
     ESP_LOGI(TAG, "Build: %s %s", __DATE__, __TIME__);
@@ -220,12 +237,21 @@ void app_main(void) {
         events_log(EVENT_ERROR, "1-Wire init failed: %s", esp_err_to_name(hw));
     }
 
+    if (hal_mcp23017_init() != ESP_OK) {
+        ESP_LOGW(TAG, "MCP23017 unavailable (expansion module)");
+    }
+    if (hal_lsa_pwm_init() != ESP_OK) {
+        ESP_LOGW(TAG, "LSA PWM init failed");
+    }
+
     // Барометр/давление/проток и часы: каждый модуль деградирует
     // независимо, отсутствие датчика не блокирует запуск.
     if (baro_init() != ESP_OK) {
         ESP_LOGW(TAG, "barometer unavailable");
     }
     pressure_sensor_init();
+    pressure_xgzp6897d_init();
+    zmpt_rms_init();
     if (flow_init() != ESP_OK) {
         ESP_LOGW(TAG, "flow sensor unavailable");
     }
@@ -342,6 +368,7 @@ void app_main(void) {
     SPAWN(time_sync_task,     "time",      3072,              2,                 CORE_NETWORK_AI);
     SPAWN(baro_task,          "baro",      3072,              2,                 CORE_NETWORK_AI);
     SPAWN(flow_task,          "flow",      3072,              3,                 CORE_NETWORK_AI);
+    SPAWN(expansion_sensors_task, "exp_sens", 4096,          2,                 CORE_NETWORK_AI);
     SPAWN(pid_autotune_task,  "autotune",  3072,              2,                 CORE_NETWORK_AI);
     SPAWN(sd_resilience_task, "sd_safe",   4096,              2,                 CORE_NETWORK_AI);
 #ifndef CONFIG_HMI_EXTERNAL_UI

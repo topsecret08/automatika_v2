@@ -96,6 +96,23 @@ void hmi_telemetry_from_json(const uint8_t *payload, uint16_t len)
     s_t.heap   = juint(root, "heap", 0);
     s_t.epoch_s = juint(root, "epoch", 0);
 
+    /* E-STOP / bench mode (backward-compatible) */
+    s_t.estop_active    = jbool(root, "estop_active", s_t.es);
+    s_t.actions_blocked = jbool(root, "actions_blocked", s_t.es);
+    s_t.bench_mode      = jbool(root, "bench_mode", false);
+    s_t.estop_mode      = (uint8_t)juint(root, "estop_mode", 0);
+    jstr(root, "reason", s_t.reason, sizeof(s_t.reason), "");
+
+    /* expansion sensors */
+    s_t.lsa_pwm   = jnum(root, "lsa_pwm", 0.0f);
+    s_t.pt506_bar = jnum(root, "pt506_bar", 0.0f);
+    s_t.xgzp_kpa  = jnum(root, "xgzp_kpa", 0.0f);
+    s_t.zmpt_v1   = jnum(root, "zmpt_v1", 0.0f);
+    s_t.zmpt_v2   = jnum(root, "zmpt_v2", 0.0f);
+    s_t.zmpt_v3   = jnum(root, "zmpt_v3", 0.0f);
+    s_t.zmpt_ctrl = jnum(root, "zmpt_ctrl", 0.0f);
+    s_t.zmpt_fault = jbool(root, "zmpt_fault", false);
+
     cJSON_Delete(root);
 }
 
@@ -104,8 +121,9 @@ void hmi_telemetry_apply_ui(void)
     if (s_t.epoch_s) ui_fut_clock_set_epoch(s_t.epoch_s);
 
     rect_state_t r = {0};
-    r.ready      = s_t.link && s_t.sa;
-    r.stage      = "ЭТАП: ТЕЛО";
+    r.ready      = s_t.link && s_t.sa && !s_t.actions_blocked;
+    r.stage      = s_t.bench_mode ? "СТЕНД: ДЕЙСТВИЯ ЗАБЛОКИРОВАНЫ" :
+                   (s_t.estop_active ? "E-STOP АКТИВЕН" : "ЭТАП: ТЕЛО");
     r.steam      = s_t.tc;
     r.steam_set  = s_t.ts;
     r.steam_fix  = s_t.ts > 1.5f ? s_t.ts - 1.5f : s_t.ts;

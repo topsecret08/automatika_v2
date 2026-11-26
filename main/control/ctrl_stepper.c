@@ -43,7 +43,7 @@ static bool s_nvs_ok;
 static bool s_stopped_for_safety;
 
 static bool guard_ok(void) {
-    return ctrl_safety_ok() && !estop_is_pressed();
+    return ctrl_safety_ok() && !estop_actions_blocked();
 }
 
 static uint8_t next_seq(void) {

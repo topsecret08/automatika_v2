@@ -31,6 +31,23 @@ typedef struct {
     uint32_t heap;
     uint32_t epoch_s;   /* optional time from controller */
 
+    /* E-STOP / bench mode */
+    bool     estop_active;
+    bool     actions_blocked;
+    bool     bench_mode;
+    uint8_t  estop_mode;
+    char     reason[48];
+
+    /* expansion sensors */
+    float    lsa_pwm;
+    float    pt506_bar;
+    float    xgzp_kpa;
+    float    zmpt_v1;
+    float    zmpt_v2;
+    float    zmpt_v3;
+    float    zmpt_ctrl;
+    bool     zmpt_fault;
+
     /* link diagnostics */
     uint32_t crc_err;
     uint32_t frames;
