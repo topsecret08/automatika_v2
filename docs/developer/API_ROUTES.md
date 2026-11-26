@@ -2,7 +2,7 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 95.
+Всего маршрутов: 98.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
@@ -16,6 +16,7 @@
 | `POST` | `/api/beer` | `h_beer` | ключ |
 | `POST` | `/api/brewfather` | `h_brewfather` | ключ |
 | `POST` | `/api/calendar` | `h_calendar` | ключ |
+| `POST` | `/api/calib/scale/start` | `h_calib_scale_start` | ключ |
 | `POST` | `/api/calib/scale/tare` | `h_calib_scale_tare` | ключ |
 | `POST` | `/api/calib/sensors/abort` | `h_calib_sensors_abort` | ключ |
 | `GET` | `/api/calib/state` | `h_calib_state` | ключ |
@@ -53,7 +54,9 @@
 | `GET` | `/api/param` | `h_param_get` | ключ |
 | `POST` | `/api/param` | `h_param_post` | ключ |
 | `POST` | `/api/pause` | `h_pause` | ключ |
+| `POST` | `/api/planner/calc` | `h_planner_calc` | ключ |
 | `POST` | `/api/power` | `h_power` | ключ |
+| `GET` | `/api/preflight` | `h_preflight` | ключ |
 | `DELETE` | `/api/profiles` | `h_profiles` | ключ |
 | `GET` | `/api/profiles` | `h_profiles` | ключ |
 | `POST` | `/api/profiles` | `h_profiles` | ключ |
