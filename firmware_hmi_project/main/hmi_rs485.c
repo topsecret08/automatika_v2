@@ -185,7 +185,7 @@ void hmi_rs485_init(void)
     assert(s_cmd_q != NULL);
 
     hmi_telemetry_reset();
-    xTaskCreate(hmi_rs485_task, "hmi_rs485", 4096, NULL, 5, NULL);
+    xTaskCreatePinnedToCore(hmi_rs485_task, "hmi_rs485", 4096, NULL, 5, NULL, 0);
 
     ESP_LOGI(TAG, "UART%d %d baud, TX=%d RX=%d, poll=%d ms, timeout=%d ms",
              HMI_UART_NUM, HMI_UART_BAUD,

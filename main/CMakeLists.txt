@@ -67,7 +67,7 @@ idf_component_register(
         "modes/rectify_presets.c" "modes/pvk_presets.c" "modes/nbk_presets.c"
         "script/lua_engine.c"
         "script/capability.c"
-        "ai/screen_registry.c" "ai/page_predictor.c"
+        "ai/screen_registry.c"
         "ai/action_predictor.c" "ai/anomaly.c" "ai/tinyml_predict.c"
         "ai/cache_manager.c"
         "ai/nn_pie.c" "ai/screen_serialize.c"

@@ -10,7 +10,6 @@
 #include "hal/hal_1wire.h"
 #include "db/db_manager.h"
 #include "db/db_psram_alloc.h"
-#include "ai/page_predictor.h"
 #include "ai/anomaly.h"
 #include "ai/tinyml_predict.h"
 #include "ai/cache_manager.h"
@@ -57,8 +56,6 @@ void selftest_run_all(void) {
     menu_validate_all();
     wd_stats_dump();
 
-    ESP_LOGI(TAG, "AI predictor: %" PRIu32 " samples, acc %.0f%%",
-             predictor_samples(), predictor_accuracy() * 100);
     ESP_LOGI(TAG, "AI anomaly:   %" PRIu32 " samples, err %.3f",
              anomaly_samples(), anomaly_get()->error);
     ESP_LOGI(TAG, "AI tinyml:    %" PRIu32 " samples, MAE %.0f min",

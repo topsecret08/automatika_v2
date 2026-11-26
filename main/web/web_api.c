@@ -22,7 +22,6 @@
 #include "ai/anomaly.h"
 #include "ai/action_predictor.h"
 #include "ai/cache_manager.h"
-#include "ai/page_predictor.h"
 #include "ai/tinyml_predict.h"
 #include "control/ctrl_autolearn.h"
 #include "hal/hal_usb.h"
@@ -2283,7 +2282,6 @@ static esp_err_t h_maint_reset(httpd_req_t *r) {
     }
 
     if (strcmp(target, "ai") == 0) {
-        predictor_reset();
         action_predictor_reset();
         anomaly_reset_model();
     } else if (strcmp(target, "autolearn") == 0) {

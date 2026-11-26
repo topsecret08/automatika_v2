@@ -18,7 +18,6 @@
 #include "web/brewfather.h"
 #include "web/calendar.h"
 #include "db/db_manager.h"
-#include "ai/page_predictor.h"
 #include "ai/action_predictor.h"
 #include "ai/anomaly.h"
 #include "ai/tinyml_predict.h"
@@ -215,14 +214,11 @@ void cb_tm_reset(void *c) { (void)c;
 // ============================================================
 void cb_ai_status(void *c)        { (void)c; ui_ai_stats(); }
 void cb_ai_train(void *c)         { (void)c;
-    extern void predictor_train_tick(void);
-    for (int i = 0; i < 10; i++) predictor_train_tick();
-    ui_toast("Обучено");
+    ui_toast("Обучение AI недоступно в headless");
 }
 void cb_ai_export(void *c)        { (void)c; ui_toast("Экспорт на SD"); }
 void cb_ai_import(void *c)        { (void)c; ui_toast("Импорт с SD"); }
 void cb_ai_reset(void *c)         { (void)c;
-    predictor_reset();
     action_predictor_reset();
     anomaly_reset_model();
     ui_toast("AI сброшен");
