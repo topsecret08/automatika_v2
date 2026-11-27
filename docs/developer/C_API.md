@@ -5,6 +5,24 @@
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
+## `main/can_hmi.h`
+
+```c
+esp_err_t can_hmi_init(void);
+```
+
+CAN (TWAI) slave interface for external HMI panel.
+HMI is bus master for application protocol: it polls/commands, controller responds.
+Safety logic and E-STOP remain on controller.
+
+```c
+bool can_hmi_ready(void);
+```
+
+CAN (TWAI) slave interface for external HMI panel.
+HMI is bus master for application protocol: it polls/commands, controller responds.
+Safety logic and E-STOP remain on controller.
+
 ## `main/control/adaptive_pid.h`
 
 ```c
@@ -1541,26 +1559,6 @@ total_len  — полный размер записанного образа (в
 image_len  — выход: размер самого образа без хвоста.
 Возвращает ESP_OK, если подпись верна; ESP_ERR_NOT_FOUND — образ без хвоста
 (не подписан); ESP_FAIL — подпись не совпала или проверка не удалась.
-
-## `main/can_hmi.h`
-
-```c
-esp_err_t can_hmi_init(void);
-```
-
-CAN (TWAI) подчинённый интерфейс контроллера для внешней HMI-панели.
-Контроллер НИКОГДА не инициирует обмен: он только отвечает на
-POLL / CMD / GET_CONFIG / PING от панели, которая является master шины.
-Safety-логика и E-STOP остаются на контроллере.
-
-```c
-bool can_hmi_ready(void);
-```
-
-CAN (TWAI) подчинённый интерфейс контроллера для внешней HMI-панели.
-Контроллер НИКОГДА не инициирует обмен: он только отвечает на
-POLL / CMD / GET_CONFIG / PING от панели, которая является master шины.
-Safety-логика и E-STOP остаются на контроллере.
 
 ## `main/script/lua_engine.h`
 
