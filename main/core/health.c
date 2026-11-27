@@ -84,7 +84,7 @@ bool health_check_healthy(void) {
 
 health_level_t health_level(void) {
     if (!health_check_healthy()) return HEALTH_FAIL;
-    if (!storage_sd_ready()) return HEALTH_DEGRADED;
+    /* SD on controller is intentionally disabled (data stored on HMI TF card). */
     if (hal_1wire_count() == 0) return HEALTH_DEGRADED;
     return HEALTH_OK;
 }

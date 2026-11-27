@@ -146,7 +146,7 @@ Rate limit: 10 запросов/с, burst 20 (на все `/api/*`).
 | GET/POST | `/api/i18n` | 🔑 | `{"lang":"ru"|"en"}` |
 | POST | `/api/script/run` | 🔑 | запуск Lua-скрипта |
 | POST | `/api/script/enable` | 🔑 | `{"enabled":true}` (нужен сервисный режим) |
-| POST | `/api/config/export` | 🔑 | `{"path":"/sdcard/cfg.json","secrets":false}` |
+| POST | `/api/config/export` | 🔑 | `{"path":"/spiffs/cfg.json","secrets":false}` |
 | POST | `/api/config/import` | 🔑 | `{"path":"..."}` или `{"reset":true}` |
 | POST | `/api/config/generate-key` | 🔑/bootstrap | создать или rotate ключ |
 | POST | `/api/config/clear-key` | 🔑 | удалить ключ |
@@ -502,6 +502,6 @@ UART подключается только через оптронную раз�
 | POST | `/api/verify/freeze` | 🔑 | сохранить текущие коэффициенты adaptive PID |
 | POST | `/api/verify/fuzz` | 🔑 | TP/FP/FN детектора аномалий |
 
-Таблицы `verify_runs` и `verify_trace` создаются в `/sdcard/automatika.db`.
+Таблицы `verify_runs` и `verify_trace` (целевой формат) создаются в `/sdcard/automatika.db`. **Текущее состояние:** SD контроллера отключена, поэтому verify DB на контроллере сейчас недоступна до завершения миграции хранения на HMI/альтернативный канал.
 Запись — через очередь и задачу на ядре 0; replay сравнивает пересчитанный
 выход с `value_shadow`. Полное описание — [`docs/verify.md`](../verify.md).

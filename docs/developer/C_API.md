@@ -966,7 +966,7 @@ void recipes_show(const recipe_t *r);
 const char* sd_content_path(content_type_t type);
 ```
 
-Каталог раздела, например "/sdcard/recipes". Никогда не NULL.
+Каталог раздела, например "/sdcard/recipes". Никогда не NULL. На контроллере SD отключена; целевое хранение контента — TF-карта HMI (миграция в процессе).
 
 ```c
 int sd_content_list(content_type_t type, char names[][SD_CONTENT_MAX_NAME], int max);
@@ -983,23 +983,23 @@ bool sd_content_read(content_type_t type, const char *name, char *buf, size_t si
 
 ## `main/core/sd_resilience.h`
 
+> **Текущее состояние (контроллер):** SD-карта на контроллере отключена, контроллер работает как IO/CAN-узел. Реализация в `main/core/sd_resilience.c` — no-op/stub для совместимости линковки; постоянные логи/история должны храниться на HMI TF-карте (миграция в процессе).
+
+```c
+void sd_resilience_init(void);
+void sd_resilience_task(void *arg);
+bool sd_resilience_mounted(void);
+```
+
+Инициализация/задача/статус монтирования. На контроллере: init/task no-op, `sd_resilience_mounted()` возвращает `false`.
+
 ```c
 void sd_resilience_log(const char *line);
-```
-
-Записать строку в журнал устойчивости (с '\n' или без).
-
-```c
 void sd_resilience_append(const char *path, const char *line);
-```
-
-Ставит строку в очередь записи в файл path. Сам на SD не пишет.
-
-```c
 int sd_resilience_pending(void);
 ```
 
-Сколько записей ждёт сброса (диагностика /api/health).
+Совместимые stub-вызовы: на контроллере записи не ставятся в SD-очередь (`pending == 0`).
 
 ## `main/core/session_recovery.h`
 
@@ -1103,25 +1103,25 @@ uint32_t stepper_ml_to_steps(float volume_ml, float steps_per_ml);
 esp_err_t storage_remount(void);
 ```
 
-Перемонтировать SD после сбоя (используется sd_resilience).
+Перемонтировать SD. На контроллере SD отключена: возвращает `ESP_ERR_NOT_SUPPORTED`.
 
 ```c
 bool storage_write_file(const char *path, const void *data, size_t len);
 ```
 
-Перемонтировать SD после сбоя (используется sd_resilience).
+Записать файл в файловую систему хранения. Для путей `/sdcard/...` на контроллере вернёт ошибку/`false`, так как SD не монтируется.
 
 ```c
 size_t storage_read_file(const char *path, void *buf, size_t max);
 ```
 
-Перемонтировать SD после сбоя (используется sd_resilience).
+Прочитать файл из файловой системы хранения. Для `/sdcard/...` на контроллере недоступно при отключённой SD.
 
 ```c
 sdmmc_card_t* storage_get_sd_card(void);
 ```
 
-Перемонтировать SD после сбоя (используется sd_resilience).
+Получить дескриптор SD-карты. На контроллере возвращает `NULL`.
 
 ## `main/core/vle_ew.h`
 

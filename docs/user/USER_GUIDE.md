@@ -192,7 +192,7 @@ curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
 ```bash
 # выгрузить конфигурацию в файл на SD
 curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
-  -d '{"path":"/sdcard/cfg.json","secrets":false}' \
+  -d '{"path":"/spiffs/cfg.json","secrets":false}' \
   http://automatika.local/api/config/export
 
 # отправить в Telegram (если настроен бот)

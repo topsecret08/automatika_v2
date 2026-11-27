@@ -18,7 +18,7 @@
 │ config, NVS-миграции, backup, i18n                            │
 ├──────────────────────────────────────────────────────────────┤
 │ HAL (hal/): I2C, 1-Wire, ADS1115, MCP4725, PCA9685, Grove SSR,│
-│ BMP280, flow, HX711, LCD/touch, SD                            │
+│ BMP280, flow, HX711, LCD/touch (SD контроллера отключена)    │
 ├──────────────────────────────────────────────────────────────┤
 │ ESP-IDF: FreeRTOS, lwIP, esp_http_server, mbedTLS, littlefs   │
 └──────────────────────────────────────────────────────────────┘
@@ -67,7 +67,7 @@ DS18B20 ─┐
 BMP280  ─┤
 ADS1115 ─┼─> hal_* ─> state ─> control ─> actuators
 HX711   ─┘             │                    A4988)
-                       ├─> events_log() ─> ring buffer / NVS / SD
+                       ├─> events_log() ─> ring buffer / NVS (SD контроллера отключена; стриминг на HMI — в миграции)
                        ├─> health_check ─> /api/health
                        └─> ws_telemetry ─> /ws/telemetry
 ```
