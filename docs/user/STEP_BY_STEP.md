@@ -309,7 +309,7 @@ python -m tools.configurator
 ```bash
 curl -X POST -H "X-API-Key: ВАШ_КЛЮЧ" \
   -H "Content-Type: application/json" \
-  -d '{"path":"/sdcard/cfg.json"}' \
+  -d '{"path":"/spiffs/cfg.json"}' \
   http://automatika.local/api/config/export
 ```
 

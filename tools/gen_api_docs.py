@@ -64,6 +64,7 @@ def _parse_header(text: str) -> list[tuple[str, str]]:
             return
         if comment:
             entries.append((signature, "\n".join(comment)))
+            comment = []
 
     for raw in text.splitlines():
         line = raw.rstrip()

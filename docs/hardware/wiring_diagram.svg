@@ -77,7 +77,7 @@
   <text class="pin" x="405" y="442">GPIO 45  Buzzer</text>
   <text class="pin" x="405" y="464">GPIO 14/15/16/17/18/21 LCD</text>
   <text class="pin" x="405" y="486">GPIO 38/39 Touch CS/IRQ</text>
-  <text class="pin" x="405" y="508">GPIO 10–13 microSD (SPI)</text>
+  <text class="pin" x="405" y="508">GPIO 10–13 свободны (SD контроллера отключена)</text>
   <text class="small" x="530" y="534">Wi-Fi 2.4 GHz only · Core 0: network · Core 1: control/safety</text>
 
   <!-- 5V to ESP32 -->
@@ -158,8 +158,8 @@
   <text class="small" x="530" y="814">управление по CAN/TWAI</text>
 
   <rect class="block" x="380" y="860" width="300" height="80" rx="10"/>
-  <text class="title" x="530" y="886">microSD</text>
-  <text class="small" x="530" y="908">CS 10 · MOSI 11 · MISO 13 · CLK 12</text>
+  <text class="title" x="530" y="886">Хранение данных</text>
+  <text class="small" x="530" y="908">Контроллер: SD отключена · HMI: TF-карта</text>
 
   <!-- E-STOP signal back to GPIO -->
   <path class="wire dash" d="M 260 365 L 340 365 L 340 410 L 380 410"/>

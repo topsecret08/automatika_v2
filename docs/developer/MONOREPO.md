@@ -60,7 +60,7 @@ automatika_v2/
 ├─ CMakeLists.txt                 # НЕ трогаем: проект automatika_v2 = controller
 ├─ main/                          # НЕ трогаем: код контроллера
 ├─ components/                    # НЕ трогаем: esp_sqlite3 и др.
-├─ littlefs/, sdcard_src/         # PWA и SD-контент контроллера
+├─ littlefs/, sdcard_src/         # PWA и исходники контента (целевое хранение — TF-карта HMI)
 ├─ partitions.csv
 ├─ sdkconfig.defaults
 ├─ test/                          # host + QEMU тесты контроллера
