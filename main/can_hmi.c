@@ -155,7 +155,7 @@ static void send_telemetry_snapshot(uint8_t seq)
         .jacket_x100 = can_hmi_temp_to_x100(s.jacket_temp),
         .tank_x100 = can_hmi_temp_to_x100(s.tank_temp),
         .ambient_x100 = can_hmi_temp_to_x100(s.ambient_temp),
-        .level_pct = (uint8_t)(s.level_percent < 0 ? 0 : (s.level_percent > 100 ? 100 : (int)s.level_percent)),
+        .level_pct = 0, /* level not exported in process_state_t; reserved */
     };
     can_hmi_tlm_d_t td = {
         .seq = seq,

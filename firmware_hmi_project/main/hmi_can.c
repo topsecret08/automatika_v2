@@ -78,7 +78,8 @@ static bool parse_cmd_json(const char *json, can_hmi_cmd_t *out)
             out->p0 = 0x01;
         } else if (cJSON_IsNumber(v)) {
             float pct = (float)v->valuedouble;
-            if (pct < 0) pct = 0; if (pct > 100) pct = 100;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
             uint16_t x10 = (uint16_t)(pct * 10.0f);
             out->p0 = 0x00;
             can_hmi_put_u16(&out->p1, x10);
