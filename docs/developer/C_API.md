@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 382.
+Всего функций: 192.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -9,14 +9,6 @@
 
 ```c
 esp_err_t can_hmi_init(void);
-```
-
-CAN (TWAI) slave interface for external HMI panel.
-HMI is bus master for application protocol: it polls/commands, controller responds.
-Safety logic and E-STOP remain on controller.
-
-```c
-bool can_hmi_ready(void);
 ```
 
 CAN (TWAI) slave interface for external HMI panel.
@@ -49,14 +41,6 @@ void abv_init(const alcohol_init_t *init);
 void abv_reset(void);
 ```
 
-Инициализировать/сбросить баланс. Повторный вызов начинает расчёт заново.
-Сброс к сохранённым начальным параметрам (новый процесс).
-
-```c
-bool abv_ready(void);
-```
-
-Инициализировать/сбросить баланс. Повторный вызов начинает расчёт заново.
 Сброс к сохранённым начальным параметрам (новый процесс).
 
 ```c
@@ -75,25 +59,12 @@ float abv_ethanol_vapor_pressure(float t_c);
 float abv_water_vapor_pressure(float t_c);
 ```
 
-Парциальное давление насыщенного пара этанола, Па (T в °C).
 Парциальное давление насыщенного пара воды, Па.
 
 ## `main/control/ctrl_dose.h`
 
 ```c
 bool ctrl_dose_volume(float volume_ml, float rate_ml_per_min);
-```
-
-Выдать `volume_ml` со скоростью `rate_ml_per_min` (асинхронно).
-
-```c
-bool ctrl_dose_set_rate(float rate_ml_per_min);
-```
-
-Выдать `volume_ml` со скоростью `rate_ml_per_min` (асинхронно).
-
-```c
-void ctrl_dose_stop(void);
 ```
 
 Выдать `volume_ml` со скоростью `rate_ml_per_min` (асинхронно).
@@ -106,13 +77,6 @@ esp_err_t ctrl_dose_volume_blocking(float volume_ml, float rate_ml_per_min);
 
 ```c
 bool ctrl_dose_set_nbk_feed(bool nbk_feed);
-```
-
-Direction interlock: one stepper, TAKEOFF vs NBK_FEED mutually exclusive.
-Direction can only be changed when doser is idle.
-
-```c
-bool ctrl_dose_is_nbk_feed(void);
 ```
 
 Direction interlock: one stepper, TAKEOFF vs NBK_FEED mutually exclusive.
@@ -135,31 +99,7 @@ float ctrl_pid_compute_and_apply(float input);
 Вычислить PID и применить через safety_gate (adaptive_pid или heater_pid).
 
 ```c
-float ctrl_pid_compute_and_apply_scaled(float input, float scale);
-```
-
-Вычислить PID и применить через safety_gate (adaptive_pid или heater_pid).
-
-```c
 void ctrl_pid_autotune_start(void);
-```
-
-Автотюнинг (Ziegler–Nichols релейный) — как раньше.
-
-```c
-void ctrl_pid_autotune_stop(void);
-```
-
-Автотюнинг (Ziegler–Nichols релейный) — как раньше.
-
-```c
-bool ctrl_pid_autotune_done(void);
-```
-
-Автотюнинг (Ziegler–Nichols релейный) — как раньше.
-
-```c
-void ctrl_pid_autotune_get(float *kp, float *ki, float *kd);
 ```
 
 Автотюнинг (Ziegler–Nichols релейный) — как раньше.
@@ -170,23 +110,10 @@ bool ctrl_pid_uses_autopid(void);
 
 Диагностика.
 
-```c
-float ctrl_pid_get_integral(void);
-```
-
-Диагностика.
-
 ## `main/control/ctrl_safety.h`
 
 ```c
 esp_err_t ctrl_safety_reset(void);
-```
-
-ESP_OK — авария сброшена; ESP_ERR_INVALID_STATE — сброс запрещён
-(процесс/нагрев/уровень/E-STOP). Причина — ctrl_safety_reset_error().
-
-```c
-const char *ctrl_safety_reset_error(void);
 ```
 
 ESP_OK — авария сброшена; ESP_ERR_INVALID_STATE — сброс запрещён
@@ -202,30 +129,6 @@ E-STOP защёлкнут по железу (нажата кнопка) — на
 
 ```c
 int scale_calib_points_count(void);
-```
-
-Multi-point calibration/linearization
-
-```c
-bool scale_calib_points_add(float known_g);
-```
-
-Multi-point calibration/linearization
-
-```c
-void scale_calib_points_clear(void);
-```
-
-Multi-point calibration/linearization
-
-```c
-bool scale_calib_points_apply(void);
-```
-
-Multi-point calibration/linearization
-
-```c
-size_t scale_calib_points_json(char *buf, size_t buf_sz);
 ```
 
 Multi-point calibration/linearization
@@ -268,36 +171,6 @@ JSON для /api/stepper. Буфер не меньше 768 байт.
 
 ```c
 esp_err_t fsel_set_param(const char *name, float value);
-```
-
-Точечное изменение параметра из REST/Telegram/LCD. Обновляет и
-сохранённый конфиг, и текущее состояние этапа; сохраняет NVS.
-Имена: open_time_sec, close_time_sec, period_sec, t_fix,
-body_hysteresis_c, body_decrement_percent, body_min_open_time_sec,
-heads_timer_sec, tails_temperature_end.
-
-```c
-esp_err_t fsel_set_algo(select_algo_t algo);
-```
-
-Точечное изменение параметра из REST/Telegram/LCD. Обновляет и
-сохранённый конфиг, и текущее состояние этапа; сохраняет NVS.
-Имена: open_time_sec, close_time_sec, period_sec, t_fix,
-body_hysteresis_c, body_decrement_percent, body_min_open_time_sec,
-heads_timer_sec, tails_temperature_end.
-
-```c
-select_algo_t fsel_get_algo(void);
-```
-
-Точечное изменение параметра из REST/Telegram/LCD. Обновляет и
-сохранённый конфиг, и текущее состояние этапа; сохраняет NVS.
-Имена: open_time_sec, close_time_sec, period_sec, t_fix,
-body_hysteresis_c, body_decrement_percent, body_min_open_time_sec,
-heads_timer_sec, tails_temperature_end.
-
-```c
-void fsel_apply_decrement(float percent);
 ```
 
 Точечное изменение параметра из REST/Telegram/LCD. Обновляет и
@@ -370,87 +243,6 @@ EXPERIMENTAL дополнительно требует ненулевой shadow
 esp_err_t safety_gate_submit(const char *module, float value);
 ```
 
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
-Каноническая точка отправки команд управления. Сейчас алиас apply,
-сохраняется для нового кода и внешних интеграций.
-
-```c
-esp_err_t safety_gate_submit_flags(uint32_t aggregate, uint32_t detail);
-```
-
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
-Каноническая точка отправки команд управления. Сейчас алиас apply,
-сохраняется для нового кода и внешних интеграций.
-
-```c
-esp_err_t safety_gate_apply_valve(const char *module, int idx, float value);
-```
-
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
-Каноническая точка отправки команд управления. Сейчас алиас apply,
-сохраняется для нового кода и внешних интеграций.
-
-```c
-bool safety_gate_can_apply(const char *module);
-```
-
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
-Каноническая точка отправки команд управления. Сейчас алиас apply,
-сохраняется для нового кода и внешних интеграций.
-
-```c
-safety_class_t safety_gate_class(const char *module);
-```
-
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
-Каноническая точка отправки команд управления. Сейчас алиас apply,
-сохраняется для нового кода и внешних интеграций.
-
-```c
-const char *safety_gate_class_name(safety_class_t cls);
-```
-
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
-Каноническая точка отправки команд управления. Сейчас алиас apply,
-сохраняется для нового кода и внешних интеграций.
-
-```c
-int safety_gate_module_count(void);
-```
-
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
-Каноническая точка отправки команд управления. Сейчас алиас apply,
-сохраняется для нового кода и внешних интеграций.
-
-```c
-const char *safety_gate_module_name(int index);
-```
-
-Единая точка применения выходов нагрева.
-CRITICAL применяется всегда (после проверки safety/E-STOP).
-QUALITY/EXPERIMENTAL — только после verify_mark_module_verified().
-EXPERIMENTAL дополнительно требует ненулевой shadow policy.
 Каноническая точка отправки команд управления. Сейчас алиас apply,
 сохраняется для нового кода и внешних интеграций.
 
@@ -487,28 +279,6 @@ float volume_feedback_ml(const volume_feedback_t *v);
 void volume_feedback_tick(volume_feedback_t *v, bool flow_expected, uint32_t now_ms);
 ```
 
-Возвращает накопленный объём мл от начала сессии или -1, если весы недоступны.
-Обновляет детекты no-flow/overflow. Вызывать периодически при активном отборе.
-
-```c
-bool volume_feedback_target_reached(const volume_feedback_t *v);
-```
-
-Возвращает накопленный объём мл от начала сессии или -1, если весы недоступны.
-Обновляет детекты no-flow/overflow. Вызывать периодически при активном отборе.
-
-```c
-bool volume_feedback_no_flow(const volume_feedback_t *v);
-```
-
-Возвращает накопленный объём мл от начала сессии или -1, если весы недоступны.
-Обновляет детекты no-flow/overflow. Вызывать периодически при активном отборе.
-
-```c
-bool volume_feedback_overflow(const volume_feedback_t *v);
-```
-
-Возвращает накопленный объём мл от начала сессии или -1, если весы недоступны.
 Обновляет детекты no-flow/overflow. Вызывать периодически при активном отборе.
 
 ## `main/core/antoine.h`
@@ -546,42 +316,6 @@ regulator_type_t control_config_get_regulator(void);
 --- Внешний регулятор мощности -------------------------------------
 
 ```c
-esp_err_t control_config_set_regulator(regulator_type_t type);
-```
-
---- Внешний регулятор мощности -------------------------------------
-
-```c
-uint32_t control_config_get_regulator_baud(void);
-```
-
---- Внешний регулятор мощности -------------------------------------
-
-```c
-esp_err_t control_config_set_regulator_baud(uint32_t baud);
-```
-
---- Внешний регулятор мощности -------------------------------------
-
-```c
-esp_err_t control_config_get_regulator_settings(regulator_settings_t *out);
-```
-
---- Внешний регулятор мощности -------------------------------------
-
-```c
-esp_err_t control_config_set_regulator_settings(const regulator_settings_t *in);
-```
-
---- Внешний регулятор мощности -------------------------------------
-
-```c
-const char *control_config_regulator_name(regulator_type_t type);
-```
-
---- Внешний регулятор мощности -------------------------------------
-
-```c
 bool control_config_api_has_key(void);
 ```
 
@@ -591,43 +325,22 @@ bool control_config_api_has_key(void);
 bool control_config_api_check(const char *key);
 ```
 
---- API key ---------------------------------------------------------
 Возвращает true, если ключ совпадает (сравнение за постоянное время).
 
 ```c
 esp_err_t control_config_api_generate(char *out, size_t out_len);
 ```
 
---- API key ---------------------------------------------------------
-Возвращает true, если ключ совпадает (сравнение за постоянное время).
 Новый ключ (32 hex из esp_random) и сохранение в NVS.
 
 ```c
 esp_err_t control_config_api_clear(void);
 ```
 
---- API key ---------------------------------------------------------
-Возвращает true, если ключ совпадает (сравнение за постоянное время).
-Новый ключ (32 hex из esp_random) и сохранение в NVS.
-Пустой ключ: API закрыт полностью (любой запрос → 401).
-
-```c
-void control_config_api_copy(char *out, size_t out_len);
-```
-
---- API key ---------------------------------------------------------
-Возвращает true, если ключ совпадает (сравнение за постоянное время).
-Новый ключ (32 hex из esp_random) и сохранение в NVS.
 Пустой ключ: API закрыт полностью (любой запрос → 401).
 
 ```c
 bool control_config_service_enabled(void);
-```
-
---- сервисный режим -------------------------------------------------
-
-```c
-esp_err_t control_config_set_service(bool on);
 ```
 
 --- сервисный режим -------------------------------------------------
@@ -639,21 +352,7 @@ bool control_config_get_adaptive_pid(void);
 --- Многоуровневый адаптивный PID ----------------------------------
 
 ```c
-esp_err_t control_config_set_adaptive_pid(bool on);
-```
-
---- Многоуровневый адаптивный PID ----------------------------------
-
-```c
 float control_config_get_tsa_threshold_c(void);
-```
-
---- TSA (трубка связи с атмосферой) -------------------------------
-Порог температуры TSA: если TSA включён в hw_profile и температура >= порога,
-нагрев отключается (защита от отсутствия потока воды/охлаждения).
-
-```c
-esp_err_t control_config_set_tsa_threshold_c(float c);
 ```
 
 --- TSA (трубка связи с атмосферой) -------------------------------
@@ -675,58 +374,21 @@ bool estop_is_pressed(void);
 true — физическая авария активна (кнопка нажата или защёлка не снята).
 
 ```c
-bool estop_is_healthy(void);
-```
-
-true — физическая авария активна (кнопка нажата или защёлка не снята).
-
-```c
 bool estop_button_down(void);
 ```
 
-true — физическая авария активна (кнопка нажата или защёлка не снята).
-Состояние линии сейчас: true — кнопка нажата (разомкнут NC-контакт).
-
-```c
-int estop_raw_level(void);
-```
-
-true — физическая авария активна (кнопка нажата или защёлка не снята).
 Состояние линии сейчас: true — кнопка нажата (разомкнут NC-контакт).
 
 ```c
 bool estop_acknowledge(void);
 ```
 
-true — физическая авария активна (кнопка нажата или защёлка не снята).
-Состояние линии сейчас: true — кнопка нажата (разомкнут NC-контакт).
 Сброс защёлки только если кнопка отпущена и авария снята.
 
 ```c
 void estop_force(const char *reason);
 ```
 
-true — физическая авария активна (кнопка нажата или защёлка не снята).
-Состояние линии сейчас: true — кнопка нажата (разомкнут NC-контакт).
-Сброс защёлки только если кнопка отпущена и авария снята.
-Программная блокировка (Lua/диагностика): защёлка ставится до reset.
-
-```c
-const char *estop_source_name(void);
-```
-
-true — физическая авария активна (кнопка нажата или защёлка не снята).
-Состояние линии сейчас: true — кнопка нажата (разомкнут NC-контакт).
-Сброс защёлки только если кнопка отпущена и авария снята.
-Программная блокировка (Lua/диагностика): защёлка ставится до reset.
-
-```c
-uint32_t estop_since_ms(void);
-```
-
-true — физическая авария активна (кнопка нажата или защёлка не снята).
-Состояние линии сейчас: true — кнопка нажата (разомкнут NC-контакт).
-Сброс защёлки только если кнопка отпущена и авария снята.
 Программная блокировка (Lua/диагностика): защёлка ставится до reset.
 
 ## `main/core/event_log.h`
@@ -748,30 +410,6 @@ void event_log_add(int type, const char *msg);
 
 ```c
 int events_read_after(size_t *cursor, event_t *out, int max);
-```
-
-Читает события, появившиеся после позиции *cursor, и сдвигает курсор.
-
-```c
-void events_clear(void);
-```
-
-Читает события, появившиеся после позиции *cursor, и сдвигает курсор.
-
-```c
-void events_export_csv(const char *path);
-```
-
-Читает события, появившиеся после позиции *cursor, и сдвигает курсор.
-
-```c
-void events_task(void *arg);
-```
-
-Читает события, появившиеся после позиции *cursor, и сдвигает курсор.
-
-```c
-const char* events_type_name(event_type_t t);
 ```
 
 Читает события, появившиеся после позиции *cursor, и сдвигает курсор.
@@ -829,20 +467,6 @@ bool learning_answer(const lesson_t *lesson, int answer);
 Проверяет ответ и при правильном ответе сохраняет прогресс в NVS.
 Возвращает true, если ответ верный.
 
-```c
-int learning_passed_count(void);
-```
-
-Проверяет ответ и при правильном ответе сохраняет прогресс в NVS.
-Возвращает true, если ответ верный.
-
-```c
-bool learning_module_complete(int module_idx);
-```
-
-Проверяет ответ и при правильном ответе сохраняет прогресс в NVS.
-Возвращает true, если ответ верный.
-
 ## `main/core/loop_verify.h`
 
 ```c
@@ -869,24 +493,6 @@ bool lv_escalation_changed(uint32_t aggregate, uint32_t detail, uint32_t *last_a
 
 ```c
 int menu_engine_list_toggles(const menu_item_t **out, int max);
-```
-
-Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
-
-```c
-const menu_item_t *menu_engine_find_toggle(const char *key);
-```
-
-Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
-
-```c
-bool menu_engine_toggle_get(const char *key, uint8_t *value);
-```
-
-Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
-
-```c
-bool menu_engine_toggle_set(const char *key, uint8_t value);
 ```
 
 Тумблеры меню по всему дереву (для API). Записывают то же, что и экран.
@@ -946,12 +552,6 @@ esp_err_t profiles_load(const char *name, char *buf, size_t max);
 
 Читает файл в buf (NUL-терминирован). Возвращает ESP_ERR_NOT_FOUND и т.п.
 
-```c
-esp_err_t profiles_delete(const char *name);
-```
-
-Читает файл в buf (NUL-терминирован). Возвращает ESP_ERR_NOT_FOUND и т.п.
-
 ## `main/core/recipes_db.h`
 
 ```c
@@ -966,7 +566,7 @@ void recipes_show(const recipe_t *r);
 const char* sd_content_path(content_type_t type);
 ```
 
-Каталог раздела, например "/sdcard/recipes". Никогда не NULL. На контроллере SD отключена; целевое хранение контента — TF-карта HMI (миграция в процессе).
+Каталог раздела, например "/sdcard/recipes". Никогда не NULL. На контроллере SD отключена; целевое хранение — HMI TF.
 
 ```c
 int sd_content_list(content_type_t type, char names[][SD_CONTENT_MAX_NAME], int max);
@@ -983,23 +583,41 @@ bool sd_content_read(content_type_t type, const char *name, char *buf, size_t si
 
 ## `main/core/sd_resilience.h`
 
-> **Текущее состояние (контроллер):** SD-карта на контроллере отключена, контроллер работает как IO/CAN-узел. Реализация в `main/core/sd_resilience.c` — no-op/stub для совместимости линковки; постоянные логи/история должны храниться на HMI TF-карте (миграция в процессе).
-
 ```c
 void sd_resilience_init(void);
+```
+
+Инициализация модуля устойчивости. На контроллере no-op.
+
+```c
 void sd_resilience_task(void *arg);
+```
+
+Фоновая задача. На контроллере no-op (просто sleep-loop).
+
+```c
 bool sd_resilience_mounted(void);
 ```
 
-Инициализация/задача/статус монтирования. На контроллере: init/task no-op, `sd_resilience_mounted()` возвращает `false`.
+Статус монтирования SD. На контроллере всегда false.
 
 ```c
 void sd_resilience_log(const char *line);
+```
+
+Совместимый stub записи в журнал устойчивости. На контроллере не пишет.
+
+```c
 void sd_resilience_append(const char *path, const char *line);
+```
+
+Совместимый stub очереди записи в файл. На контроллере не ставит в очередь.
+
+```c
 int sd_resilience_pending(void);
 ```
 
-Совместимые stub-вызовы: на контроллере записи не ставятся в SD-очередь (`pending == 0`).
+Количество записей, ожидающих сброса. На контроллере всегда 0.
 
 ## `main/core/session_recovery.h`
 
@@ -1025,60 +643,10 @@ bool skill_token_check_header(httpd_req_t *req);
 (namespace automatika, ключ skill_token). Сравнение — постоянное по
 времени. Пустой токен — эндпоинт закрыт.
 
-```c
-bool skill_token_is_set(void);
-```
-
-Проверка общего токена навыка (X-Skill-Token), заданного в NVS
-(namespace automatika, ключ skill_token). Сравнение — постоянное по
-времени. Пустой токен — эндпоинт закрыт.
-
 ## `main/core/state.h`
 
 ```c
 void state_snapshot(process_state_t *out);
-```
-
-Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
-
-```c
-bool state_load(void);
-```
-
-Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
-
-```c
-void state_save(void);
-```
-
-Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
-
-```c
-void state_clear(void);
-```
-
-Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
-
-```c
-bool state_has_saved(void);
-```
-
-Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
-
-```c
-void state_update_snapshot(float dt);
-```
-
-Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
-
-```c
-const char* state_type_name(process_type_t t);
-```
-
-Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
-
-```c
-const char* state_stage_name(proc_stage_t s);
 ```
 
 Атомарный снимок состояния: копия под mutex, пригодна для JSON/NVS.
@@ -1103,25 +671,25 @@ uint32_t stepper_ml_to_steps(float volume_ml, float steps_per_ml);
 esp_err_t storage_remount(void);
 ```
 
-Перемонтировать SD. На контроллере SD отключена: возвращает `ESP_ERR_NOT_SUPPORTED`.
+Перемонтировать SD. На контроллере SD отключена: возвращает ESP_ERR_NOT_SUPPORTED.
 
 ```c
 bool storage_write_file(const char *path, const void *data, size_t len);
 ```
 
-Записать файл в файловую систему хранения. Для путей `/sdcard/...` на контроллере вернёт ошибку/`false`, так как SD не монтируется.
+Записать файл в файловую систему хранения. Для /sdcard/... на контроллере с отключённой SD недоступно.
 
 ```c
 size_t storage_read_file(const char *path, void *buf, size_t max);
 ```
 
-Прочитать файл из файловой системы хранения. Для `/sdcard/...` на контроллере недоступно при отключённой SD.
+Прочитать файл из файловой системы хранения. Для /sdcard/... на контроллере с отключённой SD недоступно.
 
 ```c
 sdmmc_card_t* storage_get_sd_card(void);
 ```
 
-Получить дескриптор SD-карты. На контроллере возвращает `NULL`.
+Получить дескриптор SD-карты. На контроллере возвращает NULL.
 
 ## `main/core/vle_ew.h`
 
@@ -1167,24 +735,6 @@ esp_err_t hal_1wire_init(void);
 Инициализация шины + поиск датчиков
 
 ```c
-int hal_1wire_count(void);
-```
-
-Инициализация шины + поиск датчиков
-
-```c
-const char* hal_1wire_addr_str(int idx);
-```
-
-Инициализация шины + поиск датчиков
-
-```c
-const uint8_t* hal_1wire_rom(int idx);
-```
-
-Инициализация шины + поиск датчиков
-
-```c
 float hal_1wire_read_raw(int idx); // 0.0625°C шаг (блокирующее чтение) float hal_1wire_read_filtered(int idx); // фильтр TempFilter (окно FILTER_WINDOW) float hal_1wire_read_fast(int idx); // последнее сырое значение + калибровка int64_t hal_1wire_last_update_us(int idx); // время последнего сэмпла, us float hal_1wire_read(int idx); // медиана + Калман + калибровка float hal_1wire_read_compensated(int idx, float pressure_hpa);
 ```
 
@@ -1192,38 +742,7 @@ float hal_1wire_read_raw(int idx); // 0.0625°C шаг (блокирующее �
 все функции ниже возвращают значение из кэша без блокировки.
 
 ```c
-float hal_1wire_trend(int idx); // °C/мин по конвейеру int hal_1wire_read_all(float *out, int max);
-```
-
-Чтение. Фоновая задача опрашивает шину ~1 раз в секунду;
-все функции ниже возвращают значение из кэша без блокировки.
-
-```c
 bool hal_1wire_rising(int idx);
-```
-
-Упреждающий анализ тренда (temp_filter_is_rising по каналу).
-
-```c
-float hal_1wire_slope(int idx); // °C/мин, линейный тренд const ds18b20_calib_t* hal_1wire_get_calib(int idx);
-```
-
-Упреждающий анализ тренда (temp_filter_is_rising по каналу).
-
-```c
-void hal_1wire_set_calib(int idx, float offset, float scale);
-```
-
-Упреждающий анализ тренда (temp_filter_is_rising по каналу).
-
-```c
-void hal_1wire_save_calib(void);
-```
-
-Упреждающий анализ тренда (temp_filter_is_rising по каналу).
-
-```c
-void hal_1wire_reset_calib(int idx);
 ```
 
 Упреждающий анализ тренда (temp_filter_is_rising по каналу).
@@ -1245,45 +764,10 @@ esp_err_t hal_display_init(void);
 ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
 вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
 
-```c
-void hal_display_lock(void);
-```
-
-ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
-вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
-
-```c
-void hal_display_unlock(void);
-```
-
-ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
-вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
-
-```c
-void hal_display_backlight(int percent); // 0-100 int hal_display_get_backlight(void);
-```
-
-ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
-вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
-
-```c
-bool hal_display_is_ready(void);
-```
-
-ESP_OK — экран готов. При ошибке дисплей не регистрируется в LVGL:
-вызывающий код не должен создавать объекты LVGL (см. hal_display_is_ready()).
-
 ## `main/hal/hal_safety_relay.h`
 
 ```c
 esp_err_t hal_safety_relay_rearm(void);
-```
-
-Снять защёлку force_open. Вызывается только из явного сброса аварии
-оператором; до первого heartbeat реле остаётся разомкнутым.
-
-```c
-void hal_safety_relay_force_open(void);
 ```
 
 Снять защёлку force_open. Вызывается только из явного сброса аварии
@@ -1342,22 +826,10 @@ float temp_filter_feed(int ch, float raw);
 
 Кормит канал сырым значением (вызывается фоновой задачей 1-Wire).
 
-```c
-float temp_filter_read(int ch); // сглаженное bool temp_filter_ch_rising(int ch); // флаг роста float temp_filter_ch_slope(int ch); // °C/мин bool temp_filter_ch_valid(int ch);
-```
-
-Кормит канал сырым значением (вызывается фоновой задачей 1-Wire).
-
 ## `main/level/level_sensor.h`
 
 ```c
 bool level_is_required_fault(void);
-```
-
-Датчик включён и объявлен обязательным, но не инициализировался.
-
-```c
-const char *level_state_name(void);
 ```
 
 Датчик включён и объявлен обязательным, но не инициализировался.
@@ -1376,34 +848,10 @@ void beer_preset_select(int idx);
 
 Активный рецепт выбирается до запуска режима (API/UI).
 
-```c
-int beer_preset_active(void);
-```
-
-Активный рецепт выбирается до запуска режима (API/UI).
-
 ## `main/modes/beer_recipe.h`
 
 ```c
 void beer_recipe_start(int idx);
-```
-
-Runtime
-
-```c
-void beer_recipe_next_step(void);
-```
-
-Runtime
-
-```c
-void beer_recipe_prev_step(void);
-```
-
-Runtime
-
-```c
-int beer_recipe_current_step(void);
 ```
 
 Runtime
@@ -1417,29 +865,10 @@ esp_err_t mdns_service_start(void);
 mDNS: automatika.local, услуги _http._tcp (80), _espressif._tcp.
 Запускается задачей wifi_prov после получения IP.
 
-```c
-bool mdns_service_running(void);
-```
-
-mDNS: automatika.local, услуги _http._tcp (80), _espressif._tcp.
-Запускается задачей wifi_prov после получения IP.
-
 ## `main/net/time_sync.h`
 
 ```c
 bool rtc_ds3231_present(void);
-```
-
-DS3231
-
-```c
-esp_err_t rtc_read(uint32_t *unix_s);
-```
-
-DS3231
-
-```c
-esp_err_t rtc_write(uint32_t unix_s);
 ```
 
 DS3231
@@ -1456,14 +885,6 @@ esp_err_t wifi_prov_start(void);
 esp_err_t wifi_prov_reset(void);
 ```
 
-Принудительный старт provisioning (кнопка/API), даже если credentials есть.
-Забыть сеть и уйти в provisioning.
-
-```c
-const char *wifi_prov_status_json(void);
-```
-
-Принудительный старт provisioning (кнопка/API), даже если credentials есть.
 Забыть сеть и уйти в provisioning.
 
 ```c
@@ -1484,20 +905,9 @@ esp_err_t ota_guard_check(void);
 Причина доступна через ota_guard_reason().
 
 ```c
-const char *ota_guard_reason(void);
-```
-
-Единая проверка перед любым запуском OTA.
-Возвращает ESP_OK, если обновление разрешено, иначе ESP_ERR_INVALID_STATE.
-Причина доступна через ota_guard_reason().
-
-```c
 void ota_guard_set_web_running(bool on);
 ```
 
-Единая проверка перед любым запуском OTA.
-Возвращает ESP_OK, если обновление разрешено, иначе ESP_ERR_INVALID_STATE.
-Причина доступна через ota_guard_reason().
 Прямая загрузка через /api/ota занимает отдельный слот, пока идёт
 HTTP-приём образа. Вызывать после успешного ota_guard_check().
 
@@ -1505,23 +915,6 @@ HTTP-приём образа. Вызывать после успешного ota
 bool ota_guard_try_reserve(void);
 ```
 
-Единая проверка перед любым запуском OTA.
-Возвращает ESP_OK, если обновление разрешено, иначе ESP_ERR_INVALID_STATE.
-Причина доступна через ota_guard_reason().
-Прямая загрузка через /api/ota занимает отдельный слот, пока идёт
-HTTP-приём образа. Вызывать после успешного ota_guard_check().
-Атомарная проверка + резервирование OTA. После успеха вызывающий обязан
-установить свой флаг и вызвать ota_guard_release().
-
-```c
-void ota_guard_release(void);
-```
-
-Единая проверка перед любым запуском OTA.
-Возвращает ESP_OK, если обновление разрешено, иначе ESP_ERR_INVALID_STATE.
-Причина доступна через ota_guard_reason().
-Прямая загрузка через /api/ota занимает отдельный слот, пока идёт
-HTTP-приём образа. Вызывать после успешного ota_guard_check().
 Атомарная проверка + резервирование OTA. После успеха вызывающий обязан
 установить свой флаг и вызвать ota_guard_release().
 
@@ -1572,23 +965,6 @@ esp_err_t lua_engine_init(void);
 esp_err_t lua_engine_set_script(const char *path);
 ```
 
-Запуск диспетчера (создаёт очередь и задачу на ядре 0).
-Кодирует путь (см. lua_engine_run_script). Пустой путь допустим:
-значит, скрипт будет задан через lua_engine_set_script().
-
-```c
-void lua_engine_set_enabled(bool on);
-```
-
-Запуск диспетчера (создаёт очередь и задачу на ядре 0).
-Кодирует путь (см. lua_engine_run_script). Пустой путь допустим:
-значит, скрипт будет задан через lua_engine_set_script().
-
-```c
-bool lua_engine_enabled(void);
-```
-
-Запуск диспетчера (создаёт очередь и задачу на ядре 0).
 Кодирует путь (см. lua_engine_run_script). Пустой путь допустим:
 значит, скрипт будет задан через lua_engine_set_script().
 
@@ -1612,38 +988,10 @@ const char *lua_engine_status(void);
 
 Состояние (для REST/логгеров).
 
-```c
-const char *lua_engine_last_error(void);
-```
-
-Состояние (для REST/логгеров).
-
-```c
-bool lua_engine_ready(void);
-```
-
-Состояние (для REST/логгеров).
-
-```c
-const char *lua_run_result_name(lua_run_result_t r);
-```
-
-Состояние (для REST/логгеров).
-
 ## `main/ui/haptic.h`
 
 ```c
 void haptic_init(void);
-```
-
-Вибромотор на LCD. По умолчанию выключен: HAPTIC_GPIO = -1.
-
-Не используйте GPIO 33–37 на ESP32-S3 N16R8: они заняты Octal PSRAM.
-Если модуль вибрации подключён через MOSFET, задайте пин в config.h
-и вызывайте haptic_init() из ui_physical_init().
-
-```c
-void haptic_short(void); // 15 мс — переключение/успех void haptic_error(void); // 60 мс — ошибка/опасное действие void haptic_pulse(uint32_t ms);
 ```
 
 Вибромотор на LCD. По умолчанию выключен: HAPTIC_GPIO = -1.
@@ -1661,115 +1009,7 @@ void ui_show_process(void);
 Экраны
 
 ```c
-void ui_show_graphs(void);
-```
-
-Экраны
-
-```c
-void ui_show_graphs_from_db(int64_t pid);
-```
-
-Экраны
-
-```c
-void ui_show_graphs_window(int minutes);
-```
-
-Экраны
-
-```c
-void ui_graph_history(void);
-```
-
-Экраны
-
-```c
-void ui_show_stats(void);
-```
-
-Экраны
-
-```c
-void ui_stats_extended(void);
-```
-
-Экраны
-
-```c
-void ui_show_logs(void);
-```
-
-Экраны
-
-```c
-void ui_show_scheme(void);
-```
-
-Экраны
-
-```c
-void ui_show_forecast(void);
-```
-
-Экраны
-
-```c
-void ui_show_heatmap(void);
-```
-
-Экраны
-
-```c
-void ui_show_manual(void);
-```
-
-Экраны
-
-```c
-void ui_show_gabriel(void);
-```
-
-Экраны
-
-```c
 void ui_mode_distill(void);
-```
-
-Режимы
-
-```c
-void ui_mode_rectify(void);
-```
-
-Режимы
-
-```c
-void ui_mode_beer(void);
-```
-
-Режимы
-
-```c
-void ui_mode_pvk(void);
-```
-
-Режимы
-
-```c
-void ui_mode_nbk(void);
-```
-
-Режимы
-
-```c
-void ui_mode_vacuum(void);
-```
-
-Режимы
-
-```c
-void ui_mode_double(void);
 ```
 
 Режимы
@@ -1781,97 +1021,7 @@ void ui_calc_dilution(void);
 Калькуляторы
 
 ```c
-void ui_calc_sugar(void);
-```
-
-Калькуляторы
-
-```c
-void ui_calc_grain(void);
-```
-
-Калькуляторы
-
-```c
-void ui_calc_yield(void);
-```
-
-Калькуляторы
-
-```c
-void ui_calc_abv_ibu_srm(void);
-```
-
-Калькуляторы
-
-```c
-void ui_calc_temp_abv(void);
-```
-
-Калькуляторы
-
-```c
-void ui_calc_pressure(void);
-```
-
-Калькуляторы
-
-```c
-void ui_calc_gabriel(void);
-```
-
-Калькуляторы
-
-```c
 void ui_settings_hw(void);
-```
-
-Настройки
-
-```c
-void ui_settings_kit(void);
-```
-
-Настройки
-
-```c
-void ui_settings_flags(void);
-```
-
-Настройки
-
-```c
-void ui_settings_calib(void);
-```
-
-Настройки
-
-```c
-void ui_settings_pid(void);
-```
-
-Настройки
-
-```c
-void ui_settings_general(void);
-```
-
-Настройки
-
-```c
-void ui_settings_export(void);
-```
-
-Настройки
-
-```c
-void ui_settings_restore(void);
-```
-
-Настройки
-
-```c
-void ui_settings_reset(void);
 ```
 
 Настройки
@@ -1883,79 +1033,7 @@ void ui_diag_overview(void);
 Диагностика
 
 ```c
-void ui_diag_i2c_scan(void);
-```
-
-Диагностика
-
-```c
-void ui_diag_ds18b20(void);
-```
-
-Диагностика
-
-```c
-void ui_diag_test_outputs(void);
-```
-
-Диагностика
-
-```c
-void ui_diag_monitor(void);
-```
-
-Диагностика
-
-```c
-void ui_diag_export(void);
-```
-
-Диагностика
-
-```c
-void ui_diag_perf(void);
-```
-
-Диагностика
-
-```c
 void ui_sensor_calib_main(void);
-```
-
-Калибровки
-
-```c
-void ui_sensor_calib_results(void);
-```
-
-Калибровки
-
-```c
-void ui_sensor_calib_manual(void);
-```
-
-Калибровки
-
-```c
-void ui_sensor_calib_list(void);
-```
-
-Калибровки
-
-```c
-void ui_valve_calib_menu(void);
-```
-
-Калибровки
-
-```c
-void ui_valve_calib_run(int idx);
-```
-
-Калибровки
-
-```c
-void ui_valve_calib_progress(int idx);
 ```
 
 Калибровки
@@ -1967,19 +1045,7 @@ void ui_alcohol_balance_show(void);
 Баланс спирта
 
 ```c
-void ui_alcohol_balance_input(void);
-```
-
-Баланс спирта
-
-```c
 void ui_scale_main(void);
-```
-
-Весы
-
-```c
-void ui_scale_calib(void);
 ```
 
 Весы
@@ -1991,151 +1057,13 @@ void ui_ai_stats(void);
 AI
 
 ```c
-void ui_ai_warnings(void);
-```
-
-AI
-
-```c
-void ui_autolearn_show(void);
-```
-
-AI
-
-```c
-void ui_tinyml_stats(void);
-```
-
-AI
-
-```c
 void ui_usb_config(void);
 ```
 
 USB / FOTA
 
 ```c
-void ui_fota_menu(void);
-```
-
-USB / FOTA
-
-```c
-void ui_fota_pick_sd(void);
-```
-
-USB / FOTA
-
-```c
-void ui_fota_progress(void);
-```
-
-USB / FOTA
-
-```c
 void ui_wd_status(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_roles_login_dialog(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_roles_current(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_roles_matrix_screen(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_roles_timeout_dialog(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_roles_change_pin(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_recipes_list(const char *cat);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_beer_editor_list(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_beer_editor_steps(int recipe_idx);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_beer_editor_step_edit(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_learning_show_lessons(const void *module);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_learning_quiz(const void *lesson);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_show_markdown(const char *title, const char *md);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_show_markdown_from_file(const char *title, const char *path);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_show_text_dialog(const char *title, const char *text);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_help_list_category(const char *cat);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_help_main(void);
-```
-
-Watchdog / роли / обучение / рецепты / справка
-
-```c
-void ui_help_article_list(void);
 ```
 
 Watchdog / роли / обучение / рецепты / справка
@@ -2163,14 +1091,6 @@ hal_display_lock(); менять экран прямо в read_cb тача не�
 
 ```c
 LV_FONT_DECLARE(lv_font_cyr_16);
-```
-
-Кириллические шрифты, сгенерированные из Inter (SIL OFL 1.1; 16 и 24 px, bpp 2).
-Montserrat в LVGL не содержит кириллицу, поэтому для русского текста
-используем эти. Объявлены в ui/ui_glass_theme.h, лежат в ui/fonts/.
-
-```c
-LV_FONT_DECLARE(lv_font_cyr_24);
 ```
 
 Кириллические шрифты, сгенерированные из Inter (SIL OFL 1.1; 16 и 24 px, bpp 2).
@@ -2211,31 +1131,7 @@ void ui_menu_show_root(int selected_tab);
 Реализованы в ui.c: очищают g_screen и вызывают build_*.
 
 ```c
-void ui_menu_show_group(int tab, int selected_item);
-```
-
-Реализованы в ui.c: очищают g_screen и вызывают build_*.
-
-```c
 void ui_menu_build_root(lv_obj_t *parent, int selected_tab);
-```
-
-Реализованы в ui_menu.c.
-
-```c
-void ui_menu_build_group(lv_obj_t *parent, int tab, int selected_item);
-```
-
-Реализованы в ui_menu.c.
-
-```c
-int ui_menu_tab_count(void);
-```
-
-Реализованы в ui_menu.c.
-
-```c
-const char *ui_menu_tab_label(int tab);
 ```
 
 Реализованы в ui_menu.c.
@@ -2253,49 +1149,7 @@ void ui_menu_encoder_rotate(int dir);
 События энкодера. dir: -1 назад, +1 вперёд.
 
 ```c
-void ui_menu_encoder_press(void);
-```
-
-События энкодера. dir: -1 назад, +1 вперёд.
-
-```c
-void ui_menu_encoder_long_press(void);
-```
-
-События энкодера. dir: -1 назад, +1 вперёд.
-
-```c
 void ui_menu_next_tab(void);
-```
-
-Жесты/свайпы LCD.
-
-```c
-void ui_menu_prev_tab(void);
-```
-
-Жесты/свайпы LCD.
-
-```c
-void ui_menu_enter(void);
-```
-
-Жесты/свайпы LCD.
-
-```c
-void ui_menu_back(void);
-```
-
-Жесты/свайпы LCD.
-
-```c
-int ui_menu_current_tab(void);
-```
-
-Жесты/свайпы LCD.
-
-```c
-int ui_menu_current_level(void);
 ```
 
 Жесты/свайпы LCD.
@@ -2317,18 +1171,6 @@ void ui_physical_beep(int ms);
 
 ```c
 void ui_physical_set_led_power(bool on);
-```
-
-Ручное управление статусными LED (например, из UI/API).
-
-```c
-void ui_physical_set_led_heat(bool on);
-```
-
-Ручное управление статусными LED (например, из UI/API).
-
-```c
-void ui_physical_set_led_alarm(bool on);
 ```
 
 Ручное управление статусными LED (например, из UI/API).
@@ -2362,16 +1204,6 @@ build() рисует содержимое в готовый parent (g_screen и�
 create() объявлен здесь, но реализован в ui.c: ему нужен доступ к
 статическому clear_screen(), чтобы не оставить висячий g_screen.
 
-```c
-void ui_screen_home_create(void);
-```
-
-Экран дашборда в стиле glass.
-
-build() рисует содержимое в готовый parent (g_screen из ui.c).
-create() объявлен здесь, но реализован в ui.c: ему нужен доступ к
-статическому clear_screen(), чтобы не оставить висячий g_screen.
-
 ## `main/ui/ui_screen_selection.h`
 
 ```c
@@ -2380,29 +1212,10 @@ bool ui_screen_selection_modal_active(void);
 
 Модальный редактор: энкодер перехватывает управление, пока окно открыто.
 
-```c
-bool ui_screen_selection_modal_rotate(int dir);
-```
-
-Модальный редактор: энкодер перехватывает управление, пока окно открыто.
-
-```c
-bool ui_screen_selection_modal_press(void);
-```
-
-Модальный редактор: энкодер перехватывает управление, пока окно открыто.
-
 ## `main/ui/ui_session_indicator.h`
 
 ```c
 void ui_session_indicator_init(void);
-```
-
-Плавающий индикатор активной сессии на верхнем слое LCD.
-Виден на всех экранах, кроме главного; тап возвращает на главный экран.
-
-```c
-void ui_session_indicator_update(void);
 ```
 
 Плавающий индикатор активной сессии на верхнем слое LCD.
@@ -2450,29 +1263,10 @@ void shadow_request_run(void);
 
 Ручной запуск / один шаг / отмена.
 
-```c
-void shadow_request_step(void);
-```
-
-Ручной запуск / один шаг / отмена.
-
-```c
-void shadow_cancel(void);
-```
-
-Ручной запуск / один шаг / отмена.
-
 ## `main/verify/verify_db.h`
 
 ```c
 esp_err_t verify_db_init(void);
-```
-
-Таблицы verify_trace / verify_runs в основной SQLite-базе.
-Вызывается из задачи-писателя на ядре 0.
-
-```c
-bool verify_db_is_ready(void);
 ```
 
 Таблицы verify_trace / verify_runs в основной SQLite-базе.
@@ -2518,14 +1312,6 @@ esp_err_t api_check_read_auth(httpd_req_t *req);
 
 ```c
 esp_err_t api_auth_ws_token_issue(char *out, size_t out_len);
-```
-
-Короткоживущий токен для WebSocket: браузер не может передать
-X-API-Key в handshake, поэтому PWA получает токен по защищённому REST
-и передаёт его в Sec-WebSocket-Protocol (не постоянный ключ в URL).
-
-```c
-bool api_auth_ws_token_check(const char *token);
 ```
 
 Короткоживущий токен для WebSocket: браузер не может передать
@@ -2599,24 +1385,6 @@ void mqtt_set_config(const char *uri, const char *user, const char *pass);
 
 Сохраняет настройки в NVS и перезапускает клиент (uri == NULL — не менять).
 
-```c
-void mqtt_publish_state(void);
-```
-
-Сохраняет настройки в NVS и перезапускает клиент (uri == NULL — не менять).
-
-```c
-bool mqtt_is_connected(void);
-```
-
-Сохраняет настройки в NVS и перезапускает клиент (uri == NULL — не менять).
-
-```c
-void mqtt_task(void *arg);
-```
-
-Сохраняет настройки в NVS и перезапускает клиент (uri == NULL — не менять).
-
 ## `main/web/telegram_bot.h`
 
 ```c
@@ -2628,47 +1396,13 @@ webhook_secret — необязательный секрет для входящ
 NULL — не менять; "" — очистить.
 
 ```c
-void telegram_set_webhook_secret(const char *secret);
-```
-
-webhook_secret — необязательный секрет для входящих webhook-запросов
-(Telegram отправляет его в X-Telegram-Bot-Api-Secret-Token).
-NULL — не менять; "" — очистить.
-
-```c
-bool telegram_is_configured(void);
-```
-
-webhook_secret — необязательный секрет для входящих webhook-запросов
-(Telegram отправляет его в X-Telegram-Bot-Api-Secret-Token).
-NULL — не менять; "" — очистить.
-
-```c
-bool telegram_get_webhook_secret(char *out, size_t *len);
-```
-
-webhook_secret — необязательный секрет для входящих webhook-запросов
-(Telegram отправляет его в X-Telegram-Bot-Api-Secret-Token).
-NULL — не менять; "" — очистить.
-
-```c
 void telegram_get_credentials(char *token, size_t token_len, char *chat_id, size_t chat_len);
 ```
 
-webhook_secret — необязательный секрет для входящих webhook-запросов
-(Telegram отправляет его в X-Telegram-Bot-Api-Secret-Token).
-NULL — не менять; "" — очистить.
 Копия токена/chat_id (без секретов в логах) — для telegram_notify.c.
 
 ```c
 void telegram_send_legacy(const char *msg);
-```
-
-Устаревший синхронный путь (экраны/устаревшие вызовы). Новым кодом
-используется telegram_notify() из telegram_notify.h (очередь).
-
-```c
-void telegram_task(void *arg);
 ```
 
 Устаревший синхронный путь (экраны/устаревшие вызовы). Новым кодом
@@ -2707,28 +1441,10 @@ uint32_t telegram_notify_sent(void);
 
 Статистика для /api/health и диагностики.
 
-```c
-uint32_t telegram_notify_failed(void);
-```
-
-Статистика для /api/health и диагностики.
-
-```c
-uint32_t telegram_notify_dropped(void);
-```
-
-Статистика для /api/health и диагностики.
-
 ## `main/web/ws_telemetry.h`
 
 ```c
 esp_err_t ws_telemetry_attach(httpd_handle_t srv);
-```
-
-Регистрирует обработчик GET /ws/telemetry на уже запущенном httpd.
-
-```c
-int ws_telemetry_client_count(void);
 ```
 
 Регистрирует обработчик GET /ws/telemetry на уже запущенном httpd.

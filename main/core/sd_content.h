@@ -5,7 +5,8 @@
 #include "esp_err.h"
 
 // Доступ к контенту на SD-карте (/sdcard/<раздел>/).
-// Карта создаётся скриптом generate_sdcard.py.
+// Контроллер SD отключена; целевое хранение контента — TF-карта HMI (миграция в процессе).
+// Исходники контента формируются скриптом generate_sdcard.py.
 
 #define SD_CONTENT_MAX_NAME 64
 
@@ -23,7 +24,7 @@ typedef enum {
 esp_err_t   sd_content_init(void);
 bool        sd_content_ready(void);
 
-// Каталог раздела, например "/sdcard/recipes". Никогда не NULL.
+// Каталог раздела, например "/sdcard/recipes". Никогда не NULL. На контроллере SD отключена; целевое хранение — HMI TF.
 const char* sd_content_path(content_type_t type);
 
 // Список файлов раздела (без подкаталогов, скрытых и служебных).
