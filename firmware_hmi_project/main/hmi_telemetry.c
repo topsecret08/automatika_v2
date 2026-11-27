@@ -75,7 +75,12 @@ void hmi_telemetry_from_json(const uint8_t *payload, uint16_t len)
     jstr(root, "v", s_t.version, sizeof(s_t.version), "—");
     s_t.tc     = jnum(root, "tc", 0.0f);
     s_t.ts     = jnum(root, "ts", 0.0f);
-    s_t.p      = jnum(root, "p", 0.0f);
+    /* Контроллер отправляет "power" (проценты) и "p" (давление, бар).
+     * Предпочитаем "power" для UI мощности; fallback на "p" для старых кадров. */
+    {
+        cJSON *jp = cJSON_GetObjectItemCaseSensitive(root, "power");
+        s_t.p = cJSON_IsNumber(jp) ? (float)jp->valuedouble : jnum(root, "p", 0.0f);
+    }
     s_t.m      = jnum(root, "m", 0.0f);
     s_t.sa     = jbool(root, "sa", false);
     s_t.es     = jbool(root, "es", false);

@@ -10,7 +10,7 @@ typedef struct {
     char     version[24];
     float    tc;        /* current temperature */
     float    ts;        /* set temperature */
-    float    p;         /* power, % */
+    float    p;         /* power, % (from telemetry "power"; fallback "p") */
     float    m;         /* additional measured value */
     bool     sa;        /* safety ok */
     bool     es;        /* E-STOP pressed */
@@ -20,7 +20,7 @@ typedef struct {
     uint8_t  stg;       /* stage */
     uint8_t  run;
     uint8_t  pause;
-    uint8_t  r;         /* regulator active */
+    uint8_t  r;         /* run/regulator flag from controller */
     uint32_t heads;
     uint32_t body;
     uint32_t tails;
