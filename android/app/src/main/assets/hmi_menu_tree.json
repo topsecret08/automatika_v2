@@ -1550,7 +1550,7 @@
     },
     {
       "id": "diag_journal_can",
-      "title": "Ошибки CAN / связь",
+      "title": "Ошибки CAN / CRC",
       "parent": "diag_journal",
       "children": [],
       "manual": null,
