@@ -1895,6 +1895,38 @@ function renderCalibration() {
         </div>
       </div>
     </section>
+
+    <section class="section">
+      <div class="section-title">Калибровка насоса (pump_cal)</div>
+      <div class="card">
+        <div id="pump-cal-points" class="hint">Загрузка…</div>
+        <div class="field"><label class="field-label" for="pump-speed">Скорость, %</label><input id="pump-speed" class="input" type="number" step="1" min="0" max="100" value="50"></div>
+        <div class="field"><label class="field-label" for="pump-flow">Поток, мл/мин</label><input id="pump-flow" class="input" type="number" step="0.1" min="0" value="20"></div>
+        <div class="card-row"><button id="pump-add" class="btn btn-small" type="button">Добавить точку</button><button id="pump-save" class="btn btn-small btn-primary" type="button">Сохранить</button></div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-title">HX711: мульти-точечная калибровка</div>
+      <div class="card">
+        <div id="scale-pts" class="hint">Загрузка…</div>
+        <div class="field"><label class="field-label" for="scale-known-g">Известный вес, г</label><input id="scale-known-g" class="input" type="number" step="1" min="1" value="1000"></div>
+        <div class="card-row">
+          <button id="scale-add-pt" class="btn btn-small" type="button">Добавить точку</button>
+          <button id="scale-apply-pt" class="btn btn-small btn-primary" type="button">Применить</button>
+          <button id="scale-clear-pt" class="btn btn-small" type="button">Очистить</button>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-title">Планировщик / калькулятор прогона</div>
+      <form id="planner-form" class="card">
+        <div class="field"><label class="field-label" for="pl-vol">Объём, л</label><input id="pl-vol" class="input" type="number" step="0.1" value="20"></div>
+        <div class="field"><label class="field-label" for="pl-abv">Крепость, %</label><input id="pl-abv" class="input" type="number" step="0.1" value="40"></div>
+        <div class="field"><label class="field-label" for="pl-pwr">Мощность, Вт</label><input id="pl-pwr" class="input" type="number" step="50" value="3000"></div>
+        <button class="btn btn-primary btn-block" type="submit">Рассчитать</button>
+        <div id="planner-result" class="hint mt-8"></div>
+      </form>
+    </section>
   `;
 
   $$('[data-dose]', app).forEach((button) => {
@@ -1949,6 +1981,57 @@ function renderCalibration() {
   });
 
   loadControlSettings();
+
+  // pump_cal
+  let pumpPts = [];
+  async function loadPumpCal() {
+    try {
+      const d = await (await fetch('/api/calib/pump')).json();
+      pumpPts = d.points || [];
+      $('#pump-cal-points').textContent = pumpPts.map(p => `${p.speed}%→${p.flow} мл/мин`).join(', ') || 'Нет точек';
+    } catch (_) { $('#pump-cal-points').textContent = 'Ошибка загрузки'; }
+  }
+  $('#pump-add')?.addEventListener('click', () => {
+    const speed = Number($('#pump-speed').value), flow = Number($('#pump-flow').value);
+    if (!Number.isFinite(speed)||!Number.isFinite(flow)) return;
+    pumpPts.push({speed, flow});
+    $('#pump-cal-points').textContent = pumpPts.map(p => `${p.speed}%→${p.flow} мл/мин`).join(', ');
+  });
+  $('#pump-save')?.addEventListener('click', async () => {
+    try { await postJson('/api/calib/pump', {points: pumpPts}); toast('Калибровка насоса сохранена'); loadPumpCal(); }
+    catch (_) { toast('Ошибка сохранения'); }
+  });
+  loadPumpCal();
+
+  async function loadScalePts() {
+    try {
+      const d = await (await fetch('/api/calib/scale/points')).json();
+      const pts = d.points || [];
+      $('#scale-pts').textContent = pts.length ? pts.map(p => `${p.g}г(raw ${p.raw})`).join(', ') + ` | scale=${Number(d.scale).toFixed(6)} offset=${d.offset}` : 'Нет точек';
+    } catch (_) { $('#scale-pts').textContent = 'Ошибка загрузки'; }
+  }
+  $('#scale-add-pt')?.addEventListener('click', async () => {
+    const known_g = Number($('#scale-known-g').value);
+    try { await postJson('/api/calib/scale/points/add', {known_g}); toast('Точка добавлена'); loadScalePts(); } catch (_) { toast('Ошибка'); }
+  });
+  $('#scale-apply-pt')?.addEventListener('click', async () => {
+    try { await postJson('/api/calib/scale/points/apply', {}); toast('Калибровка применена'); loadScalePts(); } catch (_) { toast('Ошибка'); }
+  });
+  $('#scale-clear-pt')?.addEventListener('click', async () => {
+    try { await postJson('/api/calib/scale/points/clear', {}); toast('Точки очищены'); loadScalePts(); } catch (_) { toast('Ошибка'); }
+  });
+  loadScalePts();
+
+  $('#planner-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = { volume_l: Number($('#pl-vol').value), abv_pct: Number($('#pl-abv').value), power_w: Number($('#pl-pwr').value) };
+    try {
+      const r = await postJson('/api/planner/calc', body);
+      const d = await r.json();
+      const est = d.estimate || {};
+      $('#planner-result').textContent = `Абс. спирт: ${Number(est.absolute_alcohol_l||0).toFixed(3)} л, Головы: ${Number(est.heads_l||0).toFixed(3)} л, Тело: ${Number(est.body_l||0).toFixed(3)} л, Хвосты: ${Number(est.tails_l||0).toFixed(3)} л, Время: ${Number(est.time_h||0).toFixed(2)} ч`;
+    } catch (_) { $('#planner-result').textContent = 'Ошибка расчёта'; }
+  });
 }
 
 async function renderProfiles() {
@@ -2836,7 +2919,34 @@ async function renderHealth() {
   const app = $('#app');
   if (!app) return;
 
-  app.innerHTML = `<section class="section"><div id="health-list" class="card"><div class="empty">Загрузка…</div></div></section>`;
+  app.innerHTML = `
+    <section class="section">
+      <div class="section-title">Здоровье системы</div>
+      <div id="health-list" class="card"><div class="empty">Загрузка…</div></div>
+    </section>
+    <section class="section">
+      <div class="section-title">Контуры / Watchdog</div>
+      <div id="contours-list" class="card"><div class="empty">Загрузка…</div></div>
+    </section>
+    <section class="section">
+      <div class="section-title">Алерты</div>
+      <div class="card">
+        <div class="card-row"><span class="card-row-title">Активные предупреждения</span><button id="alerts-ack" class="btn btn-small" type="button">Подтвердить</button></div>
+        <div id="alerts-list"><div class="empty">Загрузка…</div></div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-title">Отчёт прогона / рекомендации</div>
+      <div id="run-report" class="card"><div class="empty">Загрузка…</div></div>
+    </section>
+    <section class="section">
+      <div class="section-title">Сравнение прогонов</div>
+      <div class="card">
+        <div id="runs-compare" class="hint">Загрузка…</div>
+        <div id="runs-chart" style="margin-top:8px"></div>
+      </div>
+    </section>
+  `;
 
   try {
     const response = await fetch('/api/health');
@@ -2851,9 +2961,9 @@ async function renderHealth() {
       ['Min heap', `${Math.round(Number(data.min_free_heap || 0) / 1024)} КБ`],
       ['PSRAM', `${Math.round(Number(data.free_psram || 0) / 1024)} КБ`],
       ['Wi-Fi RSSI', `${data.wifi_rssi || 0} dBm`],
-      ['SD', data.sd ? 'есть' : 'нет'],
+      ['SD', data.sd ? 'да' : 'нет'],
       ['Датчики', String(data.sensors || 0)],
-      ['Safety', data.safety ? 'ok' : 'сработала'],
+      ['Safety', data.safety ? 'ok' : 'ошибка'],
       ['E-STOP', data.estop ? 'активен' : 'нет']
     ];
     $('#health-list').innerHTML = rows.map(([label, value]) => `
@@ -2862,8 +2972,89 @@ async function renderHealth() {
         <span class="card-row-value">${value}</span>
       </div>
     `).join('');
+
+    const c = data.contours || {};
+    const crows = [
+      ['HX711/весы', c.hx711 ? 'ok' : 'fault'],
+      ['ZMPT', c.zmpt ? 'ok' : 'fault'],
+      ['Давление', c.pressure ? 'ok' : 'fault'],
+      ['Flood', c.flood ? 'active' : 'ok'],
+      ['EQ_LOCK', c.eq_lock ? 'active' : 'idle'],
+      ['Volume guard', c.vol_guard ? 'active' : 'idle'],
+      ['MPC/нагрев', c.mpc ? 'active' : 'idle'],
+      ['Fusion', c.fusion ? 'ok' : 'no data'],
+    ];
+    $('#contours-list').innerHTML = crows.map(([label, value]) => `
+      <div class="card-row"><span class="card-row-title">${label}</span><span class="card-row-value">${value}</span></div>
+    `).join('');
   } catch (_) {
-    $('#health-list').innerHTML = '<div class="empty">НЕТ СВЯЗИ</div>';
+    $('#health-list').innerHTML = '<div class="empty">Ошибка загрузки</div>';
+    $('#contours-list').innerHTML = '<div class="empty">Ошибка загрузки</div>';
+  }
+
+  async function loadAlerts() {
+    try {
+      const r = await fetch('/api/alerts');
+      const d = await r.json();
+      const items = d.items || [];
+      if (!items.length) { $('#alerts-list').innerHTML = '<div class="empty">Нет алертов</div>'; return; }
+      $('#alerts-list').innerHTML = items.map(a => `
+        <div class="card-row">
+          <div class="card-row-main">
+            <div class="card-row-title">[${['INFO','WARN','CRIT'][a.sev]||a.sev}] ${a.code||''}</div>
+            <div class="card-row-sub">${a.msg||''}</div>
+          </div>
+          <span class="card-row-value">${a.ack?'ack':'new'}</span>
+        </div>
+      `).join('');
+    } catch (_) { $('#alerts-list').innerHTML = '<div class="empty">Ошибка загрузки</div>'; }
+  }
+  $('#alerts-ack')?.addEventListener('click', async () => {
+    try { await postJson('/api/alerts/ack', {}); toast('Алерты подтверждены'); loadAlerts(); } catch (_) { toast('Ошибка'); }
+  });
+  loadAlerts();
+
+  try {
+    const r = await fetch('/api/run/report');
+    const d = await r.json();
+    const rows = [
+      ['Качество', `${Number(d.quality||0).toFixed(1)} / 100`],
+      ['Предупреждения', String(d.warnings||0)],
+      ['Алкоголь (оценка)', `${Number(d.alcohol_ml||0).toFixed(1)} мл`],
+      ['Потери (оценка)', `${Number(d.loss_pct||0).toFixed(2)} %`],
+      ['Рекомендация', d.recommendation || '—'],
+    ];
+    $('#run-report').innerHTML = rows.map(([label,value]) => `
+      <div class="card-row"><span class="card-row-title">${label}</span><span class="card-row-value">${value}</span></div>
+    `).join('');
+  } catch (_) {
+    $('#run-report').innerHTML = '<div class="empty">Нет данных отчёта</div>';
+  }
+
+  try {
+    const r = await fetch('/api/history/processes?limit=8');
+    const d = await r.json();
+    const items = Array.isArray(d) ? d : (d.items || d.processes || []);
+    if (!items.length) {
+      $('#runs-compare').textContent = 'Нет данных прогонов';
+    } else {
+      const rows = items.slice(0,8).map(it => {
+        const id = it.id ?? it.process_id ?? '?';
+        const q = it.quality ?? it.quality_score ?? '-';
+        const body = it.body_ml ?? it.body_collected_ml ?? '-';
+        const loss = it.loss_pct ?? it.mass_balance_loss_pct ?? '-';
+        return `<div class="card-row"><span class="card-row-title">#${id}</span><span class="card-row-value">body ${body} мл | loss ${loss}% | Q ${q}</span></div>`;
+      }).join('');
+      $('#runs-compare').innerHTML = rows;
+      const vals = items.slice(0,8).map(it => Number(it.quality ?? it.quality_score ?? 0)).filter(v=>Number.isFinite(v));
+      if (vals.length) {
+        const w=280,h=80,max=Math.max(100,...vals),min=0;
+        const pts = vals.map((v,i)=>{const x=10+i*((w-20)/Math.max(1,vals.length-1)); const y=h-10-((v-min)/(max-min||1))*(h-20); return `${x},${y}`;}).join(' ');
+        $('#runs-chart').innerHTML = `<svg width="100%" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="currentColor" stroke-width="2" points="${pts}"></polyline></svg><div class="hint">Качество последних прогонов</div>`;
+      }
+    }
+  } catch (_) {
+    $('#runs-compare').textContent = 'История недоступна';
   }
 }
 

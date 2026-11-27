@@ -9,6 +9,8 @@
 #include "core/estop.h"
 #include "core/event_log.h"
 #include "core/health.h"
+#include "core/alerts.h"
+#include "core/run_report.h"
 #include "core/i18n.h"
 #include "core/nvs_migration.h"
 #include "core/profiles.h"
@@ -178,7 +180,7 @@ static esp_err_t h_state(httpd_req_t *r) {
     float slope = cube_idx >= 0 ? hal_1wire_slope(cube_idx) : 0.0f;
     int rising = cube_idx >= 0 ? (hal_1wire_rising(cube_idx) ? 1 : 0) : 0;
 
-    char json[1792];
+    char json[2560];
     snprintf(json, sizeof(json),
         "{\"type\":%d,\"stage\":%d,\"cube\":%.2f,\"col\":%.2f,"
         "\"power\":%.1f,\"power_auto\":%.1f,\"power_manual\":%d,"
@@ -198,7 +200,14 @@ static esp_err_t h_state(httpd_req_t *r) {
         "\"pwm_resolution\":%d,\"pwm_inverted\":%d,"
         "\"analog_range\":%d,\"analog_min_pct\":%.2f,"
         "\"analog_max_pct\":%.2f,\"ssvr_power_sqrt\":%d,"
-        "\"regulator_error\":\"%s\"}",
+        "\"regulator_error\":\"%s\","
+        "\"flood\":%d,\"eq_lock\":%d,\"eq_phase\":%u,"
+        "\"vol_guard\":%d,\"vol_no_flow\":%d,\"vol_overflow\":%d,"
+        "\"energy_anomaly\":%d,\"pred_heat\":%d,"
+        "\"mpc_target\":%.2f,\"mpc_pred\":%.2f,\"mpc_power\":%.1f,"
+        "\"conf_cube\":%.2f,\"conf_col\":%.2f,\"conf_pres\":%.2f,\"conf_scale\":%.2f,"
+        "\"mb_abv\":%.2f,\"mb_alcohol_ml\":%.1f,\"mb_loss_pct\":%.2f,"
+        "\"quality\":%.1f,\"quality_warn\":%u}",
         (int)s->type, (int)s->stage, s->cube_temp, s->column_temp,
         ctrl_heater_get_percent(), ctrl_heater_get_auto_percent(),
         ctrl_heater_manual_active() ? 1 : 0,
@@ -229,7 +238,16 @@ static esp_err_t h_state(httpd_req_t *r) {
         (double)regulator_get_analog_min_pct(),
         (double)regulator_get_analog_max_pct(),
         regulator_get_ssvr_power_sqrt() ? 1 : 0,
-        regulator_last_error());
+        regulator_last_error(),
+        s->flood_active ? 1 : 0, s->eq_lock_active ? 1 : 0, (unsigned)s->eq_lock_phase,
+        s->volume_guard_active ? 1 : 0, s->volume_no_flow ? 1 : 0, s->volume_overflow ? 1 : 0,
+        s->energy_anomaly_active ? 1 : 0, s->predictive_heat_active ? 1 : 0,
+        (double)s->mpc_target_c, (double)s->mpc_predicted_c, (double)s->mpc_power_pct,
+        (double)s->fusion_cube_conf, (double)s->fusion_column_conf,
+        (double)s->fusion_pressure_conf, (double)s->fusion_scale_conf,
+        (double)s->mass_balance_abv_pct, (double)s->mass_balance_alcohol_ml,
+        (double)s->mass_balance_loss_pct,
+        (double)s->quality_score, (unsigned)s->quality_warnings);
     return send_json(r, json);
 }
 
@@ -2462,6 +2480,101 @@ static esp_err_t h_calib_scale_start(httpd_req_t *r) {
     return send_json(r, "{\"ok\":true}");
 }
 
+static esp_err_t h_calib_scale_points_get(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    char buf[512];
+    scale_calib_points_json(buf, sizeof(buf));
+    return send_json(r, buf);
+}
+
+static esp_err_t h_calib_scale_points_add(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    char body[128];
+    if (recv_body(r, body, sizeof(body)) < 0) return send_err(r, "400 Bad Request", "{\"error\":\"body\"}");
+    cJSON *root = cJSON_Parse(body);
+    float g = 0.0f;
+    if (root) { cJSON *kg=cJSON_GetObjectItem(root,"known_g"); if(cJSON_IsNumber(kg)) g=(float)kg->valuedouble; cJSON_Delete(root); }
+    if (g <= 0.0f) return send_err(r, "400 Bad Request", "{\"error\":\"known_g\"}");
+    if (!scale_calib_points_add(g)) return send_err(r, "400 Bad Request", "{\"error\":\"add failed\"}");
+    char buf[512]; scale_calib_points_json(buf,sizeof(buf));
+    return send_json(r, buf);
+}
+
+static esp_err_t h_calib_scale_points_clear(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    scale_calib_points_clear();
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_calib_scale_points_apply(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    if (!scale_calib_points_apply()) return send_err(r, "400 Bad Request", "{\"error\":\"need >=2 points\"}");
+    char buf[512]; scale_calib_points_json(buf,sizeof(buf));
+    return send_json(r, buf);
+}
+
+static esp_err_t h_calib_pump_get(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    const pump_cal_t *c = ctrl_dose_get_pump_cal();
+    char buf[512];
+    pump_cal_to_json(c, buf, sizeof(buf));
+    return send_json(r, buf);
+}
+
+static esp_err_t h_calib_pump_set(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    if (!roles_check(ROLE_ENGINEER)) return send_err(r, "403 Forbidden", "{\"error\":\"role\"}");
+    char body[512];
+    if (recv_body(r, body, sizeof(body)) < 0) return send_err(r, "400 Bad Request", "{\"error\":\"body\"}");
+    cJSON *root = cJSON_Parse(body);
+    if (!root) return send_err(r, "400 Bad Request", "{\"error\":\"json\"}");
+    cJSON *pts = cJSON_GetObjectItem(root, "points");
+    if (!cJSON_IsArray(pts)) { cJSON_Delete(root); return send_err(r, "400 Bad Request", "{\"error\":\"points\"}"); }
+    pump_cal_t c = {0};
+    c.n = 0;
+    cJSON *p;
+    cJSON_ArrayForEach(p, pts) {
+        if (c.n >= 5) break;
+        cJSON *sp = cJSON_GetObjectItem(p, "speed");
+        cJSON *fl = cJSON_GetObjectItem(p, "flow");
+        if (!cJSON_IsNumber(sp) || !cJSON_IsNumber(fl)) continue;
+        c.speed_pct[c.n] = (float)sp->valuedouble;
+        c.flow_ml_min[c.n] = (float)fl->valuedouble;
+        c.n++;
+    }
+    cJSON_Delete(root);
+    if (c.n < 2) return send_err(r, "400 Bad Request", "{\"error\":\"need >=2 points\"}");
+    if (!ctrl_dose_set_pump_cal(&c)) return send_err(r, "500 Internal Server Error", "{\"error\":\"save\"}");
+    char buf[512];
+    pump_cal_to_json(&c, buf, sizeof(buf));
+    return send_json(r, buf);
+}
+
+static esp_err_t h_alerts(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    char buf[2048];
+    alerts_json(buf, sizeof(buf), 20);
+    return send_json(r, buf);
+}
+
+static esp_err_t h_alerts_ack(httpd_req_t *r) {
+    if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    alerts_ack_all();
+    return send_json(r, "{\"ok\":true}");
+}
+
+static esp_err_t h_run_report(httpd_req_t *r) {
+    if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
+    process_state_t snap;
+    state_snapshot(&snap);
+    char buf[768];
+    run_report_json(&snap, buf, sizeof(buf));
+    return send_json(r, buf);
+}
+
 static esp_err_t h_preflight(httpd_req_t *r) {
     if (api_check_read_auth(r) != ESP_OK) return api_reject_unauthorized(r);
     process_state_t *st = state_get();
@@ -3141,6 +3254,15 @@ void web_api_register(httpd_handle_t srv) {
 { .uri="/api/recipe",              .method=HTTP_GET,  .handler=h_recipe_get },
 { .uri="/api/calib/scale/tare",    .method=HTTP_POST, .handler=h_calib_scale_tare },
         { .uri="/api/calib/scale/start",   .method=HTTP_POST, .handler=h_calib_scale_start },
+        { .uri="/api/calib/scale/points",  .method=HTTP_GET,  .handler=h_calib_scale_points_get },
+        { .uri="/api/calib/scale/points/add", .method=HTTP_POST, .handler=h_calib_scale_points_add },
+        { .uri="/api/calib/scale/points/clear", .method=HTTP_POST, .handler=h_calib_scale_points_clear },
+        { .uri="/api/calib/scale/points/apply", .method=HTTP_POST, .handler=h_calib_scale_points_apply },
+        { .uri="/api/calib/pump",          .method=HTTP_GET,  .handler=h_calib_pump_get },
+        { .uri="/api/calib/pump",          .method=HTTP_POST, .handler=h_calib_pump_set },
+        { .uri="/api/alerts",              .method=HTTP_GET,  .handler=h_alerts },
+        { .uri="/api/alerts/ack",          .method=HTTP_POST, .handler=h_alerts_ack },
+        { .uri="/api/run/report",          .method=HTTP_GET,  .handler=h_run_report },
         { .uri="/api/preflight",           .method=HTTP_GET,  .handler=h_preflight },
         { .uri="/api/planner/calc",        .method=HTTP_POST, .handler=h_planner_calc },
 { .uri="/api/calib/sensors/abort", .method=HTTP_POST, .handler=h_calib_sensors_abort },

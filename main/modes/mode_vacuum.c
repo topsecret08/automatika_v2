@@ -48,6 +48,8 @@ static proc_stage_t v_init(void) {
     s_leak_time = 0;
     s_leak_start_mbar = 0;
     volume_feedback_begin(&s_fb);
+    volume_feedback_set_target(&s_fb, state_get()->target_body_ml,
+        state_get()->target_body_ml > 0 ? state_get()->target_body_ml * 1.20f : 0, 120000);
     if (hw_has_device(HW_DEV_COOLING_PUMP)) {
         hal_relay_set(RELAY_COOLING_PUMP, true);
         hal_relay_set(RELAY_WATER_VALVE, true);
@@ -110,8 +112,21 @@ static proc_stage_t v_update(float dt) {
     ctrl_pid_set_setpoint(target_t);
     ctrl_pid_compute_and_apply_scaled(cube, scale);
 
-    if (hw_has_device(HW_DEV_VALVES))
-        valve_set_pct(VALVE_BODY, 10.0f);
+    bool flow_expected = hw_has_device(HW_DEV_VALVES);
+    if (flow_expected) valve_set_pct(VALVE_BODY, 10.0f);
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    volume_feedback_tick(&s_fb, flow_expected, now_ms);
+    st->volume_guard_active = true;
+    st->volume_no_flow = volume_feedback_no_flow(&s_fb);
+    st->volume_overflow = volume_feedback_overflow(&s_fb);
+    if (volume_feedback_overflow(&s_fb)) {
+        events_log(EVENT_WARNING, "Vacuum: overflow guard");
+        ctrl_valves_close_all();
+    }
+    if (volume_feedback_no_flow(&s_fb)) {
+        events_log(EVENT_WARNING, "Vacuum: no-flow detected");
+        ctrl_valves_close_all();
+    }
 
     st->stage = ST_RUNNING;
     {

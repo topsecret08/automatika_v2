@@ -1,7 +1,7 @@
 # C API
 
 Сгенерировано `tools/gen_api_docs.py` из комментариев в заголовках.
-Всего функций: 376.
+Всего функций: 382.
 
 Не редактируйте вручную: измените комментарий в `.h` и перегенерируйте.
 
@@ -180,6 +180,38 @@ bool ctrl_safety_estop_latched(void);
 
 E-STOP защёлкнут по железу (нажата кнопка) — нагрев и отбор запрещены.
 
+## `main/control/ctrl_scale.h`
+
+```c
+int scale_calib_points_count(void);
+```
+
+Multi-point calibration/linearization
+
+```c
+bool scale_calib_points_add(float known_g);
+```
+
+Multi-point calibration/linearization
+
+```c
+void scale_calib_points_clear(void);
+```
+
+Multi-point calibration/linearization
+
+```c
+bool scale_calib_points_apply(void);
+```
+
+Multi-point calibration/linearization
+
+```c
+size_t scale_calib_points_json(char *buf, size_t buf_sz);
+```
+
+Multi-point calibration/linearization
+
 ## `main/control/ctrl_stepper.h`
 
 ```c
@@ -277,6 +309,14 @@ bool pid_autotune_load_gains(float *kp, float *ki, float *kd);
 ```
 
 Прочитать сохранённые gains; возвращает false, если в NVS их нет.
+
+## `main/control/predictive_heat.h`
+
+```c
+float predictive_heat_mpc_power(const pred_heat_in_t *in, float ambient_c);
+```
+
+Full MPC: returns recommended power [0..max_power_pct].
 
 ## `main/control/pump_doser.h`
 

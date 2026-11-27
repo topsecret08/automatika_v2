@@ -252,6 +252,9 @@ esp_err_t ctrl_dose_init(void) {
     if (!s_queue) return ESP_ERR_NO_MEM;
 
     pump_cal_load_defaults(&s_pump_cal);
+    if (pump_cal_load_nvs(&s_pump_cal)) {
+        ESP_LOGI(TAG, "pump_cal loaded from NVS");
+    }
     s_pump_cal_ready = (s_pump_cal.n >= 2);
 
     bool step_ok = PUMP_STEP_GPIO >= 0 &&
@@ -432,4 +435,12 @@ void ctrl_dose_process(float rate_ml_min, float dt, int valve_idx) {
 
     s_proc_open = true;
     s_total_ml += ml;
+}
+
+const pump_cal_t* ctrl_dose_get_pump_cal(void) { return &s_pump_cal; }
+bool ctrl_dose_set_pump_cal(const pump_cal_t *c) {
+    if (!c || c->n < 2 || c->n > 5) return false;
+    s_pump_cal = *c;
+    s_pump_cal_ready = (s_pump_cal.n >= 2);
+    return pump_cal_save_nvs(&s_pump_cal);
 }

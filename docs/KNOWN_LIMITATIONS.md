@@ -12,10 +12,14 @@
 
 | Модуль | Файл | Статус | Тесты |
 |---|---|---|---|
-| EQ_LOCK (удержание равновесия) | `main/core/eq_lock.c` | Подключён в `mode_rectify.c` (ST_STABILIZE: engage/tick/release). Требуется стендовая проверка и расширение на другие режимы. | `test/main/test_eq_lock.c` |
-| VLE (равновесие этанол-вода, NRTL) | `main/core/vle_ew.c` | `vle_bubble_point` используется в `alcohol_balance.c` для температуры кипения; при ошибке есть fallback на прежнюю модель. | `test/main/test_physics.c` |
-| PCHIP (интерполяция калибровки насоса) | `main/core/pump_cal.c` | `pump_cal_flow/speed_for_flow` используются в `ctrl_dose.c` для нормализованной кривой. Нужна пользовательская калибровка и сохранение точек. | `test/main/test_pump_doser.c` |
-| zone_consensus (голосование зон датчиков) | `main/hal/zone_consensus.c` | Подключён в `hal_1wire.c`: outlier mask снижает trust score и исключает выбросы из peer-сравнения. Нужна проверка на реальной шине. | — |
+| EQ_LOCK (фиксация равновесия) | `main/core/eq_lock.c` | Интегрирован в rectify/distill по правилам стадий: стабилизация, отбор голов, достабилизация после голов/перед телом, отбор тела (сторож полки, гистерезис 0.1–0.2 °C); исключены разгон и хвосты. Статус экспортируется в state/API/WS. | `test/main/test_eq_lock.c` |
+| VLE (равновесие жидкость-пар, NRTL) | `main/core/vle_ew.c` | `vle_bubble_point` используется в `alcohol_balance.c` для температуры кипения; при ошибке остаётся fallback на таблицу. | `test/main/test_physics.c` |
+| PCHIP (интерполяция калибровки насоса) | `main/core/pump_cal.c` | Используется в `ctrl_dose.c`; пользовательские точки сохраняются в NVS, доступны через `GET/POST /api/calib/pump` и UI. | `test/main/test_pump_doser.c` |
+| zone_consensus (голосование датчиков) | `main/hal/zone_consensus.c` | Подключён в `hal_1wire.c`: outlier mask влияет на trust score и исключает выброс из peer-среднего. Нужна валидация на реальном железе. | — |
+| Sensor fusion/confidence | `main/control/sensor_fusion.c` | Рассчитывает confidence 0..1 для cube/column/pressure/scale; экспортируется в state/API/WS. | — |
+| Mass balance спирта/объёма | `main/control/mass_balance.c` | Эвристическая модель ABV/алкоголя/потерь; используется в quality metrics и run report. | — |
+| Quality metrics / alerts | `main/control/quality_metrics.c`, `main/core/alerts.c` | `quality_score/warnings`, алерты guard/fault, API `/api/alerts*`, `/api/run/report`. | — |
+| MPC нагрева | `main/control/predictive_heat.c` | Предиктивный MPC-контур (модель 1-го порядка, горизонт, онлайн-оценка параметров) интегрирован в `ctrl_heater.c`, статусы в state/API. | — |
 
 Что делать: не ждать от прошивки поведения, описанного в комментариях этих
 модулей. Включение каждого модуля в контур — отдельная задача с испытаниями на

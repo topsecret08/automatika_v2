@@ -23,13 +23,20 @@ static proc_stage_t f_init(void) {
 
 static proc_stage_t f_update(float dt) {
     (void)dt;
+    process_state_t *st = state_get();
     float t = hw_temp_read(HW_TEMP_TANK);
     if (!isfinite(t)) t = hw_temp_read(HW_TEMP_CUBE);
     if (!isfinite(t)) {
-        state_get()->stage = ST_ERROR;
+        st->stage = ST_ERROR;
         return ST_ERROR;
     }
-    state_get()->cube_temp = t;
+    st->cube_temp = t;
+    st->volume_guard_active = false;
+    st->volume_no_flow = false;
+    st->volume_overflow = false;
+    st->eq_lock_active = false;
+    st->eq_lock_phase = 0;
+    st->flood_active = false;
 
     bool cool = hw_has_device(HW_DEV_COOLING_PUMP);
     if (t < s_target - s_hyst) {
@@ -49,7 +56,7 @@ static proc_stage_t f_update(float dt) {
         }
     }
 
-    state_get()->stage = ST_RUNNING;
+    st->stage = ST_RUNNING;
     return ST_RUNNING;
 }
 

@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
+#include "core/pump_cal.h"
 
 // Отбор: клапан или шаговый насос-дозатор. Устройство выбирается через
 // control_config_get_output_device().
@@ -56,3 +57,6 @@ bool ctrl_dose_is_nbk_feed(void);
 //  - в режиме насоса дозирует порции n = rate·dt;
 //  - в режиме клапана задаёт долю открытия и добавляет rate·dt/60 к объёму.
 void ctrl_dose_process(float rate_ml_min, float dt, int valve_idx);
+
+const pump_cal_t* ctrl_dose_get_pump_cal(void);
+bool ctrl_dose_set_pump_cal(const pump_cal_t *c);

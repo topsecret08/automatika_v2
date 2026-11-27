@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 static scale_t s;
@@ -32,10 +33,11 @@ void scale_init(int pin_dout, int pin_sck) {
     }
     if (s.hw.scale == 0) s.hw.scale = 1.0f;
 
+    scale_pts_load();
     s.state = s.hw.calibrated ? SCALE_READY : SCALE_IDLE;
     s.session_start_ms = (uint32_t)(esp_timer_get_time() / 1000);
-    events_log(EVENT_INFO, "Scale init: scale=%.3f offset=%d",
-               s.hw.scale, s.hw.offset);
+    events_log(EVENT_INFO, "Scale init: scale=%.3f offset=%d pts=%d",
+               s.hw.scale, s.hw.offset, s_pts_n);
 }
 
 scale_t* scale_get(void) { return &s; }
@@ -177,4 +179,79 @@ void scale_task(void *arg) {
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }
+}
+// ---- Multi-point calibration / linearization ----
+#define SCALE_CAL_PTS_MAX 6
+typedef struct { int32_t raw; float g; } scale_pt_t;
+static scale_pt_t s_pts[SCALE_CAL_PTS_MAX];
+static int s_pts_n = 0;
+
+static void scale_pts_save(void) {
+    nvs_set_blob(nvs, "pts_n", &s_pts_n, sizeof(s_pts_n));
+    nvs_set_blob(nvs, "pts", s_pts, sizeof(s_pts));
+    nvs_commit(nvs);
+}
+
+static void scale_pts_load(void) {
+    size_t sz = sizeof(s_pts_n);
+    if (nvs_get_blob(nvs, "pts_n", &s_pts_n, &sz) != ESP_OK) s_pts_n = 0;
+    if (s_pts_n < 0 || s_pts_n > SCALE_CAL_PTS_MAX) s_pts_n = 0;
+    sz = sizeof(s_pts);
+    if (s_pts_n > 0 && nvs_get_blob(nvs, "pts", s_pts, &sz) != ESP_OK) s_pts_n = 0;
+}
+
+int scale_calib_points_count(void) { return s_pts_n; }
+
+bool scale_calib_points_add(float known_g) {
+    if (s_pts_n >= SCALE_CAL_PTS_MAX) return false;
+    if (!isfinite(known_g) || known_g <= 0.0f) return false;
+    if (s_pts_n == 0) scale_pts_load();
+    int32_t raw = hx711_read_avg(&s.hw, 20);
+    s_pts[s_pts_n].raw = raw;
+    s_pts[s_pts_n].g = known_g;
+    s_pts_n++;
+    scale_pts_save();
+    events_log(EVENT_INFO, "Scale: calib point raw=%d g=%.2f (%d pts)", (int)raw, (double)known_g, s_pts_n);
+    return true;
+}
+
+void scale_calib_points_clear(void) {
+    s_pts_n = 0;
+    memset(s_pts, 0, sizeof(s_pts));
+    scale_pts_save();
+    events_log(EVENT_INFO, "Scale: calib points cleared");
+}
+
+bool scale_calib_points_apply(void) {
+    if (s_pts_n == 0) scale_pts_load();
+    if (s_pts_n < 2) return false;
+    // Least-squares linear fit: g = a*raw + b  => scale=1/a, offset = -b/a
+    double sum_x=0,sum_y=0,sum_xx=0,sum_xy=0;
+    for (int i=0;i<s_pts_n;i++){ double x=s_pts[i].raw, y=s_pts[i].g; sum_x+=x; sum_y+=y; sum_xx+=x*x; sum_xy+=x*y; }
+    double n=s_pts_n;
+    double den = n*sum_xx - sum_x*sum_x;
+    if (fabs(den) < 1e-9) return false;
+    double a = (n*sum_xy - sum_x*sum_y) / den; // g per raw
+    double b = (sum_y - a*sum_x) / n;
+    if (fabs(a) < 1e-12) return false;
+    s.hw.scale = (float)a;
+    s.hw.offset = (int32_t)(-b/a);
+    s.hw.calibrated = true;
+    s.state = SCALE_READY;
+    save_calib();
+    events_log(EVENT_INFO, "Scale: multi-point calibrated scale=%.6f offset=%d (%d pts)", (double)s.hw.scale, (int)s.hw.offset, s_pts_n);
+    return true;
+}
+
+size_t scale_calib_points_json(char *buf, size_t buf_sz) {
+    if (!buf || buf_sz==0) return 0;
+    if (s_pts_n == 0) scale_pts_load();
+    size_t off = 0;
+    off += snprintf(buf+off, buf_sz-off, "{\"count\":%d,\"points\":[", s_pts_n);
+    for (int i=0;i<s_pts_n && off+2<buf_sz;i++) {
+        off += snprintf(buf+off, buf_sz-off, "%s{\"raw\":%d,\"g\":%.2f}", i?",":"", (int)s_pts[i].raw, (double)s_pts[i].g);
+    }
+    if (off+40 < buf_sz) off += snprintf(buf+off, buf_sz-off, "],\"scale\":%.6f,\"offset\":%d}", (double)s.hw.scale, (int)s.hw.offset);
+    else if (off+3<buf_sz) off += snprintf(buf+off, buf_sz-off, "]}");
+    return off;
 }
