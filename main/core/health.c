@@ -108,7 +108,7 @@ const char *health_json(void) {
     if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) rssi = ap.rssi;
 
     bool scale_ok = !hw_has_device(HW_DEV_SCALE) || scale_is_ready();
-    bool zmpt_ok = !hw_has_device(HW_DEV_ZMPT) || !zmpt_rms_fault();
+    bool zmpt_ok = !zmpt_rms_fault();
     bool pres_ok = !hw_has_device(HW_DEV_PRESSURE) || isfinite(st->pressure_bar);
 
     snprintf(out, sizeof(out),
