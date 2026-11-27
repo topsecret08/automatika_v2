@@ -3,8 +3,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "can_hmi_proto.h"
+
 /* Нормализованное состояние, которое HMI показывает на экранах.
- * Заполняется из JSON-поля TELEMETRY, но НЕ трогает LVGL из RS485-задачи. */
+ * Заполняется из JSON-поля TELEMETRY, но НЕ трогает LVGL из CAN-задачи. */
 typedef struct {
     bool     link;
     char     version[24];
@@ -64,15 +66,20 @@ typedef struct {
     bool     volume_overflow;
 
     /* link diagnostics */
-    uint32_t crc_err;
+    uint32_t rx_err;
     uint32_t frames;
     uint16_t latency_ms;
 } hmi_telemetry_t;
 
 void hmi_telemetry_reset(void);
 void hmi_telemetry_from_json(const uint8_t *payload, uint16_t len);
+void hmi_telemetry_apply_can(const can_hmi_tlm_a_t *a, const can_hmi_tlm_b_t *b,
+                             const can_hmi_tlm_c_t *c, const can_hmi_tlm_d_t *d,
+                             const can_hmi_tlm_e_t *e, const can_hmi_tlm_f_t *f,
+                             const can_hmi_tlm_g_t *g,
+                             uint16_t heap_kb, uint32_t elapsed_s);
 void hmi_telemetry_set_link(bool link);
-void hmi_telemetry_set_stats(uint32_t crc_err, uint32_t frames,
+void hmi_telemetry_set_stats(uint32_t rx_err, uint32_t frames,
                              uint16_t latency_ms);
 const hmi_telemetry_t *hmi_telemetry_get(void);
 

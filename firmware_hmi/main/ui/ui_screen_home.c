@@ -138,7 +138,7 @@ lv_obj_t *ui_screen_home_create(void)
 
     make_label(hdr, "AUTOMATIKA  •  ПАНЕЛЬ HMI",
                &cyr_28, c_text);
-    make_label(hdr, "800×480 / RS485 HMI=MASTER",
+    make_label(hdr, "800×480 / CAN HMI=MASTER",
                &cyr_18, c_muted);
 
     /* Content: main + status ------------------------------------------ */
@@ -264,7 +264,7 @@ lv_obj_t *ui_screen_home_create(void)
     s_level  = make_status_row(status, "УРОВЕНЬ", c_blue, &cyr_18);
     s_stage  = make_status_row(status, "ЭТАП",  c_blue, &cyr_18);
     s_ver    = make_status_row(status, "HMI",   c_muted, &cyr_14);
-    s_crc    = make_status_row(status, "CRC ERR", c_muted, &cyr_14);
+    s_crc    = make_status_row(status, "RX ERR", c_muted, &cyr_14);
 
     /* Event strip ------------------------------------------------------ */
     lv_obj_t *events = lv_obj_create(s_scr);
@@ -339,7 +339,7 @@ void ui_screen_home_update(const hmi_telemetry_t *t)
     lv_label_set_text_fmt(s_level, "%u", t->lv);
     lv_label_set_text_fmt(s_stage, "%u", t->stg);
     lv_label_set_text(s_ver, t->version ? t->version : "v0.0");
-    lv_label_set_text_fmt(s_crc, "%u", t->crc_err);
+    lv_label_set_text_fmt(s_crc, "%u", t->rx_err);
 
     /* Строка событий: заполняется из telemetry.ev[] в реальной прошивке */
     lv_label_set_text_fmt(s_ev[0], "t=%us  run=%u pause=%u",

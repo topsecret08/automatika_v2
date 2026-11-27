@@ -21,8 +21,8 @@ void ui_screen_preparation_update(const prep_state_t *s);
 
 /* Экран «Диагностика» */
 typedef struct {
-    bool rs485_ok;
-    uint32_t crc_err;
+    bool can_ok;
+    uint32_t rx_err;
     uint32_t frames;
     uint16_t latency_ms;
     uint32_t heap_kb;

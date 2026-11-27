@@ -52,10 +52,10 @@ void hmi_telemetry_set_link(bool link)
     s_t.link = link;
 }
 
-void hmi_telemetry_set_stats(uint32_t crc_err, uint32_t frames,
+void hmi_telemetry_set_stats(uint32_t rx_err, uint32_t frames,
                              uint16_t latency_ms)
 {
-    s_t.crc_err    = crc_err;
+    s_t.rx_err     = rx_err;
     s_t.frames     = frames;
     s_t.latency_ms = latency_ms;
 }
@@ -136,6 +136,83 @@ void hmi_telemetry_from_json(const uint8_t *payload, uint16_t len)
     cJSON_Delete(root);
 }
 
+static const char *reason_str(uint8_t code)
+{
+    switch (code) {
+        case CAN_HMI_REASON_ESTOP: return "E-STOP";
+        case CAN_HMI_REASON_BENCH: return "BENCH";
+        case CAN_HMI_REASON_SAFETY: return "SAFETY";
+        case CAN_HMI_REASON_FLOOD: return "FLOOD";
+        case CAN_HMI_REASON_EQ_LOCK: return "EQ_LOCK";
+        case CAN_HMI_REASON_VOL_GUARD: return "VOL_GUARD";
+        case CAN_HMI_REASON_VOL_NO_FLOW: return "VOL_NO_FLOW";
+        case CAN_HMI_REASON_VOL_OVERFLOW: return "VOL_OVERFLOW";
+        case CAN_HMI_REASON_ZMPT: return "ZMPT_FAULT";
+        case CAN_HMI_REASON_HW: return "HW_FAULT";
+        default: return "";
+    }
+}
+
+void hmi_telemetry_apply_can(const can_hmi_tlm_a_t *a, const can_hmi_tlm_b_t *b,
+                             const can_hmi_tlm_c_t *c, const can_hmi_tlm_d_t *d,
+                             const can_hmi_tlm_e_t *e, const can_hmi_tlm_f_t *f,
+                             const can_hmi_tlm_g_t *g,
+                             uint16_t heap_kb, uint32_t elapsed_s)
+{
+    if (!a || !b || !c || !d || !e || !f || !g) return;
+
+    s_t.stg = a->stage;
+    s_t.run = (a->flags1 & CAN_HMI_F1_RUN) ? 1 : 0;
+    s_t.pause = (a->flags1 & CAN_HMI_F1_PAUSE) ? 1 : 0;
+    s_t.sa = (a->flags1 & CAN_HMI_F1_SAFETY) != 0;
+    s_t.es = (a->flags1 & CAN_HMI_F1_ESTOP) != 0;
+    s_t.actions_blocked = (a->flags1 & CAN_HMI_F1_ACTIONS_BLOCKED) != 0;
+    s_t.bench_mode = (a->flags1 & CAN_HMI_F1_BENCH) != 0;
+    s_t.estop_active = s_t.es;
+    s_t.estop_mode = (uint8_t)(a->estop_mode & 0x0Fu);
+    s_t.sd = (a->flags1 & CAN_HMI_F1_SD_READY) != 0;
+    s_t.db = (a->flags3 & CAN_HMI_F3_DB_READY) != 0;
+    s_t.r = s_t.run;
+
+    s_t.flood_active = (a->flags2 & CAN_HMI_F2_FLOOD) != 0;
+    s_t.eq_lock_active = (a->flags2 & CAN_HMI_F2_EQ_LOCK) != 0;
+    s_t.eq_lock_phase = a->eq_phase;
+    s_t.volume_guard_active = (a->flags2 & CAN_HMI_F2_VOL_GUARD) != 0;
+    s_t.volume_no_flow = (a->flags2 & CAN_HMI_F2_VOL_NO_FLOW) != 0;
+    s_t.volume_overflow = (a->flags2 & CAN_HMI_F2_VOL_OVERFLOW) != 0;
+    s_t.scale_ready = (a->flags2 & CAN_HMI_F2_SCALE_READY) != 0;
+    s_t.scale_active = (a->flags2 & CAN_HMI_F2_SCALE_ACTIVE) != 0;
+    s_t.zmpt_fault = (a->flags2 & CAN_HMI_F2_ZMPT_FAULT) != 0;
+
+    s_t.tc = can_hmi_x100_to_temp(b->cube_x100);
+    s_t.ts = can_hmi_x100_to_temp(g->target_x100);
+    s_t.m = can_hmi_x100_to_temp(b->column_x100);
+
+    s_t.lv = c->level_pct;
+    s_t.p = can_hmi_x2_to_pct(d->power_x2);
+    s_t.flow = (float)d->flow_x100 / 100.0f;
+    s_t.baro = (float)d->pressure_x1000 / 1000.0f;
+
+    s_t.heads = e->heads_ml;
+    s_t.body = e->body_ml;
+    s_t.tails = e->tails_ml;
+    s_t.lsa_pwm = can_hmi_x2_to_pct(e->lsa_duty_x2);
+
+    s_t.pt506_bar = (float)f->pt506_x1000 / 1000.0f;
+    s_t.xgzp_kpa = (float)f->xgzp_x10 / 10.0f;
+    s_t.zmpt_v1 = (float)f->zmpt_v1;
+    s_t.zmpt_v2 = (float)f->zmpt_v2;
+    s_t.zmpt_v3 = (float)f->zmpt_v3;
+
+    uint32_t elapsed32 = (uint32_t)g->elapsed_lo | ((uint32_t)g->elapsed_hi << 16);
+    s_t.heap = (uint32_t)heap_kb * 1024u;
+    s_t.elapsed = elapsed32 ? elapsed32 : elapsed_s;
+    snprintf(s_t.reason, sizeof(s_t.reason), "%s", reason_str(a->reason_code));
+    snprintf(s_t.version, sizeof(s_t.version), "CAN v%u.%u.%u",
+             (unsigned)HMI_PROTO_VERSION_MAJOR, (unsigned)HMI_PROTO_VERSION_MINOR,
+             (unsigned)HMI_PROTO_VERSION_PATCH);
+}
+
 void hmi_telemetry_apply_ui(void)
 {
     if (s_t.epoch_s) ui_fut_clock_set_epoch(s_t.epoch_s);
@@ -189,8 +266,8 @@ void hmi_telemetry_apply_ui(void)
     ui_screen_preparation_update(&p);
 
     diag_state_t d = {0};
-    d.rs485_ok   = s_t.link;
-    d.crc_err    = s_t.crc_err;
+    d.can_ok     = s_t.link;
+    d.rx_err     = s_t.rx_err;
     d.frames     = s_t.frames;
     d.latency_ms = s_t.latency_ms;
     d.heap_kb    = s_t.heap / 1024;

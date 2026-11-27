@@ -177,7 +177,7 @@ object HmiMenu {
         "help_current", "help_glossary", "help_about" -> "cb_help_basics"
         "help_safety" -> "cb_help_safety"
         "diag_journal_events", "diag_journal_alarms" -> "cb_graph_history"
-        "diag_journal_rs485", "diag_net_rs485", "diag_net_wifi", "diag_net_api", "diag_net_ping" -> "cb_diag_over"
+        "diag_journal_can", "diag_net_can", "diag_net_wifi", "diag_net_api", "diag_net_ping" -> "cb_diag_over"
         "diag_ai_status", "diag_ai_predict", "diag_ai_log", "diag_ai_update" -> "cb_ai_status"
         "sys_api_endpoints", "sys_api_token", "sys_api_rate", "sys_api_clients" -> "cb_settings_gen"
         "sys_update_check", "sys_update_hmi", "sys_update_ctrl", "sys_update_rollback" -> "cb_fota_status"

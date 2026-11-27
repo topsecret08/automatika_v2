@@ -4,7 +4,7 @@
 
 ## Назначение
 
-Полный комплект материалов по вынесенному HMI на RS485 для Waveshare
+Полный комплект материалов по вынесенному HMI на CAN (TWAI) для Waveshare
 ESP32-S3-Touch-LCD-7 (800×480): дерево меню (216 экранов), генератор LVGL,
 кириллические шрифты, минимальный ESP-IDF проект и чек-лист первого запуска.
 
@@ -15,7 +15,7 @@ ESP32-S3-Touch-LCD-7 (800×480): дерево меню (216 экранов), г�
 
 ### Документы
 
-- `TZ_RS485_HMI.md` — архитектура, RS485-кадр, команды, безопасность, приёмка.
+- `TZ_CAN_HMI.md` — архитектура, CAN кадры, команды, безопасность, приёмка.
 - `TZ_GITHUB_MONOREPO.md` — структура монорепозитория, VERSION.json, CI, релизы.
 - `UI_ADAPTATION_800x480.md` — план адаптации, гибридные масштабы, палитра.
 - `FIRST_BOOT_CHECKLIST.md` — чек-лист на 6 декабря 2026 (RGB, GT911, CRC, FPS, safety).
@@ -38,9 +38,9 @@ ESP32-S3-Touch-LCD-7 (800×480): дерево меню (216 экранов), г�
 
 - `CMakeLists.txt`, `sdkconfig.defaults` — ESP32-S3-N16R8, RGB 800×480, PSRAM, LVGL 8.3.
 - `components/waveshare_rgb_lcd_port.c/.h` — RGB + GT911 + CH422G из примера Waveshare.
-- `main/main.c` — инициализация дисплея/тача/LVGL, UI и RS485 master.
-- `main/hmi_proto.h/.c` — кадр `AA 55 … CRC`, CRC-16/CCITT-FALSE.
-- `main/hmi_rs485.h/.c` — UART1 `115200`, POLL 500 мс, очередь `CMD`, статистика.
+- `main/main.c` — инициализация дисплея/тача/LVGL, UI и CAN master.
+- `main/hmi_proto.h/.c` — бинарные CAN кадры TLM_A..G/ACK/CMD.
+- `main/hmi_can.h/.c` — TWAI CAN 500 kbps, POLL 200 мс, очередь CMD, статистика.
 - `main/hmi_telemetry.h/.c` — JSON → `hmi_telemetry_t` → LVGL-экраны.
 - `main/ui/*` — синхронизированная копия UI и шрифтов.
 - `tests/test_proto.c`, `tests/run_test_proto.sh` — host-тест кадра и CRC.
@@ -65,7 +65,7 @@ idf.py build
 ```c
 ui_gen_init_overlays();
 ui_gen_screen_create(UI_GEN_MAIN, on_menu_select);
-hmi_rs485_init();
+hmi_can_init();
 lv_timer_create(hmi_ui_tick_cb, HMI_POLL_MS, NULL);  // часы + телеметрия
 ```
 

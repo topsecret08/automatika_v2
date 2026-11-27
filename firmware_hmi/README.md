@@ -1,14 +1,14 @@
 # HMI панель Automatika (800×480)
 
 Вынесенная графика на **Waveshare ESP32-S3-Touch-LCD-7**. Контроллер остаётся
-источником PID, safety и E-STOP; HMI — master шины RS485 и только отображает
+источником PID, safety и E-STOP; HMI — master шины CAN и только отображает
 состояние / отправляет команды через whitelist.
 
 ## Ключевые параметры связи (подтверждено 2026-11-25)
 
 | Параметр | Значение |
 |---|---|
-| Интерфейс | RS485, 2 провода, half-duplex, авто direction control на плате |
+| Интерфейс | CAN 2.0A (TWAI), 500 kbps, TJA1051 |
 | Скорость | **115200 8N1** (fallback — 57600) |
 | Роль | HMI = master, контроллер отвечает только на запросы |
 | Период `POLL` | **500 мс (2 Гц)** |
@@ -48,9 +48,9 @@ firmware_hmi_project/         # минимальный ESP-IDF проект по
 ├── components/
 │   └── waveshare_rgb_lcd_port.c/.h   # RGB + GT911 + CH422G из примера Waveshare
 └── main/
-    ├── main.c                # RGB, GT911, LVGL, UI, RS485 master
+    ├── main.c                # RGB, GT911, LVGL, UI, CAN master
     ├── hmi_proto.h/.c        # кадр, CRC, сборка/разбор
-    ├── hmi_rs485.h/.c        # UART1, POLL-цикл, очередь команд, статистика
+    ├── hmi_can.h/.c        # TWAI, POLL-цикл, очередь команд, статистика
     ├── hmi_telemetry.h/.c    # cJSON → структура → LVGL-экраны
     ├── idf_component.yml
     └── ui/                   # копия firmware_hmi/main/ui
@@ -76,9 +76,9 @@ idf.py -p PORT flash monitor
 - RGB: 800×480, 16 бит, 16 МГц пиксельный клок, bounce lines = 10 (из примера Waveshare).
 - I2C: SCL=GPIO9, SDA=GPIO8; GT911; CH422G в примере использует адреса `0x24`/`0x38`
   (адрес `0x20` свободен, конфликта с `STEPPER_I2C_ADDR` нет).
-- RS485: TX=GPIO15, RX=GPIO16, UART1. На плате автоматический direction control.
+- CAN: TX=GPIO19, RX=GPIO20, TWAI, onboard TJA1051.
 - **Не портировать** PWM `GPIO41/47/48` — это RGB-линии Waveshare.
-- IRAM на контроллере заполнен на 99.99 %: RS485-задача в HMI не использует
+- IRAM на контроллере заполнен на 99.99 %: CAN-задача в HMI не использует
   `ESP_INTR_FLAG_IRAM` и работает polling-/read без ISR.
 
 ## Кириллические шрифты
@@ -114,7 +114,7 @@ bash firmware_hmi_project/tests/run_test_proto.sh
 
 Источник времени — локальный RTC либо `ui_gen_clock_set_epoch(epoch)` /
 `ui_fut_clock_set_epoch(epoch)` из телеметрии. Тик часов и применение телеметрии
-выполняются в `lv_timer` (контекст LVGL), RS485-задача только обновляет структуру.
+выполняются в `lv_timer` (контекст LVGL), CAN-задача только обновляет структуру.
 
 ## Подключение телеметрии
 
@@ -125,13 +125,13 @@ bash firmware_hmi_project/tests/run_test_proto.sh
 |---|---|
 | Ректификация | `tc` → ПАР, `ts` → УСТ, `body` → отбор, `p` → крепость |
 | Подготовка | `tc/ts`, `lv`, `flow`, `sd`, `sa` |
-| Диагностика | `link`, `crc_err`, `frames`, `latency_ms`, `heap`, `stg`, `r`, `p` |
+| Диагностика | `link`, `rx_err`, `frames`, `latency_ms`, `heap`, `stg`, `r`, `p` |
 | Система | `v`, `db`, `elapsed`, `heap` |
 
 `open_s`, `close_s`, `profile`, `available` пока заглушки — уточнить после
 первого запуска и сверки с REST `/api/state`.
 
-Команды из UI добавляются в очередь `hmi_rs485_enqueue_cmd(json)` и отправляются
+Команды из UI добавляются в очередь `hmi_can_enqueue_cmd(json)` и отправляются
 между опросами; ожидается `ACK (0x82)` с тем же `SEQ`.
 
 ## Проверка перед поездкой (6 декабря)

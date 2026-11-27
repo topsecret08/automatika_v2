@@ -1,46 +1,35 @@
-/* Host-тест кадра и CRC. Запуск: bash tests/run_test_proto.sh */
+/* Host smoke test for CAN HMI protocol pack/unpack. */
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "../main/hmi_proto.h"
+#include "can_hmi_proto.h"
 
 int main(void)
 {
-    /* Example from TZ_RS485_HMI.md: POLL, seq=1, node=HMI, type=POLL. */
-    const uint8_t expected[] = {
-        0xAA, 0x55, 0x00, 0x00, 0x01, 0x00,
-        0x20, 0x01, 0x63, 0x6E
-    };
-    assert(hmi_crc16((const uint8_t *)"\x00\x00\x01\x00\x20\x01", 6) == 0x6E63);
+    uint8_t d[8];
+    can_hmi_tlm_a_t a = { .seq = 7, .stage = 4, .mode_type = 2, .flags1 = CAN_HMI_F1_RUN | CAN_HMI_F1_SAFETY,
+                          .flags2 = CAN_HMI_F2_EQ_LOCK, .eq_phase = 1, .estop_mode = 0, .flags3 = CAN_HMI_F3_DB_READY,
+                          .reason_code = CAN_HMI_REASON_EQ_LOCK };
+    can_hmi_tlm_a_t a2;
+    assert(can_hmi_pack_tlm_a(d, &a));
+    assert(can_hmi_unpack_tlm_a(d, &a2));
+    assert(a2.seq == 7 && a2.stage == 4 && a2.mode_type == 2);
+    assert(a2.flags1 == a.flags1 && a2.flags2 == a.flags2);
+    assert(a2.eq_phase == 1 && a2.reason_code == CAN_HMI_REASON_EQ_LOCK);
 
-    uint8_t frame[128];
-    size_t len = 0;
-    assert(hmi_frame_build(frame, &len, 1, HMI_NODE_HMI, HMI_TYPE_POLL,
-                           NULL, 0));
-    assert(len == sizeof(expected));
-    assert(memcmp(frame, expected, len) == 0);
+    can_hmi_cmd_t cmd = { .seq = 9, .cmd = CAN_HMI_CMD_POWER, .p0 = 0, .p1 = 232, .p2 = 3 }; /* 1000 x10 */
+    can_hmi_cmd_t cmd2;
+    assert(can_hmi_pack_cmd(d, &cmd));
+    assert(can_hmi_unpack_cmd(d, &cmd2));
+    assert(cmd2.seq == 9 && cmd2.cmd == CAN_HMI_CMD_POWER);
+    assert(can_hmi_u16(&d[3]) == 1000);
 
-    hmi_frame_t parsed;
-    assert(hmi_frame_parse(frame, len, &parsed));
-    assert(parsed.seq == 1);
-    assert(parsed.node == HMI_NODE_HMI);
-    assert(parsed.type == HMI_TYPE_POLL);
-    assert(parsed.len == 0);
-
-    /* Пayload JSON и CRC на искажённом кадре. */
-    const char *json = "{\"v\":\"V1.0.1\",\"tc\":78.4}";
-    assert(hmi_frame_build(frame, &len, 7, HMI_NODE_HMI, HMI_TYPE_POLL,
-                           (const uint8_t *)json, (uint16_t)strlen(json)));
-    assert(hmi_frame_parse(frame, len, &parsed));
-    assert(parsed.len == strlen(json));
-    assert(strcmp((char *)parsed.payload, json) == 0);
-
-    frame[len - 1] ^= 0x01; /* испортить CRC_HI */
-    assert(!hmi_frame_parse(frame, len, &parsed));
-
-    frame[1] = 0x00; /* испортить magic */
-    assert(!hmi_frame_parse(frame, len, &parsed));
+    can_hmi_ack_t ack = { .seq = 9, .kind = CAN_HMI_ACK_ACK, .ok = 1, .err_code = CAN_HMI_ERR_OK };
+    can_hmi_ack_t ack2;
+    assert(can_hmi_pack_ack(d, &ack));
+    assert(can_hmi_unpack_ack(d, &ack2));
+    assert(ack2.ok == 1 && ack2.kind == CAN_HMI_ACK_ACK);
 
     puts("PROTO TEST OK");
     return 0;

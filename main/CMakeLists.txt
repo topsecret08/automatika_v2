@@ -9,7 +9,7 @@ set(WEB_DIR "${CMAKE_CURRENT_LIST_DIR}/../littlefs")
 
 idf_component_register(
     SRCS
-        "main.c" "selftest.c" "rs485_hmi.c"
+        "main.c" "selftest.c" "can_hmi.c"
         "core/control_config.c" "core/estop.c" "core/skill_auth.c"
         "core/flash_fs.c" "core/nvs_migration.c" "core/config_backup.c"
         "core/health.c" "core/event_log.c" "core/alerts.c" "core/run_report.c"
@@ -108,7 +108,7 @@ idf_component_register(
         "${WEB_DIR}/icons/apple-touch-icon.png"
     REQUIRES
         nvs_flash esp_wifi esp_http_server esp_https_server esp_timer
-        rs485_protocol
+        can_hmi
         esp_netif json driver fatfs sdmmc spi_flash
         app_update mqtt esp_http_client spiffs vfs esp_event esp_https_ota
         mbedtls lwip wifi_provisioning

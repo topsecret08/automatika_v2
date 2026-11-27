@@ -16,7 +16,7 @@ static lv_obj_t *p_scr, *p_profile, *p_t1, *p_t2, *p_level, *p_flow;
 static lv_obj_t *p_rinse, *p_sealed, *p_preheat;
 
 /* --- диагностика --- */
-static lv_obj_t *d_scr, *d_rs485, *d_crc, *d_frames, *d_latency;
+static lv_obj_t *d_scr, *d_can, *d_crc, *d_frames, *d_latency;
 static lv_obj_t *d_heap, *d_valve, *d_pump, *d_mixer, *d_heater;
 
 /* --- система --- */
@@ -267,9 +267,9 @@ lv_obj_t *ui_screen_diagnostics_create(void)
     d_heater= make_lrow(c2, "ТЭН", "64%", c_yellow, false);
 
     lv_obj_t *c3 = make_card(top, "СЕТЬ");
-    d_rs485  = make_lrow(c3, "RS485", "OK", c_green, true);
+    d_can  = make_lrow(c3, "CAN", "OK", c_green, true);
     make_lrow(c3, "HMI", "MASTER", c_cyan, false);
-    d_crc    = make_lrow(c3, "CRC ERR", "0", c_white, false);
+    d_crc    = make_lrow(c3, "RX ERR", "0", c_white, false);
     make_lrow(c3, "ПОЛЛ", "1 Гц", c_white, false);
 
     lv_obj_t *wide = ui_fut_panel(body);
@@ -317,10 +317,10 @@ lv_obj_t *ui_screen_diagnostics_create(void)
 void ui_screen_diagnostics_update(const diag_state_t *s)
 {
     if (!s || !d_scr) return;
-    lv_label_set_text(d_rs485, s->rs485_ok ? "OK" : "NO LINK");
-    lv_obj_set_style_text_color(d_rs485,
-        s->rs485_ok ? c_green : c_orange, 0);
-    lv_label_set_text_fmt(d_crc, "%u", s->crc_err);
+    lv_label_set_text(d_can, s->can_ok ? "OK" : "NO LINK");
+    lv_obj_set_style_text_color(d_can,
+        s->can_ok ? c_green : c_orange, 0);
+    lv_label_set_text_fmt(d_crc, "%u", s->rx_err);
     lv_label_set_text_fmt(d_frames, "%u", s->frames);
     lv_label_set_text_fmt(d_latency, "%u мс", s->latency_ms);
     lv_label_set_text_fmt(d_heap, "%u КБ", s->heap_kb);

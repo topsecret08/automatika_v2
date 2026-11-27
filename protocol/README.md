@@ -1,22 +1,37 @@
-# Общий протокол RS485 (`protocol/`)
+# Общий протокол CAN HMI (`protocol/`)
 
-Единственный источник истины для кадров между контроллером и HMI-панелью.
-Используется обеими прошивками через ESP-IDF-компонент `rs485_protocol`:
+Единственный источник истины для бинарного CAN-протокола между контроллером и HMI-панелью.
+Используется обеими прошивками через ESP-IDF-компонент `can_hmi`:
 
 ```cmake
 # в корневом CMakeLists.txt каждого проекта, ДО project()
-set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
+set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/can_hmi")
 ```
 
-Для контроллера это `"../protocol/rs485_protocol"`, для `firmware_hmi_project` —
-`"../../protocol/rs485_protocol"`. В обоих проектах используется один приём:
-добавить `EXTRA_COMPONENT_DIRS` с путём к `protocol/rs485_protocol` и указать
-`rs485_protocol` в `REQUIRES` компонента `main`.
+Для контроллера это `"../protocol/can_hmi"`, для `firmware_hmi_project` —
+`"../../protocol/can_hmi"`. В обоих проектах используется один приём:
+добавить `EXTRA_COMPONENT_DIRS` с путём к `protocol/can_hmi` и указать
+`can_hmi` в `REQUIRES` компонента `main`.
+
+## Транспорт
+
+- ESP32 TWAI (classic CAN 2.0A), standard 11-bit IDs, DLC=8
+- Default bitrate: 500 kbit/s (configurable 250/500/1000)
+- HMI is application master (poll/commands), controller responds
+
+## CAN IDs
+
+| ID | Dir | Purpose |
+|---:|---|---|
+| 0x100 | HMI->CTRL | CMD |
+| 0x101 | HMI->CTRL | POLL |
+| 0x180..0x186 | CTRL->HMI | TLM_A..TLM_G |
+| 0x18F | CTRL->HMI | ACK/PONG/SNAPSHOT_END/CONFIG |
 
 ## Формат кадра
 
 ```
-AA 55 | LEN_LO LEN_HI | SEQ_LO SEQ_HI | NODE | TYPE | PAYLOAD[LEN] | CRC_LO CRC_HI
+Standard CAN frame: 11-bit ID + 8 data bytes. Multi-byte values are little-endian.
 ```
 
 - `LEN` — длина `PAYLOAD` (0..512).

@@ -1,6 +1,6 @@
 # Схема подключения модулей
 
-Текстовая схема контроллера Automatika (ESP32-S3, headless + внешняя HMI по RS485).
+Текстовая схема контроллера Automatika (ESP32-S3, headless + внешняя HMI по CAN/TWAI).
 Источник истины — `main/config.h`; при расхождении правьте код и документацию.
 Полная распиновка: [`pinout.md`](pinout.md). Новое расширение: [`SENSORS_ACTUATORS.md`](SENSORS_ACTUATORS.md), [`SCHEMATIC_MODULES.md`](SCHEMATIC_MODULES.md).
 
@@ -26,7 +26,7 @@ Level float ◄────────────┼── GPIO40             
 Buzzer ◄─────────────────┼── GPIO42                                 │
 SSR/MOSFET heat ◄────────┼── GPIO14 (REG_SSR_GPIO)                  │
 Stepper STEP/EN/DIR ◄────┼── GPIO15 / GPIO16 / GPIO39               │
-RS485 HMI TX/RX/DE ◄─────┼── GPIO17 / GPIO18 / GPIO21               │
+CAN HMI TX/RX/DE ◄─────┼── GPIO17 / GPIO18 / GPIO21               │
 LSA PWM->0-10V ◄─────────┼── GPIO38                                 │
 Solenoid PWM ◄───────────┼── GPIO41                                 │
 Safety relay ◄───────────┼── GPIO47                                 │
@@ -54,5 +54,5 @@ XGZP6897D @0x6D
 - **XKC-Y25-V**: питание 5V, выход через делитель 10k+22k + RC до 3.3V на MCP23017 GPB.
 - **PT-506**: 4-20mA через 165Ω 0.1% в A0 ADS1115#2.
 - **ZMPT101B**: RMS мониторинг ограничен скоростью ADS1115; перед контуром регулирования LSA нужна стендовая калибровка.
-- **HMI panel GPIO15/16** не трогаются. RS485 только GPIO17/18/21 на контроллере.
+- **HMI panel GPIO15/16** не трогаются. CAN только GPIO17/18/21 на контроллере.
 - Механический разрыв фазы E-STOP обязателен. Программная защёлка его не заменяет.
