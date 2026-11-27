@@ -140,7 +140,7 @@ static void fill_telemetry(char *buf, size_t len)
     const float lsa_duty = hal_lsa_pwm_get_duty_pct();
     const float zmpt_ctrl = zmpt_rms_ctrl_v();
     snprintf(buf, len,
-             "{\"st\":\"%s\",\"mode\":\"%s\",\"type\":%d,"
+             "{\"v\":\"%s\",\"st\":\"%s\",\"mode\":\"%s\",\"type\":%d,"
              "\"run\":%d,\"pause\":%d,"
              "\"tc\":%.2f,\"tk\":%.2f,\"td\":%.2f,\"tj\":%.2f,"
              "\"p\":%.3f,\"vac\":%.1f,\"flow\":%.2f,"
@@ -157,7 +157,7 @@ static void fill_telemetry(char *buf, size_t len)
              "\"sc_rdy\":%d,\"sc_act\":%d,\"sc_g\":%.1f,\"sc_flow\":%.2f,\"sc_ml\":%.1f,"
              "\"elapsed\":%u,\"frac\":\"\",\"baro\":0,\"sd\":%s,\"db\":false,"
              "\"heap\":%u,\"epoch\":0,\"ev\":\"\"}",
-             stage, mode, (int)s.type,
+             FW_VERSION, stage, mode, (int)s.type,
              s.is_running ? 1 : 0, s.is_paused ? 1 : 0,
              s.cube_temp, s.column_temp, s.deph_temp, s.jacket_temp,
              s.pressure_bar, s.vacuum_mbar, s.flow_lpm,
