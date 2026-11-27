@@ -15,10 +15,10 @@
 | 7 | **E-STOP** | input, pull-up | NC-цепь на GND; в норме 0, авария/обрыв — 1. ADC1, не strapping |
 | 8 | I2C SDA | bidir | BMP280, DS3231, MCP4725, PCA9685, Grove SSR, ADS1115, MCP23017, ADS1115#2, XGZP6897D |
 | 9 | I2C SCL | output | 400 кГц |
-| 10 | microSD CS | output | SPI |
-| 11 | microSD MOSI | output | SPI |
-| 12 | microSD CLK | output | SPI |
-| 13 | microSD MISO | input | SPI |
+| 10 | — | свободен | SD на контроллере отключена; хранение данных перенесено на HMI |
+| 11 | — | свободен | SD на контроллере отключена |
+| 12 | — | свободен | SD на контроллере отключена |
+| 13 | — | свободен | SD на контроллере отключена |
 | 14 | `REG_SSR_GPIO` | output, PWM 1 кГц | SSR/MOSFET нагрева (headless default) |
 | 15 | `PUMP_STEP_GPIO` | output | шаговый дозатор STEP (headless default) |
 | 16 | `PUMP_EN_GPIO` | output | шаговый дозатор EN (headless default) |
@@ -133,6 +133,8 @@ GPIO 7 — дополнение для UI и журнала, а не замен�
 - **Strapping**: 0, 3, 45, 46. Зуммер на 42, чтобы не занимать strapping-пин.
 - **CAN HMI**: GPIO 17/18 (TWAI TX/RX) -> TJA1051/CJMCU-1051, CANH/CANL, 120 Ом на концах.
 - **HMI panel**: GPIO 15 TXD / 16 RXD на панели — не трогать.
+- **HMI TF card (Waveshare ESP32-S3-Touch-LCD-7)**: GPIO11 MOSI, GPIO12 SCK, GPIO13 MISO, CS = CH422G EXIO4 (active low). Используется для help/lessons/tests/recipes/logs на HMI.
+- **Контроллер SD**: внешняя SD-карта на контроллере отключена; контроллер работает как IO/CAN-узел.
 
 ## 6. Питание
 

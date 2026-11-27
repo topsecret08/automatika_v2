@@ -2,6 +2,7 @@ idf_component_register(
     SRCS
         "main.c"
         "hmi_can.c"
+        "hmi_storage.c"
         "hmi_telemetry.c"
         "ai/screen_registry.c"
         "ai/page_predictor.c"
@@ -32,8 +33,10 @@ idf_component_register(
         esp_lcd
         esp_timer
         esp_pm
+        fatfs
         json
         nvs_flash
+        sdmmc
         lvgl
         esp_lcd_touch
         esp_lcd_touch_gt911

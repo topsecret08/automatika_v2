@@ -19,6 +19,7 @@
 
 #include "hmi_proto.h"
 #include "hmi_can.h"
+#include "hmi_storage.h"
 #include "hmi_telemetry.h"
 
 #include "ai/page_predictor.h"
@@ -135,6 +136,11 @@ void app_main(void)
 
     ESP_ERROR_CHECK(waveshare_esp32_s3_rgb_lcd_init(2, &s_panel, &s_touch));
     ESP_ERROR_CHECK(waveshare_rgb_lcd_backlight_on());
+
+    esp_err_t sd_err = hmi_storage_init();
+    if (sd_err != ESP_OK) {
+        ESP_LOGW(TAG, "HMI SD not available: %s (continuing without SD)", esp_err_to_name(sd_err));
+    }
 
     lv_init();
 

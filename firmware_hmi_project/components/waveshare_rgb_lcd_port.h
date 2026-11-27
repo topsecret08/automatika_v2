@@ -67,4 +67,9 @@ esp_err_t waveshare_esp32_s3_rgb_lcd_init(uint8_t num_fbs,
 
 esp_err_t waveshare_rgb_lcd_backlight_on(void);
 
+/* CH422G EXIO output bit control (mask bits set/cleared in EXIO register 0x38).
+ * EXIO4 (0x10) is TF card CS on Waveshare ESP32-S3-Touch-LCD-7, active low. */
+#define WAVESHARE_EXIO_TF_CS 0x10u
+esp_err_t waveshare_rgb_lcd_exio_set_bits(uint8_t mask, bool set);
+
 #endif

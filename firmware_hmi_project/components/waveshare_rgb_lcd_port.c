@@ -13,6 +13,7 @@
 
 static const char *TAG = "lcd_port";
 static bool s_i2c_ready = false;
+static uint8_t s_exio_out = 0xFF; /* CH422G EXIO output shadow, active-low bits depend on pin */
 
 #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_GT911
 static esp_err_t i2c_master_init_if_needed(void)
@@ -62,18 +63,38 @@ static esp_err_t ch422g_init_for_output(void)
     return i2c_master_write_to_device(I2C_MASTER_NUM, 0x24, &write_buf, 1, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
 }
 
+static esp_err_t ch422g_write_exio(uint8_t value)
+{
+    esp_err_t ret = i2c_master_write_to_device(I2C_MASTER_NUM, 0x38, &value, 1,
+                                               I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    if (ret == ESP_OK) {
+        s_exio_out = value;
+    }
+    return ret;
+}
+
+esp_err_t waveshare_rgb_lcd_exio_set_bits(uint8_t mask, bool set)
+{
+    ESP_ERROR_CHECK(i2c_master_init_if_needed());
+    ESP_ERROR_CHECK(ch422g_init_for_output());
+    uint8_t value = s_exio_out;
+    if (set) value |= mask;
+    else value &= (uint8_t)~mask;
+    return ch422g_write_exio(value);
+}
+
 static esp_err_t waveshare_esp32_s3_touch_reset(void)
 {
-    uint8_t write_buf = 0x2C;
+    uint8_t write_buf = (uint8_t)(0x2Cu | (s_exio_out & 0x10u));
 
     ESP_ERROR_CHECK(ch422g_init_for_output());
     ESP_ERROR_CHECK(touch_reset_gpio_init());
-    ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, 0x38, &write_buf, 1, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS));
+    ESP_ERROR_CHECK(ch422g_write_exio(write_buf));
     esp_rom_delay_us(100 * 1000);
     gpio_set_level(EXAMPLE_TOUCH_RESET_GPIO, 0);
     esp_rom_delay_us(100 * 1000);
-    write_buf = 0x2E;
-    ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, 0x38, &write_buf, 1, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS));
+    write_buf = (uint8_t)(0x2Eu | (s_exio_out & 0x10u));
+    ESP_ERROR_CHECK(ch422g_write_exio(write_buf));
     esp_rom_delay_us(200 * 1000);
     return ESP_OK;
 }
@@ -82,10 +103,12 @@ static esp_err_t waveshare_esp32_s3_touch_reset(void)
 esp_err_t waveshare_rgb_lcd_backlight_on(void)
 {
     uint8_t write_buf = 0x1E;
+    /* Preserve SD_CS (EXIO4) if it was driven by storage. */
+    write_buf = (uint8_t)((write_buf & ~0x10u) | (s_exio_out & 0x10u));
 
     ESP_ERROR_CHECK(i2c_master_init_if_needed());
     ESP_ERROR_CHECK(ch422g_init_for_output());
-    return i2c_master_write_to_device(I2C_MASTER_NUM, 0x38, &write_buf, 1, I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+    return ch422g_write_exio(write_buf);
 }
 
 esp_err_t waveshare_esp32_s3_rgb_lcd_init(uint8_t num_fbs,
