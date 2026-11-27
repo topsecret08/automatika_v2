@@ -1,183 +1,31 @@
 #include "sd_resilience.h"
-#include "storage.h"
-#include "config.h"
 
-#include "core/events.h"
-#include "core/watchdog.h"
-
-#include "esp_heap_caps.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
 #include "freertos/task.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
+/*
+ * SD removed from controller: controller is IO/CAN node.
+ * Events/logs are kept in RAM and forwarded to HMI over CAN.
+ * These stubs keep existing call sites link-compatible.
+ */
 
-static const char *TAG = "SD_SAFE";
-
-// Пауза между попытками монтирования, если карты нет: удваивается до этого предела.
-#define SD_RETRY_MAX_MS 60000u
-
-#define SD_PROBE_PATH "/sdcard/.probe"
-#define SD_LOG_PATH   "/sdcard/logs/resilience.log"
-
-static SemaphoreHandle_t s_mtx = NULL;
-typedef struct {
-    const char *path;
-    char *line;
-} sd_entry_t;
-
-static sd_entry_t s_queue[SD_QUEUE_LEN];
-static int s_head = 0;
-static int s_tail = 0;
-static int s_count = 0;
-static bool s_mounted = false;
-
-static void ensure_mutex(void) {
-    if (!s_mtx) s_mtx = xSemaphoreCreateMutex();
-}
-
-bool sd_resilience_mounted(void) { return s_mounted; }
-
-int sd_resilience_pending(void) {
-    ensure_mutex();
-    if (!s_mtx) return 0;
-    xSemaphoreTake(s_mtx, portMAX_DELAY);
-    int n = s_count;
-    xSemaphoreGive(s_mtx);
-    return n;
-}
-
-static char *dup_psram(const char *line) {
-    size_t len = strlen(line);
-    char *p = heap_caps_malloc(len + 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!p) p = malloc(len + 2);
-    if (!p) return NULL;
-    memcpy(p, line, len);
-    if (len == 0 || p[len - 1] != '\n') {
-        p[len++] = '\n';
-    }
-    p[len] = '\0';
-    return p;
-}
-
-// Ставит строку в очередь и не пишет на SD сама: вызывающий код (в том числе
-// events_log под своим мьютексом) не ждёт карту. Сброс делает задача sd_safe.
-void sd_resilience_append(const char *path, const char *line) {
-    if (!path || !line || !line[0]) return;
-    ensure_mutex();
-    if (!s_mtx) return;
-
-    char *copy = dup_psram(line);
-    if (!copy) return;
-
-    xSemaphoreTake(s_mtx, portMAX_DELAY);
-    if (s_count >= SD_QUEUE_LEN) {
-        // Кольцо переполнено: выбрасываем самую старую запись.
-        free(s_queue[s_tail].line);
-        s_queue[s_tail].line = NULL;
-        s_tail = (s_tail + 1) % SD_QUEUE_LEN;
-        s_count--;
-    }
-    s_queue[s_head].path = path;
-    s_queue[s_head].line = copy;
-    s_head = (s_head + 1) % SD_QUEUE_LEN;
-    s_count++;
-    xSemaphoreGive(s_mtx);
-}
-
-void sd_resilience_log(const char *line) {
-    sd_resilience_append(SD_LOG_PATH, line);
-}
-
-static void flush_queue(void) {
-    ensure_mutex();
-    if (!s_mtx) return;
-
-    while (s_count > 0) {
-        xSemaphoreTake(s_mtx, portMAX_DELAY);
-        sd_entry_t e = s_queue[s_tail];
-        s_queue[s_tail].line = NULL;
-        s_tail = (s_tail + 1) % SD_QUEUE_LEN;
-        s_count--;
-        xSemaphoreGive(s_mtx);
-
-        if (!e.line) continue;
-
-        FILE *f = fopen(e.path, "a");
-        if (!f) {
-            // Не смогли сбросить — возвращаем строку в очередь.
-            xSemaphoreTake(s_mtx, portMAX_DELAY);
-            if (s_count < SD_QUEUE_LEN) {
-                s_queue[s_head] = e;
-                s_head = (s_head + 1) % SD_QUEUE_LEN;
-                s_count++;
-                e.line = NULL;
-            }
-            xSemaphoreGive(s_mtx);
-            if (e.line) free(e.line);
-            return;
-        }
-        fputs(e.line, f);
-        fclose(f);
-        free(e.line);
-    }
-}
-
-static bool probe(void) {
-    FILE *f = fopen(SD_PROBE_PATH, "w");
-    if (!f) return false;
-    fputc('1', f);
-    fclose(f);
-    remove(SD_PROBE_PATH);
-    return true;
-}
-
-void sd_resilience_init(void) {
-    ensure_mutex();
-    s_mounted = storage_sd_ready();
-    if (s_mounted) {
-        mkdir("/sdcard/logs", 0777);
-    }
-}
+void sd_resilience_init(void) {}
 
 void sd_resilience_task(void *arg) {
     (void)arg;
-    wd_register("sd_safe", SD_RETRY_MAX_MS + 2 * SD_PROBE_MS, false);
-
-    bool was_mounted = s_mounted;
-    uint32_t retry_ms = SD_PROBE_MS;
-
-    while (1) {
-        WD_FEED("sd_safe");
-
-        if (!s_mounted) {
-            if (storage_sd_ready() || storage_remount() == ESP_OK) {
-                s_mounted = true;
-                retry_ms = SD_PROBE_MS;
-            } else {
-                retry_ms = retry_ms * 2 > SD_RETRY_MAX_MS ? SD_RETRY_MAX_MS : retry_ms * 2;
-            }
-        } else if (!probe()) {
-            ESP_LOGW(TAG, "SD probe failed, remounting");
-            events_log(EVENT_WARNING, "SD: card lost, remounting");
-            s_mounted = false;
-            if (storage_remount() == ESP_OK) s_mounted = true;
-        }
-
-        if (s_mounted && !was_mounted) {
-            mkdir("/sdcard/logs", 0777);
-            events_log(EVENT_INFO, "SD: card ready");
-            flush_queue();
-        }
-        was_mounted = s_mounted;
-
-        // Периодически сбрасываем накопленное, даже если карта не «терялась».
-        if (s_mounted && sd_resilience_pending() > 0) flush_queue();
-
-        vTaskDelay(pdMS_TO_TICKS(s_mounted ? SD_PROBE_MS : retry_ms));
+    // No SD to probe on controller.
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(60000));
     }
 }
+
+bool sd_resilience_mounted(void) { return false; }
+
+void sd_resilience_log(const char *line) { (void)line; }
+
+void sd_resilience_append(const char *path, const char *line) {
+    (void)path;
+    (void)line;
+}
+
+int sd_resilience_pending(void) { return 0; }

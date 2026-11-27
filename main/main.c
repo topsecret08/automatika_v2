@@ -263,9 +263,6 @@ void app_main(void) {
     storage_init();
     flash_fs_init();
     profiles_init();
-    sd_resilience_init();
-
-    sd_content_init();
     /* CDC включается при старте, чтобы конфигуратор на ПК находил плату
      * по COM-порту без ручного выбора режима в меню. */
     hal_usb_init(USB_MODE_CDC);
@@ -367,7 +364,6 @@ void app_main(void) {
     SPAWN(baro_task,          "baro",      3072,              2,                 CORE_NETWORK_AI);
     SPAWN(expansion_sensors_task, "exp_sens", 4096,          2,                 CORE_NETWORK_AI);
     SPAWN(pid_autotune_task,  "autotune",  3072,              2,                 CORE_NETWORK_AI);
-    SPAWN(sd_resilience_task, "sd_safe",   4096,              2,                 CORE_NETWORK_AI);
 #ifndef CONFIG_HMI_EXTERNAL_UI
     SPAWN(ui_preloader_task,  "preloader", STACK_PRELOADER,   PRIO_PRELOADER,    CORE_NETWORK_AI);
 #endif
