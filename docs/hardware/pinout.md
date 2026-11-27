@@ -22,9 +22,9 @@
 | 14 | `REG_SSR_GPIO` | output, PWM 1 кГц | SSR/MOSFET нагрева (headless default) |
 | 15 | `PUMP_STEP_GPIO` | output | шаговый дозатор STEP (headless default) |
 | 16 | `PUMP_EN_GPIO` | output | шаговый дозатор EN (headless default) |
-| 17 | `HMI_RS485_TX_GPIO` | UART2 TX | RS485 к HMI-панели |
-| 18 | `HMI_RS485_RX_GPIO` | UART2 RX | RS485 от HMI-панели |
-| 21 | `HMI_RS485_DE_GPIO` | output | RS485 DE/RE |
+| 17 | `HMI_CAN_TX_GPIO` | TWAI TX | CAN к HMI-панели через TJA1051 (TXD) |
+| 18 | `HMI_CAN_RX_GPIO` | TWAI RX | CAN от HMI-панели через TJA1051 (RXD) |
+| 21 | — | свободен | Бывший DE/RE, теперь не используется |
 | 38 | `LSA_PWM_GPIO` | output, LEDC PWM 2kHz | Loncont LSA-TH3P40Y через внешний PWM→0-5/0-10V |
 | 39 | `PUMP_DIR_GPIO` | output | направление шагового двигателя (TAKEOFF/NBK_FEED) |
 | 40 | Level float | input, pull-up | датчик уровня |
@@ -33,8 +33,8 @@
 | 47 | `SAFETY_RELAY_GPIO` | output | fail-safe реле |
 | 48 | `EXT_WDT_DONE_GPIO` | output | внешний watchdog DONE |
 
-> `CONFIG_HMI_EXTERNAL_UI=y`: локальный дисплей не используется, управление через внешнюю HMI по RS485.
-> Выводы 14–18,21 освобождены от LCD и назначены под RS485/актуаторы.
+> `CONFIG_HMI_EXTERNAL_UI=y`: локальный дисплей не используется, управление через внешнюю HMI по CAN.
+> Выводы 14,17,18 освобождены от LCD и назначены под актуаторы/CAN HMI.
 > **GPIO 15 TXD / 16 RXD HMI-панели не трогать** — это выводы панели, а не контроллера.
 
 > не заданы в `config.h` и не используются.
@@ -70,7 +70,7 @@
 | Закон мощности | `ana_sqrt` в NVS | `sqrt(U)` |
 
 Доступные для ручного выбора PWM-выводы: **14, 41, 47, 48** (при свободности
-по текущей конфигурации; 15–18,21 зарезервированы под RS485/дозатор). USB/UART0,
+по текущей конфигурации; 17,18 зарезервированы под CAN HMI, 15,16 под дозатор в headless). USB/UART0,
 strapping и диапазон 26–37 запрещены; при недопустимом выводе
 `regulator_ready=false`, выход 0, и API/PWA сообщают ошибку. Источник истины
 списка — `main/control/regulator_settings_logic.h`.
@@ -125,13 +125,13 @@ GPIO 7 — дополнение для UI и журнала, а не замен�
 
 ## 5. Занятые и запрещённые пины
 
-- **USB**: GPIO 19/20 (native USB), не занимать.
+- **USB**: GPIO 19/20 (native USB) на контроллере не занимать. На HMI-панели Waveshare 7" GPIO19/20 используются для CAN (TWAI) через onboard TJA1051.
 - **UART0**: GPIO 43 (TX) / 44 (RX), используется для логов и прошивки.
 - **PSRAM Octal**: GPIO 33–37 заняты внутри модуля N16R8; GPIO 26–32
   обычно заняты SPI flash/PSRAM. Не использовать без проверки схемы.
 - **Отсутствуют у ESP32-S3**: GPIO 22, 23, 24, 25.
 - **Strapping**: 0, 3, 45, 46. Зуммер на 42, чтобы не занимать strapping-пин.
-- **RS485 HMI**: GPIO 17/18/21 (UART2 TX/RX/DE).
+- **CAN HMI**: GPIO 17/18 (TWAI TX/RX) -> TJA1051/CJMCU-1051, CANH/CANL, 120 Ом на концах.
 - **HMI panel**: GPIO 15 TXD / 16 RXD на панели — не трогать.
 
 ## 6. Питание

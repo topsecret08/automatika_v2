@@ -1,6 +1,6 @@
 /*
  * Automatika HMI — Waveshare ESP32-S3-Touch-LCD-7
- * LVGL 8.3 + RGB 800x480 + GT911 + RS485 master (115200, 500 ms poll).
+ * LVGL 8.3 + RGB 800x480 + GT911 + CAN/TWAI master (500 kbps, 200 ms poll).
  * Direct LVGL port (no esp_lvgl_adapter) for ESP-IDF 5.3.2 compatibility.
  */
 
@@ -18,7 +18,7 @@
 #include "waveshare_rgb_lcd_port.h"
 
 #include "hmi_proto.h"
-#include "hmi_rs485.h"
+#include "hmi_can.h"
 #include "hmi_telemetry.h"
 
 #include "ai/page_predictor.h"
@@ -178,7 +178,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_timer_create(&tick_args, &tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, 2000));
 
-    hmi_rs485_init();
+    hmi_can_init();
 
     if (lvgl_lock(-1)) {
         ui_gen_init_overlays();
@@ -191,6 +191,6 @@ void app_main(void)
 
     xTaskCreatePinnedToCore(lvgl_task, "lvgl", 12 * 1024, NULL, 4, NULL, 1);
 
-    ESP_LOGI(TAG, "HMI ready: 800x480, RS485 %d baud, poll %d ms",
-             HMI_UART_BAUD, HMI_POLL_MS);
+    ESP_LOGI(TAG, "HMI ready: 800x480, CAN %d kbps TX=%d RX=%d, poll %d ms",
+             HMI_CAN_BITRATE_KBPS, HMI_CAN_TX_GPIO, HMI_CAN_RX_GPIO, HMI_POLL_MS);
 }

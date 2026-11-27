@@ -1,4 +1,4 @@
 idf_component_register(
-    SRCS "hmi_protocol.c"
+    SRCS "can_hmi_proto.c"
     INCLUDE_DIRS "." ".."
 )

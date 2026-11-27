@@ -151,7 +151,7 @@ static const char * const s_titles[] = {
     "ПОДГОТОВКА", /* preparation */
     "Импорт настроек режима", /* prep_import */
     "Из файла", /* prep_import_file */
-    "С контроллера по RS485", /* prep_import_rs485 */
+    "С контроллера по CAN", /* prep_import_can */
     "Проверка и применение", /* prep_import_verify */
     "Доступное оборудование", /* prep_equipment */
     "Сканирование", /* prep_eq_scan */
@@ -181,7 +181,7 @@ static const char * const s_titles[] = {
     "Журнал", /* diag_journal */
     "События", /* diag_journal_events */
     "Аварии", /* diag_journal_alarms */
-    "Ошибки RS485 / CRC", /* diag_journal_rs485 */
+    "Ошибки CAN / CRC", /* diag_journal_can */
     "Приводы", /* diag_actuators */
     "Состояния", /* diag_act_state */
     "Ручное управление", /* diag_act_manual */
@@ -192,7 +192,7 @@ static const char * const s_titles[] = {
     "Журнал прогнозов", /* diag_ai_log */
     "Обновление моделей", /* diag_ai_update */
     "Сеть", /* diag_network */
-    "RS485", /* diag_net_rs485 */
+    "CAN", /* diag_net_can */
     "Wi-Fi / Ethernet", /* diag_net_wifi */
     "API-клиенты", /* diag_net_api */
     "Ping / задержка", /* diag_net_ping */
@@ -370,7 +370,7 @@ static const char * const s_ids[] = {
     "preparation",
     "prep_import",
     "prep_import_file",
-    "prep_import_rs485",
+    "prep_import_can",
     "prep_import_verify",
     "prep_equipment",
     "prep_eq_scan",
@@ -400,7 +400,7 @@ static const char * const s_ids[] = {
     "diag_journal",
     "diag_journal_events",
     "diag_journal_alarms",
-    "diag_journal_rs485",
+    "diag_journal_can",
     "diag_actuators",
     "diag_act_state",
     "diag_act_manual",
@@ -411,7 +411,7 @@ static const char * const s_ids[] = {
     "diag_ai_log",
     "diag_ai_update",
     "diag_network",
-    "diag_net_rs485",
+    "diag_net_can",
     "diag_net_wifi",
     "diag_net_api",
     "diag_net_ping",
@@ -589,7 +589,7 @@ static const int16_t s_parent[] = {
     10, /* preparation */
     132, /* prep_import */
     133, /* prep_import_file */
-    133, /* prep_import_rs485 */
+    133, /* prep_import_can */
     133, /* prep_import_verify */
     132, /* prep_equipment */
     137, /* prep_eq_scan */
@@ -619,7 +619,7 @@ static const int16_t s_parent[] = {
     156, /* diag_journal */
     162, /* diag_journal_events */
     162, /* diag_journal_alarms */
-    162, /* diag_journal_rs485 */
+    162, /* diag_journal_can */
     156, /* diag_actuators */
     166, /* diag_act_state */
     166, /* diag_act_manual */
@@ -630,7 +630,7 @@ static const int16_t s_parent[] = {
     170, /* diag_ai_log */
     170, /* diag_ai_update */
     156, /* diag_network */
-    175, /* diag_net_rs485 */
+    175, /* diag_net_can */
     175, /* diag_net_wifi */
     175, /* diag_net_api */
     175, /* diag_net_ping */
@@ -808,7 +808,7 @@ static const uint16_t s_child_start[] = {
     132, /* preparation */
     138, /* prep_import */
     141, /* prep_import_file */
-    141, /* prep_import_rs485 */
+    141, /* prep_import_can */
     141, /* prep_import_verify */
     141, /* prep_equipment */
     144, /* prep_eq_scan */
@@ -838,7 +838,7 @@ static const uint16_t s_child_start[] = {
     165, /* diag_journal */
     168, /* diag_journal_events */
     168, /* diag_journal_alarms */
-    168, /* diag_journal_rs485 */
+    168, /* diag_journal_can */
     168, /* diag_actuators */
     171, /* diag_act_state */
     171, /* diag_act_manual */
@@ -849,7 +849,7 @@ static const uint16_t s_child_start[] = {
     175, /* diag_ai_log */
     175, /* diag_ai_update */
     175, /* diag_network */
-    179, /* diag_net_rs485 */
+    179, /* diag_net_can */
     179, /* diag_net_wifi */
     179, /* diag_net_api */
     179, /* diag_net_ping */
@@ -1027,7 +1027,7 @@ static const uint8_t s_child_count[] = {
     6, /* preparation */
     3, /* prep_import */
     0, /* prep_import_file */
-    0, /* prep_import_rs485 */
+    0, /* prep_import_can */
     0, /* prep_import_verify */
     3, /* prep_equipment */
     0, /* prep_eq_scan */
@@ -1057,7 +1057,7 @@ static const uint8_t s_child_count[] = {
     3, /* diag_journal */
     0, /* diag_journal_events */
     0, /* diag_journal_alarms */
-    0, /* diag_journal_rs485 */
+    0, /* diag_journal_can */
     3, /* diag_actuators */
     0, /* diag_act_state */
     0, /* diag_act_manual */
@@ -1068,7 +1068,7 @@ static const uint8_t s_child_count[] = {
     0, /* diag_ai_log */
     0, /* diag_ai_update */
     4, /* diag_network */
-    0, /* diag_net_rs485 */
+    0, /* diag_net_can */
     0, /* diag_net_wifi */
     0, /* diag_net_api */
     0, /* diag_net_ping */
@@ -1592,7 +1592,7 @@ lv_obj_t *ui_gen_screen_create(ui_gen_screen_t id,
         case UI_GEN_PREPARATION: scr = ui_screen_preparation_create(); break;
         case UI_GEN_PREP_IMPORT: scr = gen_make_screen(id); break;
         case UI_GEN_PREP_IMPORT_FILE: scr = gen_make_screen(id); break;
-        case UI_GEN_PREP_IMPORT_RS485: scr = gen_make_screen(id); break;
+        case UI_GEN_PREP_IMPORT_CAN: scr = gen_make_screen(id); break;
         case UI_GEN_PREP_IMPORT_VERIFY: scr = gen_make_screen(id); break;
         case UI_GEN_PREP_EQUIPMENT: scr = gen_make_screen(id); break;
         case UI_GEN_PREP_EQ_SCAN: scr = gen_make_screen(id); break;
@@ -1622,7 +1622,7 @@ lv_obj_t *ui_gen_screen_create(ui_gen_screen_t id,
         case UI_GEN_DIAG_JOURNAL: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_JOURNAL_EVENTS: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_JOURNAL_ALARMS: scr = gen_make_screen(id); break;
-        case UI_GEN_DIAG_JOURNAL_RS485: scr = gen_make_screen(id); break;
+        case UI_GEN_DIAG_JOURNAL_CAN: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_ACTUATORS: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_ACT_STATE: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_ACT_MANUAL: scr = gen_make_screen(id); break;
@@ -1633,7 +1633,7 @@ lv_obj_t *ui_gen_screen_create(ui_gen_screen_t id,
         case UI_GEN_DIAG_AI_LOG: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_AI_UPDATE: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_NETWORK: scr = gen_make_screen(id); break;
-        case UI_GEN_DIAG_NET_RS485: scr = gen_make_screen(id); break;
+        case UI_GEN_DIAG_NET_CAN: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_NET_WIFI: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_NET_API: scr = gen_make_screen(id); break;
         case UI_GEN_DIAG_NET_PING: scr = gen_make_screen(id); break;

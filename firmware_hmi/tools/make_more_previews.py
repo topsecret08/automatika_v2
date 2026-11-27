@@ -166,7 +166,7 @@ beer_body = """
 
 help_body = """
 <div class="helplay">
-  <div class="hnav glass"><div class="on">Безопасность</div><div>Глоссарий</div><div>Протокол RS485</div><div>О проекте</div><div>Справка по экранам</div></div>
+  <div class="hnav glass"><div class="on">Безопасность</div><div>Глоссарий</div><div>Протокол CAN</div><div>О проекте</div><div>Справка по экранам</div></div>
   <div class="hart glass">
     <h2>БЕЗОПАСНОСТЬ</h2>
     <p>Контроллер остаётся единственным источником PID, safety и E-STOP. Панель HMI только отображает биты телеметрии и отправляет команды через белый список.</p>

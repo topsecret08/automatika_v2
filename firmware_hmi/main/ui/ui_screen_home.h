@@ -5,7 +5,7 @@
 #include "lvgl.h"
 
 /*
- * Минимальный набор телеметрии, который приходит по RS485 от контроллера.
+ * Минимальный набор телеметрии, который приходит по CAN от контроллера.
  * В реальной прошивке заполняется из payload кадра TELEMETRY (0x81).
  */
 typedef struct {
@@ -32,7 +32,7 @@ typedef struct {
 
     const char *frac;
     bool link;
-    uint32_t crc_err;
+    uint32_t rx_err;
     const char *version;
 } hmi_telemetry_t;
 

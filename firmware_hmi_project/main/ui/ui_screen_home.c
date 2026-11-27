@@ -138,7 +138,7 @@ lv_obj_t *ui_screen_home_create(void)
 
     make_label(hdr, "AUTOMATIKA  •  ПАНЕЛЬ HMI",
                &cyr_28, c_text);
-    make_label(hdr, "800×480 / RS485 HMI=MASTER",
+    make_label(hdr, "800×480 / CAN HMI=MASTER",
                &cyr_18, c_muted);
 
     /* Content: main + status ------------------------------------------ */

@@ -3,7 +3,7 @@
 Версия: 1.0
 Дата: 2026-11-24
 Статус: проект
-Связано с: `TZ_RS485_HMI.md`, `docs/developer/RS485_PROTOCOL.md`
+Связано с: `docs/developer/CAN_PROTOCOL.md` (legacy, см. CAN_HMI)
 
 ---
 
@@ -12,7 +12,7 @@
 Организовать разработку, сборку, тестирование и релизы двух независимых ESP-IDF-прошивок в одном GitHub-репозитории:
 
 1. **Controller** — существующая прошивка Automatika (ядро управления, датчики, PID, safety, REST/MQTT/OTA).
-2. **HMI** — новая прошивка для Waveshare ESP32-S3-Touch-LCD-7 (LVGL 8.3, 800×480, GT911, RS485-пулът).
+2. **HMI** — новая прошивка для Waveshare ESP32-S3-Touch-LCD-7 (LVGL 8.3, 800×480, GT911, CAN/TWAI-пульт).
 
 Обе прошивки живут в одном репозитории, но **собираются, версионируются, прошиваются и обновляются раздельно**.
 
@@ -38,7 +38,7 @@
 
 - Корень остаётся **прошивкой контроллера** — это сохраняет все текущие пути, скрипты, конфигуратор и workflow-ы.
 - HMI добавляется в отдельную папку `firmware_hmi/` как второй самостоятельный ESP-IDF-проект.
-- Общий протокол RS485 выносится в `protocol/` и подключается к обоим проектам через `EXTRA_COMPONENT_DIRS`.
+- Общий CAN-протокол выносится в `protocol/can_hmi/` и подключается к обоим проектам через `EXTRA_COMPONENT_DIRS`.
 - **Git submodules не используются**: протокол меняется атомарно вместе с обеими сторонами, submodule создал бы рассогласование pin-ов.
 
 ### 2.3. Почему не менять структуру сразу
@@ -72,24 +72,24 @@ automatika_v2/
 │  ├─ partitions.csv              # свой размер app (графика вынесена на панель)
 │  ├─ main/
 │  │  ├─ main.c
-│  │  ├─ rs485_hmi.c/.h           # master, POLL/CMD/ACK
+│  │  ├─ hmi_can.c/.h             # CAN master, POLL/CMD/ACK
 │  │  ├─ ui/                      # экраны 800x480
-│  │  └─ hal/                     # RGB, GT911, CH422G, UART2 RS485
+│  │  └─ hal/                     # RGB, GT911, CH422G, TWAI CAN
 │  ├─ components/
 │  │  └─ waveshare_rgb_lcd_port/  # из примера Waveshare 08_lvgl_v8_demo
 │  └─ test/                       # тесты HMI на host
 │
 ├─ protocol/                      # НОВЫЙ общий источник истины
-│  ├─ rs485_frame.h/.c            # кадр, SEQ, CRC16, parser
-│  ├─ rs485_types.h               # NODE, TYPE, telemetry/CMD struct
+│  ├─ can_hmi_proto.h/.c       # бинарные CAN кадры, IDs, pack/unpack
+│  ├─ can_hmi_ids.h            # (в can_hmi_proto.h) IDs/команды/флаги
 │  ├─ crc16.c/.h                  # CRC-16/CCITT-FALSE
-│  ├─ component/CMakeLists.txt    # компонент rs485_protocol
+│  ├─ component/CMakeLists.txt    # компонент can_hmi
 │  ├─ tests/                      # golden vectors, corrupt frame, timeout
 │  └─ generated/protocol_version.h# ГЕНЕРИРУЕТСЯ из VERSION.json
 │
 ├─ docs/
 │  ├─ developer/MONOREPO.md       # настоящий ТЗ
-│  ├─ developer/RS485_PROTOCOL.md # формат кадра
+│  ├─ developer/CAN_PROTOCOL.md # формат кадра
 │  ├─ developer/RELEASING.md      # пошаговый релиз
 │  ├─ COMPATIBILITY.md            # матрица совместимости
 │  └─ FLASHING.md                 # какой bin куда прошивать
@@ -111,7 +111,7 @@ automatika_v2/
 1. `firmware_hmi/` — **полноценный проект**, а не подпапка `main/`. У него свой `sdkconfig`, свой `build/`, свой `partition table`.
 2. `protocol/` — **не копируется** в оба проекта. Подключается через CMake:
    ```cmake
-   set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
+   set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/can_hmi")
    ```
 3. `project()` в HMI называется `automatika_hmi`. Это попадёт в `esp_app_desc` и защитит от перепрошивки не того устройства.
 4. Папки `build/` и `firmware_hmi/build/` оба игнорируются `.gitignore`.
@@ -125,7 +125,7 @@ automatika_v2/
 ```json
 {
   "product": "0.9.6",
-  "protocol": { "name": "rs485-hmi", "version": 1 },
+  "protocol": { "name": "can-hmi", "version": 1 },
   "firmwares": {
     "controller": {
       "version": "0.9.6",
@@ -154,7 +154,7 @@ automatika_v2/
 | Продукт / тег GitHub | `v0.9.6` — синхронный релиз пары прошивок |
 | Контроллер | семвер, совпадает с продуктовым при релизе |
 | HMI | **независимый семвер** `1.0.0`, `1.0.1`, `1.1.0` |
-| Протокол RS485 | отдельное целое число `1`, `2`, … |
+| Протокол CAN | отдельное целое число `1`, `2`, … |
 | HMI-only hotfix | новый тег `v0.9.6-hmi1`, в манифесте меняется только `firmwares.hmi.version` |
 | Controller-only hotfix | новый тег `v1.0.1-ctrl1`, меняется только `firmwares.controller.version` |
 
@@ -164,8 +164,8 @@ automatika_v2/
 
 ```c
 // protocol/generated/protocol_version.h — НЕ редактировать вручную
-#define RS485_PROTOCOL_NAME    "rs485-hmi"
-#define RS485_PROTOCOL_VERSION 1
+#define CAN_PROTOCOL_NAME    "can-hmi"
+#define CAN_PROTOCOL_VERSION 1
 ```
 
 CI проверяет: если header отличается от сгенерированного — сборка падает.
@@ -193,7 +193,7 @@ HMI при `PING/GET_CONFIG` сверяет `protocol_version`. Контролл
 | `main` | единственная стабильная. Релизы только отсюда |
 | `feat/hmi-<имя>` | изменения только в `firmware_hmi/` |
 | `feat/ctrl-<имя>` | изменения только в контроллере |
-| `feat/rs485-<имя>` | изменения в `protocol/` и обеих сторонах одновременно |
+| `feat/can-hmi-<имя>` | изменения в `protocol/` и обеих сторонах одновременно |
 | `fix/hmi-<имя>`, `fix/ctrl-<имя>` | hotfix по аналогии |
 
 Запрещены долгоживущие ветки `hmi` и `controller` — они гарантированно расходятся с `main`.
@@ -209,7 +209,7 @@ HMI при `PING/GET_CONFIG` сверяет `protocol_version`. Контролл
 [tools]  ...   скрипты сборки/прошивки
 ```
 
-Пример: `[proto] bump RS485 protocol to 2 and update both firmwares`.
+Пример: `[proto] bump CAN protocol to 2 and update both firmwares`.
 
 ### 5.3. Pull Request
 
@@ -259,9 +259,9 @@ HMI при `PING/GET_CONFIG` сверяет `protocol_version`. Контролл
 
 | Файл | Ответственность |
 |---|---|
-| `rs485_frame.h` | `rs485_frame_t`, `rs485_parse()`, `rs485_build()` |
+| `can_hmi_proto.h` | CAN IDs, pack/unpack helpers |
 | `crc16.c/.h` | CRC-16/CCITT-FALSE, poly `0x1021`, init `0xFFFF` |
-| `rs485_types.h` | `NODE_CONTROLLER=0x10`, `NODE_HMI=0x20`, типы `POLL/TELEMETRY/CMD/ACK` |
+| `can_hmi_proto.h` | command/ack/flag constants |
 | `generated/protocol_version.h` | версия протокола |
 | `tests/` | тесты кадра на host (CRC, LEN, SEQ, NODE, TYPE, timeout) |
 
@@ -270,21 +270,21 @@ HMI при `PING/GET_CONFIG` сверяет `protocol_version`. Контролл
 В корневом `main/CMakeLists.txt`:
 
 ```cmake
-set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
+set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/can_hmi")
 ...
-REQUIRES ... rs485_protocol
+REQUIRES ... can_hmi
 ```
 
-В `main/rs485/rs485_hmi.c` — только транспорт (UART2, DE, задача, диспетчер команд), **не своя CRC**.
+В `main/can_hmi.c` — только транспорт (UART2, DE, задача, диспетчер команд), **не своя CRC**.
 
 ### 6.3. Подключение к HMI
 
 В `firmware_hmi/main/CMakeLists.txt` — так же:
 
 ```cmake
-set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/rs485_protocol")
+set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../protocol/can_hmi")
 ...
-REQUIRES ... rs485_protocol
+REQUIRES ... can_hmi
 ```
 
 ### 6.4. Запреты
@@ -488,7 +488,7 @@ SHA256SUMS-apk.txt
 | Файл | Содержание |
 |---|---|
 | `docs/developer/MONOREPO.md` | этот ТЗ, структура, правила работы |
-| `docs/developer/RS485_PROTOCOL.md` | кадр, CRC, типы сообщений, telemetry/CMD JSON |
+| `docs/developer/CAN_PROTOCOL.md` | CAN IDs, бинарные кадры, telemetry/commands |
 | `docs/developer/RELEASING.md` | чек-лист релиза: bump → PR → tag → проверить assetы |
 | `docs/COMPATIBILITY.md` | матрица версий прошивок и протокола |
 | `docs/FLASHING.md` | таблица «плата → bin → команда» |
@@ -508,7 +508,7 @@ SHA256SUMS-apk.txt
 |---|---|
 | Host `protocol/tests` | CRC, LEN, SEQ, NODE, TYPE, corrupt frame, таймаут |
 | Host-тесты HMI | парсер telemetry, отображение экранов 800×480 |
-| Host-тесты контроллера | существующие `test/host` + новый `rs485_dispatcher` |
+| Host-тесты контроллера | существующие `test/host` + новый `can_hmi_dispatcher` |
 | QEMU | существующие Unity-тесты контроллера |
 | Bench | кабель 10 м, E-STOP, обрыв A/B, 24 ч CRC-счётчик |
 | Release | два zip, манифест, контрольные суммы, project_name |
@@ -521,7 +521,7 @@ SHA256SUMS-apk.txt
 | `release.yml` | по тегу публикуются оба zip и manifest |
 | Перекрёстная прошивка | отклоняется с `WRONG_FIRMWARE_FOR_BOARD` |
 | Протокол | версия совпадает в обоих `build-info.json` |
-| HMI без RS485 | показывает `NO LINK`, контроллер продолжает работу |
+| HMI без CAN | показывает `NO LINK`, контроллер продолжает работу |
 | Документация | `README`, `COMPATIBILITY`, `FLASHING` обновлены |
 | OTA | оба канала обновляются независимо, rollback работает |
 
@@ -558,10 +558,10 @@ SHA256SUMS-apk.txt
 | Фаза | Работы | Результат |
 |---|---|---|
 | 0 | Зафиксировать `VERSION.json`, `docs/COMPATIBILITY.md`, CODEOWNERS, PR-шаблон | правила зафиксированы |
-| 1 | Добавить `protocol/` и `rs485_protocol` компонент, golden tests | общий код протокола |
-| 2 | Добавить `firmware_hmi/` со скелетом Waveshare + RS485 | вторая прошивка собирается |
+| 1 | Добавить `protocol/` и `can_hmi` компонент, golden tests | общий код протокола |
+| 2 | Добавить `firmware_hmi/` со скелетом Waveshare + CAN | вторая прошивка собирается |
 | 3 | Расширить `build.yml`: hmi-firmware, protocol-tests, version-check | CI видит обе прошивки |
-| 4 | Добавить RS485-стек в контроллер, вырезать графику из сборки | контроллер получает ~0,4 МБ flash |
+| 4 | Добавить CAN-стек в контроллер, вырезать графику из сборки | контроллер получает ~0,4 МБ flash |
 | 5 | Расширить `release.yml`: два zip + manifest | один тег = две прошивки |
 | 6 | Обновить README/FLASHING/конфигуратор | пользователь понимает, что куда прошивать |
 | 7 (опция) | Переезд контроллера в `firmware_controller/` | симметричная структура, после стабилизации |

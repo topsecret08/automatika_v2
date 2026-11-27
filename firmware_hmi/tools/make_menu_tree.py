@@ -99,9 +99,9 @@ add("preparation", "ПОДГОТОВКА", "main", [
 ], manual="ui_screen_preparation_create")
 
 add("prep_import", "Импорт настроек режима", "preparation",
-    ["prep_import_file", "prep_import_rs485", "prep_import_verify"])
+    ["prep_import_file", "prep_import_can", "prep_import_verify"])
 add("prep_import_file", "Из файла", "prep_import")
-add("prep_import_rs485", "С контроллера по RS485", "prep_import")
+add("prep_import_can", "С контроллера по CAN", "prep_import")
 add("prep_import_verify", "Проверка и применение", "prep_import")
 
 add("prep_equipment", "Доступное оборудование", "preparation",
@@ -155,11 +155,11 @@ for sid, t in [
     add(sid, t, "diag_test")
 
 add("diag_journal", "Журнал", "diagnostics",
-    ["diag_journal_events", "diag_journal_alarms", "diag_journal_rs485"])
+    ["diag_journal_events", "diag_journal_alarms", "diag_journal_can"])
 for sid, t in [
     ("diag_journal_events", "События"),
     ("diag_journal_alarms", "Аварии"),
-    ("diag_journal_rs485", "Ошибки RS485 / CRC"),
+    ("diag_journal_can", "Ошибки CAN / CRC"),
 ]:
     add(sid, t, "diag_journal")
 
@@ -183,9 +183,9 @@ for sid, t in [
     add(sid, t, "diag_ai")
 
 add("diag_network", "Сеть", "diagnostics",
-    ["diag_net_rs485", "diag_net_wifi", "diag_net_api", "diag_net_ping"])
+    ["diag_net_can", "diag_net_wifi", "diag_net_api", "diag_net_ping"])
 for sid, t in [
-    ("diag_net_rs485", "RS485"),
+    ("diag_net_can", "CAN"),
     ("diag_net_wifi", "Wi-Fi / Ethernet"),
     ("diag_net_api", "API-клиенты"),
     ("diag_net_ping", "Ping / задержка"),

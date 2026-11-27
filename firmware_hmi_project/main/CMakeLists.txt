@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS
         "main.c"
-        "hmi_rs485.c"
+        "hmi_can.c"
         "hmi_telemetry.c"
         "ai/screen_registry.c"
         "ai/page_predictor.c"
@@ -28,7 +28,7 @@ idf_component_register(
         "../components"
     REQUIRES
         driver
-        rs485_protocol
+        can_hmi
         esp_lcd
         esp_timer
         esp_pm

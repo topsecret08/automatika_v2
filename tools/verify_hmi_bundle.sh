@@ -34,7 +34,7 @@ PY
 
 echo "[4/5] проверка на токены/секреты в новых файлах"
 if grep -RInE 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' \
-    VERSION.json protocol firmware_hmi firmware_hmi_project main/rs485_hmi.c 2>/dev/null; then
+    VERSION.json protocol firmware_hmi firmware_hmi_project main/can_hmi.c 2>/dev/null; then
     echo "Найдены похожие на токен данные — ПРОВЕРЬТЕ перед push!" >&2
     exit 1
 fi

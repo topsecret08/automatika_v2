@@ -6,7 +6,7 @@
 #include "freertos/task.h"
 
 #include "config.h"
-#include "rs485_hmi.h"
+#include "can_hmi.h"
 #include "core/core_pinning.h"
 #include "core/control_config.h"
 #include "core/config_backup.h"
@@ -348,7 +348,7 @@ void app_main(void) {
 #endif
 
     menu_validate_all();
-    rs485_hmi_init();
+    can_hmi_init();
 
 #ifndef CONFIG_HMI_EXTERNAL_UI
     if (state_load() && flags_get_by_key("auto_restore")) {

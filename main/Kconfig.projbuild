@@ -66,42 +66,37 @@ endmenu
 
 
 config HMI_EXTERNAL_UI
-    bool "External HMI panel on RS485 (no local LVGL)"
+    bool "External HMI panel on CAN (no local LVGL)"
     default n
 
-menu "Automatika HMI RS485 (external panel)"
+menu "Automatika HMI CAN/TWAI (external panel)"
 
-    config HMI_RS485_ENABLE
-        bool "Enable RS485 slave interface for HMI panel"
+    config HMI_CAN_ENABLE
+        bool "Enable CAN (TWAI) slave interface for HMI panel"
         default y
         help
-            Контроллер отвечает на POLL/CMD/GET_CONFIG/PING от внешней панели.
-            Панель является master шины. Safety и E-STOP остаются здесь.
+            Контроллер отвечает на POLL/CMD/GET_CONFIG/PING от внешней панели по CAN.
+            Панель инициирует запросы. Safety и E-STOP остаются здесь.
 
-    config HMI_RS485_UART_NUM
-        int "UART number for HMI RS485"
-        default 2
-        range 0 2
-
-    config HMI_RS485_BAUD
-        int "Baud rate"
-        default 115200
-
-    config HMI_RS485_TX_GPIO
-        int "RS485 TX GPIO"
+    config HMI_CAN_TX_GPIO
+        int "CAN TX GPIO (to TJA1051 TXD)"
         default 17
         help
-            После CONFIG_HMI_EXTERNAL_UI=y выводы свободны. Занято: 14 PWM,
-            15/16 дозатор, 17/18/21 RS485. Не трогать 19/20, 43/44, 22–25, 26–37.
+            После CONFIG_HMI_EXTERNAL_UI=y выводы свободны. Рекомендуется GPIO17 (бывший UART TX)
+            для CAN TX. Не трогать 19/20 (USB), 43/44, 22–25, 26–37.
 
-    config HMI_RS485_RX_GPIO
-        int "RS485 RX GPIO"
+    config HMI_CAN_RX_GPIO
+        int "CAN RX GPIO (from TJA1051 RXD)"
         default 18
-
-    config HMI_RS485_DE_GPIO
-        int "RS485 DE/RE GPIO"
-        default 21
         help
-            DE и /RE на модуле должны быть соединены вместе.
+            Рекомендуется GPIO18 (бывший UART RX) для CAN RX.
+
+    config HMI_CAN_BITRATE_KBPS
+        int "CAN bitrate (kbps)"
+        default 500
+        range 100 1000
+        help
+            500 kbps — рекомендуемый баланс скорости и надёжности. Поддерживаются
+            профили таймингов 250/500/1000 kbps; другие значения округляются к 500.
 
 endmenu
