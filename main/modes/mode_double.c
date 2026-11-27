@@ -30,8 +30,16 @@ static proc_stage_t db_update(float dt) {
     (void)dt;
     float cube = hw_temp_read(HW_TEMP_CUBE);
     if (!isfinite(cube)) {
+        ctrl_heater_force_off();
+        ctrl_valves_close_all();
         process_state_t *st_err = state_get();
         st_err->stage = ST_ERROR;
+        st_err->volume_guard_active = false;
+        st_err->volume_no_flow = false;
+        st_err->volume_overflow = false;
+        st_err->eq_lock_active = false;
+        st_err->eq_lock_phase = 0;
+        st_err->flood_active = false;
         scale_update_state(st_err, false, 0.0f);
         return ST_ERROR;
     }

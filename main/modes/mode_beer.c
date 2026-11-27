@@ -102,7 +102,23 @@ static proc_stage_t b_update(float dt) {
     process_state_t *st = state_get();
     float t = hw_temp_read(HW_TEMP_CUBE);
     if (!isfinite(t)) t = hw_temp_read(HW_TEMP_TANK);
-    if (isfinite(t)) st->cube_temp = t;
+    if (!isfinite(t)) {
+        ctrl_heater_force_off();
+        cooling_set(false);
+        pump_set(false);
+        stirrer_set(false);
+        st->stage = ST_ERROR;
+        st->cube_temp = 0.0f;
+        st->volume_guard_active = false;
+        st->volume_no_flow = false;
+        st->volume_overflow = false;
+        st->eq_lock_active = false;
+        st->eq_lock_phase = 0;
+        st->flood_active = false;
+        scale_update_state(st, false, 0.0f);
+        return ST_ERROR;
+    }
+    st->cube_temp = t;
     st->volume_guard_active = false;
     st->volume_no_flow = false;
     st->volume_overflow = false;

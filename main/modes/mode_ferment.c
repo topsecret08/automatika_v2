@@ -27,7 +27,18 @@ static proc_stage_t f_update(float dt) {
     float t = hw_temp_read(HW_TEMP_TANK);
     if (!isfinite(t)) t = hw_temp_read(HW_TEMP_CUBE);
     if (!isfinite(t)) {
+        ctrl_heater_force_off();
+        if (hw_has_device(HW_DEV_COOLING_PUMP)) {
+            hal_relay_set(RELAY_COOLING_PUMP, false);
+            hal_relay_set(RELAY_WATER_VALVE, false);
+        }
         st->stage = ST_ERROR;
+        st->volume_guard_active = false;
+        st->volume_no_flow = false;
+        st->volume_overflow = false;
+        st->eq_lock_active = false;
+        st->eq_lock_phase = 0;
+        st->flood_active = false;
         return ST_ERROR;
     }
     st->cube_temp = t;
