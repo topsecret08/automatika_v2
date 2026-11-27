@@ -1322,7 +1322,7 @@ static esp_err_t h_ota_get(httpd_req_t *r) {
     return send_json(r, ota_manager_status_json());
 }
 
-// POST /api/config/export {"path":"/sdcard/cfg.json","secrets":false}
+// POST /api/config/export {"path":"/spiffs/cfg.json","secrets":false}
 static esp_err_t h_config_export(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -1330,7 +1330,7 @@ static esp_err_t h_config_export(httpd_req_t *r) {
     int n = recv_body(r, body, sizeof(body));
     (void)n;
 
-    char path[96] = "/sdcard/cfg.json";
+    char path[96] = "/spiffs/cfg.json";
     bool secrets = false;
 
     if (n > 0) {
@@ -1355,7 +1355,7 @@ static esp_err_t h_config_export(httpd_req_t *r) {
     return send_json(r, json);
 }
 
-// POST /api/config/import {"path":"/sdcard/cfg.json"}
+// POST /api/config/import {"path":"/spiffs/cfg.json"}
 static esp_err_t h_config_import(httpd_req_t *r) {
     if (api_check_auth(r) != ESP_OK) return api_reject_unauthorized(r);
 
@@ -1363,7 +1363,7 @@ static esp_err_t h_config_import(httpd_req_t *r) {
     int n = recv_body(r, body, sizeof(body));
     (void)n;
 
-    char path[96] = "/sdcard/cfg.json";
+    char path[96] = "/spiffs/cfg.json";
     if (n > 0) {
         cJSON *root = cJSON_Parse(body);
         if (root) {

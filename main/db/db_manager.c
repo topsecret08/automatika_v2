@@ -100,7 +100,10 @@ bool db_exec(const char *sql) {
 
 bool db_init(void) {
     if (s_ready) return true;
-    if (!storage_sd_ready()) return false;
+    if (!storage_sd_ready()) {
+        ESP_LOGI(TAG, "DB disabled: controller SD is not mounted (storage migrated to HMI TF)");
+        return false;
+    }
 
     if (db_psram_alloc_init() != SQLITE_OK) return false;
     sqlite3_initialize();
