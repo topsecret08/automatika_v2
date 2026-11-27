@@ -151,7 +151,22 @@ static proc_stage_t r_update(float dt) {
     float cube = hw_temp_read(HW_TEMP_CUBE);
     float col = hw_temp_read(HW_TEMP_COLUMN);
     if (!isfinite(cube) || !isfinite(col)) {
-        state_get()->stage = ST_ERROR;
+        ctrl_heater_force_off();
+        ctrl_dose_stop();
+        ctrl_valves_close_all();
+        if (hw_has_device(HW_DEV_REFLUX)) reflux_enable(false);
+        s_stage = ST_ERROR;
+        process_state_t *st_err = state_get();
+        st_err->stage = ST_ERROR;
+        st_err->cube_temp = isfinite(cube) ? cube : 0.0f;
+        st_err->column_temp = isfinite(col) ? col : 0.0f;
+        st_err->volume_guard_active = false;
+        st_err->volume_no_flow = false;
+        st_err->volume_overflow = false;
+        st_err->eq_lock_active = false;
+        st_err->eq_lock_phase = 0;
+        st_err->flood_active = false;
+        scale_update_state(st_err, false, 0.0f);
         return ST_ERROR;
     }
 

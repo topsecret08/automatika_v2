@@ -121,6 +121,26 @@ static proc_stage_t d_update(float dt) {
 
     float cube = hw_temp_read(HW_TEMP_CUBE);
     float col  = hw_temp_read(HW_TEMP_COLUMN);
+    process_state_t *st = state_get();
+    if (!isfinite(cube)) {
+        ctrl_heater_force_off();
+        ctrl_dose_stop();
+        ctrl_valves_close_all();
+        if (hw_has_device(HW_DEV_REFLUX)) reflux_enable(false);
+        s_stage = ST_ERROR;
+        st->stage = ST_ERROR;
+        st->cube_temp = 0.0f;
+        st->column_temp = isfinite(col) ? col : 0.0f;
+        st->volume_guard_active = false;
+        st->volume_no_flow = false;
+        st->volume_overflow = false;
+        st->eq_lock_active = false;
+        st->eq_lock_phase = 0;
+        st->flood_active = false;
+        scale_update_state(st, false, 0.0f);
+        return ST_ERROR;
+    }
+
     float pres_hpa = baro_get_pressure_hpa();
     float cube_corr = baro_correct_boiling_point(cube, pres_hpa);
     bool has_cooling = hw_has_device(HW_DEV_COOLING_PUMP);
@@ -128,7 +148,6 @@ static proc_stage_t d_update(float dt) {
 
     ctrl_forecast_update(cube, dt);
 
-    process_state_t *st = state_get();
     st->cube_temp = cube;
     st->column_temp = isfinite(col) ? col : 0.0f;
     st->pressure_bar = hw_has_device(HW_DEV_PRESSURE)

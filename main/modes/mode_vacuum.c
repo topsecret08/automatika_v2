@@ -68,7 +68,16 @@ static proc_stage_t v_update(float dt) {
     st->vacuum_mbar = vac;
 
     if (!isfinite(cube) || !isfinite(vac)) {
+        ctrl_heater_force_off();
+        pump_set(false);
+        ctrl_valves_close_all();
         st->stage = ST_ERROR;
+        st->volume_guard_active = false;
+        st->volume_no_flow = false;
+        st->volume_overflow = false;
+        st->eq_lock_active = false;
+        st->eq_lock_phase = 0;
+        st->flood_active = false;
         scale_update_state(st, false, 0.0f);
         return ST_ERROR;
     }

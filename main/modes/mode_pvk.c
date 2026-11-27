@@ -9,6 +9,8 @@
 #include "level/level_sensor.h"
 #include "control/ctrl_heater.h"
 #include "control/ctrl_pid.h"
+#include "control/ctrl_dose.h"
+#include "control/ctrl_valves.h"
 #include "control/fraction_periodic.h"
 #include "control/ctrl_scale.h"
 
@@ -38,7 +40,16 @@ static proc_stage_t p_update(float dt) {
     st->flood_active = false;
 
     if (!isfinite(jacket)) {
+        ctrl_heater_force_off();
+        ctrl_dose_stop();
+        ctrl_valves_close_all();
         st->stage = ST_ERROR;
+        st->volume_guard_active = false;
+        st->volume_no_flow = false;
+        st->volume_overflow = false;
+        st->eq_lock_active = false;
+        st->eq_lock_phase = 0;
+        st->flood_active = false;
         scale_update_state(st, false, 0.0f);
         return ST_ERROR;
     }
@@ -52,6 +63,8 @@ static proc_stage_t p_update(float dt) {
     if (hw_has_device(HW_DEV_LEVEL) && level_is_available() &&
         level_is_too_low()) {
         ctrl_heater_force_off();
+        ctrl_dose_stop();
+        ctrl_valves_close_all();
         if (!s_low_level_latched) {
             s_low_level_latched = true;
             events_log(EVENT_WARNING, "PVK: low level, heating blocked");
@@ -67,6 +80,8 @@ static proc_stage_t p_update(float dt) {
     if (pres > 2.5f) pwr_scale = 0.5f;
     if (pres > 3.0f) {
         ctrl_heater_force_off();
+        ctrl_dose_stop();
+        ctrl_valves_close_all();
         st->stage = ST_ERROR;
         scale_update_state(st, false, 0.0f);
         return ST_ERROR;
@@ -97,6 +112,8 @@ static proc_stage_t p_update(float dt) {
 
 static void p_stop(void) {
     ctrl_heater_force_off();
+    ctrl_dose_stop();
+    ctrl_valves_close_all();
     hal_relay_set(RELAY_WATER_VALVE, false);
 }
 
