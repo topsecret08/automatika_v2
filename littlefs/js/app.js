@@ -2974,16 +2974,19 @@ async function renderHealth() {
     `).join('');
 
     const c = data.contours || {};
+    const volGuardState = c.vol_overflow ? 'overflow' : (c.vol_no_flow ? 'no flow' : (c.vol_guard ? 'active' : 'idle'));
+    const eqState = c.eq_lock ? `active (ph ${c.eq_phase ?? '?'})` : 'idle';
     const crows = [
       ['HX711/весы', c.hx711 ? 'ok' : 'fault'],
       ['ZMPT', c.zmpt ? 'ok' : 'fault'],
       ['Давление', c.pressure ? 'ok' : 'fault'],
       ['Flood', c.flood ? 'active' : 'ok'],
-      ['EQ_LOCK', c.eq_lock ? 'active' : 'idle'],
-      ['Volume guard', c.vol_guard ? 'active' : 'idle'],
+      ['EQ_LOCK', eqState],
+      ['Volume guard', volGuardState],
       ['MPC/нагрев', c.mpc ? 'active' : 'idle'],
       ['Fusion', c.fusion ? 'ok' : 'no data'],
     ];
+    if (c.guard_reason) crows.push(['Причина', c.guard_reason]);
     $('#contours-list').innerHTML = crows.map(([label, value]) => `
       <div class="card-row"><span class="card-row-title">${label}</span><span class="card-row-value">${value}</span></div>
     `).join('');

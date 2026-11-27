@@ -18,6 +18,7 @@ static lv_obj_t *p_rinse, *p_sealed, *p_preheat;
 /* --- диагностика --- */
 static lv_obj_t *d_scr, *d_rs485, *d_crc, *d_frames, *d_latency;
 static lv_obj_t *d_heap, *d_valve, *d_pump, *d_mixer, *d_heater;
+static lv_obj_t *d_flood, *d_eq, *d_vg, *d_reason;
 
 /* --- система --- */
 static lv_obj_t *s_scr, *s_version, *s_available, *s_api, *s_uptime;
@@ -254,11 +255,11 @@ lv_obj_t *ui_screen_diagnostics_create(void)
     lv_obj_set_style_bg_opa(top, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(top, 0, 0);
 
-    lv_obj_t *c1 = make_card(top, "ЖУРНАЛ");
-    make_lrow(c1, "15:42:08", "ПОЛЛ OK", c_green, false);
-    make_lrow(c1, "15:41:55", "T ФИКС", c_yellow, false);
-    make_lrow(c1, "15:40:12", "СТАРТ", c_white, false);
-    make_lrow(c1, "15:38:47", "ПРОФИЛЬ", c_white, false);
+    lv_obj_t *c1 = make_card(top, "ГАРДЫ");
+    d_flood  = make_lrow(c1, "FLOOD", "OK", c_green, false);
+    d_eq     = make_lrow(c1, "EQ_LOCK", "IDLE", c_white, false);
+    d_vg     = make_lrow(c1, "VOL_GUARD", "OK", c_green, false);
+    d_reason = make_lrow(c1, "ПРИЧИНА", "—", c_muted, false);
 
     lv_obj_t *c2 = make_card(top, "ПРИВОДЫ");
     d_valve = make_lrow(c2, "КЛАПАН", "ОТКРЫТ", c_green, true);
@@ -328,6 +329,35 @@ void ui_screen_diagnostics_update(const diag_state_t *s)
     lv_label_set_text(d_pump, s->pump_on ? "ВКЛ" : "ВЫКЛ");
     lv_label_set_text_fmt(d_mixer, "%u%%", s->mixer);
     lv_label_set_text_fmt(d_heater, "%u%%", s->heater);
+
+    lv_label_set_text(d_flood, s->flood ? "ACTIVE" : "OK");
+    lv_obj_set_style_text_color(d_flood, s->flood ? c_orange : c_green, 0);
+
+    if (s->eq_lock) {
+        lv_label_set_text_fmt(d_eq, "ON P%u", (unsigned)s->eq_phase);
+        lv_obj_set_style_text_color(d_eq, c_yellow, 0);
+    } else {
+        lv_label_set_text(d_eq, "IDLE");
+        lv_obj_set_style_text_color(d_eq, c_white, 0);
+    }
+
+    if (s->vol_overflow) {
+        lv_label_set_text(d_vg, "OVERFLOW");
+        lv_obj_set_style_text_color(d_vg, c_orange, 0);
+    } else if (s->vol_no_flow) {
+        lv_label_set_text(d_vg, "NO FLOW");
+        lv_obj_set_style_text_color(d_vg, c_orange, 0);
+    } else if (s->vol_guard) {
+        lv_label_set_text(d_vg, "ACTIVE");
+        lv_obj_set_style_text_color(d_vg, c_yellow, 0);
+    } else {
+        lv_label_set_text(d_vg, "OK");
+        lv_obj_set_style_text_color(d_vg, c_green, 0);
+    }
+
+    lv_label_set_text(d_reason, (s->reason && s->reason[0]) ? s->reason : "—");
+    lv_obj_set_style_text_color(d_reason,
+        (s->reason && s->reason[0]) ? c_orange : c_muted, 0);
 }
 
 /* ================= СИСТЕМА ================= */

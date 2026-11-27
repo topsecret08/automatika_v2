@@ -55,6 +55,14 @@ typedef struct {
     float    scale_flow;
     float    scale_ml;
 
+    /* guards / diagnostics */
+    bool     flood_active;
+    bool     eq_lock_active;
+    uint8_t  eq_lock_phase;
+    bool     volume_guard_active;
+    bool     volume_no_flow;
+    bool     volume_overflow;
+
     /* link diagnostics */
     uint32_t crc_err;
     uint32_t frames;
