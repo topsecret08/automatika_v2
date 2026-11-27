@@ -144,13 +144,19 @@ void ws_telemetry_push_state(void) {
 
     float lv = level_get_percent();
 
-    char json[256];
+    char json[384];
     snprintf(json, sizeof(json),
              "{\"tc\":%.2f,\"ts\":%.2f,\"p\":%.1f,\"m\":%.2f,"
-             "\"sa\":%d,\"es\":%d,\"lv\":%.0f,\"r\":%d,\"stg\":%d}",
+             "\"sa\":%d,\"es\":%d,\"lv\":%.0f,\"r\":%d,\"stg\":%d,"
+             "\"fl\":%d,\"eq\":%d,\"vg\":%d,\"nf\":%d,\"vo\":%d,"
+             "\"ph\":%d,\"qs\":%.0f}",
              tc, ts, ctrl_heater_get_percent(), s->body_rate_ml_min,
              ctrl_safety_ok() ? 1 : 0, estop_is_pressed() ? 1 : 0,
-             lv, s->is_running ? 1 : 0, (int)s->stage);
+             lv, s->is_running ? 1 : 0, (int)s->stage,
+             s->flood_active ? 1 : 0, s->eq_lock_active ? 1 : 0,
+             s->volume_guard_active ? 1 : 0, s->volume_no_flow ? 1 : 0,
+             s->volume_overflow ? 1 : 0, s->predictive_heat_active ? 1 : 0,
+             (double)s->quality_score);
 
     ws_telemetry_push(json);
 }

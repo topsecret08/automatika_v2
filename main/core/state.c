@@ -5,6 +5,10 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "control/sensor_fusion.h"
+#include "control/mass_balance.h"
+#include "control/quality_metrics.h"
+#include "core/alerts.h"
 #include <math.h>
 #include <string.h>
 
@@ -38,6 +42,10 @@ void state_init(void) {
     s.predec_distance = 0.10f;
     s.predec_step = 0.10f;
     s.pid_kp = 15.0f; s.pid_ki = 0.5f; s.pid_kd = 2.0f;
+    sensor_fusion_init();
+    mass_balance_init();
+    quality_metrics_init();
+    alerts_init();
 }
 
 process_state_t* state_get(void) { return &s; }
@@ -51,9 +59,12 @@ void state_snapshot(process_state_t *out) {
 
 bool state_load(void) {
     process_state_t tmp;
-    size_t sz = sizeof(tmp);
     memset(&tmp, 0, sizeof(tmp));
-    esp_err_t err = nvs_get_blob(nvs, "proc", &tmp, &sz);
+    size_t stored = 0;
+    esp_err_t err = nvs_get_blob(nvs, "proc", NULL, &stored);
+    if (err != ESP_OK || stored == 0) return false;
+    size_t to_read = stored < sizeof(tmp) ? stored : sizeof(tmp);
+    err = nvs_get_blob(nvs, "proc", &tmp, &to_read);
     if (err != ESP_OK) return false;
     tmp.is_running = false;
     tmp.is_paused = true;
@@ -63,6 +74,14 @@ bool state_load(void) {
     tmp.scale_weight_g = 0.0f;
     tmp.scale_flow_ml_min = 0.0f;
     tmp.scale_collected_ml = 0.0f;
+    tmp.flood_active = false;
+    tmp.eq_lock_active = false;
+    tmp.eq_lock_phase = 0;
+    tmp.volume_guard_active = false;
+    tmp.volume_no_flow = false;
+    tmp.volume_overflow = false;
+    tmp.energy_anomaly_active = false;
+    tmp.predictive_heat_active = false;
 
     state_lock();
     s = tmp;
@@ -107,6 +126,23 @@ void state_update_snapshot(float dt) {
         s_elapsed_frac -= (float)whole;
     }
     bool running = s.is_running;
+    process_state_t tmp = s;
+    state_unlock();
+
+    sensor_fusion_update(&tmp);
+    mass_balance_update(&tmp);
+    quality_metrics_update(&tmp);
+
+    state_lock();
+    s.fusion_cube_conf = tmp.fusion_cube_conf;
+    s.fusion_column_conf = tmp.fusion_column_conf;
+    s.fusion_pressure_conf = tmp.fusion_pressure_conf;
+    s.fusion_scale_conf = tmp.fusion_scale_conf;
+    s.mass_balance_abv_pct = tmp.mass_balance_abv_pct;
+    s.mass_balance_alcohol_ml = tmp.mass_balance_alcohol_ml;
+    s.mass_balance_loss_pct = tmp.mass_balance_loss_pct;
+    s.quality_score = tmp.quality_score;
+    s.quality_warnings = tmp.quality_warnings;
     state_unlock();
 
     if (running) {

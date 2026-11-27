@@ -3,15 +3,18 @@
 
 #include "control/ctrl_dose.h"
 #include "control/ctrl_safety.h"
+#include "control/ctrl_scale.h"
 #include "core/control_config.h"
 #include "core/estop.h"
 #include "core/events.h"
 #include "core/flags.h"
+#include "core/hw_profile.h"
 #include "core/state.h"
 #include "core/storage.h"
 #include "core/watchdog.h"
 #include "db/db_manager.h"
 #include "hal/hal_1wire.h"
+#include "hal/zmpt_rms.h"
 #include "script/lua_engine.h"
 
 #include "esp_heap_caps.h"
@@ -97,12 +100,16 @@ const char *health_level_name(void) {
 const char *health_last_reason(void) { return s_last_reason; }
 
 const char *health_json(void) {
-    static char out[768];
+    static char out[1024];
 
     process_state_t *st = state_get();
     wifi_ap_record_t ap;
     int rssi = 0;
     if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) rssi = ap.rssi;
+
+    bool scale_ok = !hw_has_device(HW_DEV_SCALE) || scale_is_ready();
+    bool zmpt_ok = !hw_has_device(HW_DEV_ZMPT) || !zmpt_rms_fault();
+    bool pres_ok = !hw_has_device(HW_DEV_PRESSURE) || isfinite(st->pressure_bar);
 
     snprintf(out, sizeof(out),
         "{\"level\":\"%s\",\"reason\":\"%s\","
@@ -110,7 +117,10 @@ const char *health_json(void) {
         "\"uptime_s\":%lld,\"reset\":%d,"
         "\"wifi_rssi\":%d,\"sd\":%d,\"db\":%d,\"sensors\":%d,"
         "\"safety\":%d,\"estop\":%d,\"running\":%d,\"stage\":%d,"
-        "\"version\":\"%s\",\"tasks\":%d}",
+        "\"version\":\"%s\",\"tasks\":%d,"
+        "\"contours\":{\"hx711\":%d,\"zmpt\":%d,\"pressure\":%d,"
+        "\"flood\":%d,\"eq_lock\":%d,\"vol_guard\":%d,"
+        "\"mpc\":%d,\"fusion\":%d}}",
         health_level_name(), s_last_reason,
         (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
         (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
@@ -126,7 +136,11 @@ const char *health_json(void) {
         st->is_running ? 1 : 0,
         (int)st->stage,
         FW_VERSION,
-        wd_count());
+        wd_count(),
+        scale_ok ? 1 : 0, zmpt_ok ? 1 : 0, pres_ok ? 1 : 0,
+        st->flood_active ? 1 : 0, st->eq_lock_active ? 1 : 0, st->volume_guard_active ? 1 : 0,
+        st->predictive_heat_active ? 1 : 0,
+        (st->fusion_cube_conf > 0.0f || st->fusion_column_conf > 0.0f) ? 1 : 0);
 
     return out;
 }

@@ -21,6 +21,8 @@ static volume_feedback_t s_fb;
 static proc_stage_t db_init(void) {
     s_pass = 1;
     volume_feedback_begin(&s_fb);
+    volume_feedback_set_target(&s_fb, state_get()->target_body_ml,
+        state_get()->target_body_ml > 0 ? state_get()->target_body_ml * 1.20f : 0, 120000);
     return ST_PRECHECK;
 }
 
@@ -47,8 +49,27 @@ static proc_stage_t db_update(float dt) {
     float stop2 = baro_correct_boiling_point(92.0f, p_hpa);
 
     ctrl_heater_set_percent(70.0f);
-    if (hw_has_device(HW_DEV_VALVES))
-        valve_set_pct(VALVE_BODY, s_pass == 1 ? 40.0f : 20.0f);
+    bool flow_expected = hw_has_device(HW_DEV_VALVES);
+    if (flow_expected) valve_set_pct(VALVE_BODY, s_pass == 1 ? 40.0f : 20.0f);
+
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    volume_feedback_tick(&s_fb, flow_expected, now_ms);
+    st->volume_guard_active = true;
+    st->volume_no_flow = volume_feedback_no_flow(&s_fb);
+    st->volume_overflow = volume_feedback_overflow(&s_fb);
+    if (volume_feedback_overflow(&s_fb)) {
+        events_log(EVENT_WARNING, "Double: overflow guard");
+        ctrl_heater_force_off();
+        ctrl_valves_close_all();
+        st->is_running = false;
+        st->stage = ST_DONE;
+        scale_update_state(st, true, 0.0f);
+        return ST_DONE;
+    }
+    if (volume_feedback_no_flow(&s_fb)) {
+        events_log(EVENT_WARNING, "Double: no-flow detected");
+        ctrl_valves_close_all();
+    }
 
     if (cube > stop1 && s_pass == 1) {
         s_pass = 2;

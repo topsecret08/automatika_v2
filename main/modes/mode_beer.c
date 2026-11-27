@@ -103,6 +103,12 @@ static proc_stage_t b_update(float dt) {
     float t = hw_temp_read(HW_TEMP_CUBE);
     if (!isfinite(t)) t = hw_temp_read(HW_TEMP_TANK);
     if (isfinite(t)) st->cube_temp = t;
+    st->volume_guard_active = false;
+    st->volume_no_flow = false;
+    st->volume_overflow = false;
+    st->eq_lock_active = false;
+    st->eq_lock_phase = 0;
+    st->flood_active = false;
 
     if (s_step >= s_step_count) {
         ctrl_heater_force_off();

@@ -2,13 +2,15 @@
 
 Сгенерировано `tools/gen_api_docs.py` из таблицы маршрутов `main/web/web_api.c`.
 
-Всего маршрутов: 98.
+Всего маршрутов: 107.
 
 | Метод | Путь | Обработчик | Авторизация |
 |---|---|---|---|
 | `GET` | `/api/ai/status` | `h_ai_status` | ключ |
 | `GET` | `/api/alcohol` | `h_alcohol` | ключ |
 | `POST` | `/api/alcohol` | `h_alcohol` | ключ |
+| `GET` | `/api/alerts` | `h_alerts` | ключ |
+| `POST` | `/api/alerts/ack` | `h_alerts_ack` | ключ |
 | `GET` | `/api/autotune` | `h_autotune` | ключ |
 | `POST` | `/api/autotune` | `h_autotune` | ключ |
 | `POST` | `/api/backup/telegram` | `h_backup_telegram` | ключ |
@@ -16,6 +18,12 @@
 | `POST` | `/api/beer` | `h_beer` | ключ |
 | `POST` | `/api/brewfather` | `h_brewfather` | ключ |
 | `POST` | `/api/calendar` | `h_calendar` | ключ |
+| `GET` | `/api/calib/pump` | `h_calib_pump_get` | ключ |
+| `POST` | `/api/calib/pump` | `h_calib_pump_set` | ключ |
+| `GET` | `/api/calib/scale/points` | `h_calib_scale_points_get` | ключ |
+| `POST` | `/api/calib/scale/points/add` | `h_calib_scale_points_add` | ключ |
+| `POST` | `/api/calib/scale/points/apply` | `h_calib_scale_points_apply` | ключ |
+| `POST` | `/api/calib/scale/points/clear` | `h_calib_scale_points_clear` | ключ |
 | `POST` | `/api/calib/scale/start` | `h_calib_scale_start` | ключ |
 | `POST` | `/api/calib/scale/tare` | `h_calib_scale_tare` | ключ |
 | `POST` | `/api/calib/sensors/abort` | `h_calib_sensors_abort` | ключ |
@@ -64,6 +72,7 @@
 | `GET` | `/api/recipes` | `h_recipes_list` | ключ |
 | `GET` | `/api/remote` | `h_remote` | ключ |
 | `POST` | `/api/remote` | `h_remote` | ключ |
+| `GET` | `/api/run/report` | `h_run_report` | ключ |
 | `GET` | `/api/safety` | `h_safety` | ключ |
 | `POST` | `/api/safety` | `h_safety` | ключ |
 | `POST` | `/api/script/enable` | `h_script_enable` | ключ |

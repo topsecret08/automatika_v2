@@ -53,3 +53,10 @@ bool   scale_is_stable(void);
 bool   scale_is_ready(void);
 void   scale_set_density(float d);
 void   scale_update_state(process_state_t *st, bool indicator_active, float collected_ml);
+
+// Multi-point calibration/linearization
+int    scale_calib_points_count(void);
+bool   scale_calib_points_add(float known_g);
+void   scale_calib_points_clear(void);
+bool   scale_calib_points_apply(void);
+size_t scale_calib_points_json(char *buf, size_t buf_sz);

@@ -118,19 +118,30 @@ static esp_err_t heater_apply(float pct) {
 
     pct = trend_guard(pct);
     // Модельно-предиктивное ограничение: не допускаем прогнозируемый перегрев колонны.
-    if (hw_temp_available(HW_TEMP_COLUMN)) {
-        float col = hw_temp_read(HW_TEMP_COLUMN);
-        float tgt = state_get()->target_column_t;
-        if (isfinite(col) && isfinite(tgt) && tgt > 0.0f) {
-            pred_heat_in_t pin = {
-                .target_c = tgt,
-                .current_c = col,
-                .rate_c_min = hw_temp_slope(HW_TEMP_COLUMN),
-                .dt_s = 0.5f,
-                .max_power_pct = pct,
-            };
-            pred_heat_out_t pout = predictive_heat_limit(&pin);
-            if (pout.active && pout.cap_pct < pct) pct = pout.cap_pct;
+    {
+        process_state_t *st = state_get();
+        st->predictive_heat_active = false;
+        st->mpc_target_c = 0.0f;
+        st->mpc_predicted_c = NAN;
+        st->mpc_power_pct = pct;
+        if (hw_temp_available(HW_TEMP_COLUMN)) {
+            float col = hw_temp_read(HW_TEMP_COLUMN);
+            float tgt = st->target_column_t;
+            if (isfinite(col) && isfinite(tgt) && tgt > 0.0f) {
+                pred_heat_in_t pin = {
+                    .target_c = tgt,
+                    .current_c = col,
+                    .rate_c_min = hw_temp_slope(HW_TEMP_COLUMN),
+                    .dt_s = 0.5f,
+                    .max_power_pct = pct,
+                };
+                pred_heat_out_t pout = predictive_heat_limit(&pin);
+                st->mpc_target_c = tgt;
+                st->mpc_predicted_c = pout.predicted_c;
+                st->mpc_power_pct = pout.cap_pct;
+                st->predictive_heat_active = pout.active;
+                if (pout.active && pout.cap_pct < pct) pct = pout.cap_pct;
+            }
         }
     }
     float apply_pct = power_compensate_pct(pct);

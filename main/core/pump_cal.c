@@ -1,6 +1,12 @@
 #include "pump_cal.h"
+#include "nvs.h"
+#include "esp_log.h"
 #include <math.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+
+static const char *TAG = "PUMP_CAL";
 
 void pump_cal_load_defaults(pump_cal_t *c) {
     if (!c) return;
@@ -62,4 +68,44 @@ float pump_cal_speed_for_flow(const pump_cal_t *c, float flow_ml_min) {
         if (f < flow_ml_min) lo = mid; else hi = mid;
     }
     return (lo + hi) * 0.5f;
+}
+
+bool pump_cal_load_nvs(pump_cal_t *c) {
+    if (!c) return false;
+    nvs_handle_t nvs;
+    if (nvs_open("pump_cal", NVS_READONLY, &nvs) != ESP_OK) return false;
+    pump_cal_t tmp = {0};
+    size_t sz = sizeof(tmp);
+    esp_err_t err = nvs_get_blob(nvs, "pts", &tmp, &sz);
+    nvs_close(nvs);
+    if (err != ESP_OK || tmp.n < 2 || tmp.n > 5) return false;
+    *c = tmp;
+    return true;
+}
+
+bool pump_cal_save_nvs(const pump_cal_t *c) {
+    if (!c || c->n < 2 || c->n > 5) return false;
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open("pump_cal", NVS_READWRITE, &nvs);
+    if (err != ESP_OK) return false;
+    err = nvs_set_blob(nvs, "pts", c, sizeof(*c));
+    if (err == ESP_OK) err = nvs_commit(nvs);
+    nvs_close(nvs);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "save failed: %s", esp_err_to_name(err));
+        return false;
+    }
+    return true;
+}
+
+size_t pump_cal_to_json(const pump_cal_t *c, char *buf, size_t buf_sz) {
+    if (!c || !buf || buf_sz == 0) return 0;
+    size_t off = 0;
+    off += snprintf(buf + off, buf_sz - off, "{\"n\":%d,\"points\":[", c->n);
+    for (int i = 0; i < c->n && off + 2 < buf_sz; i++) {
+        off += snprintf(buf + off, buf_sz - off, "%s{\"speed\":%.2f,\"flow\":%.2f}",
+                        i?",":"", (double)c->speed_pct[i], (double)c->flow_ml_min[i]);
+    }
+    if (off + 3 < buf_sz) off += snprintf(buf + off, buf_sz - off, "]}");
+    return off;
 }

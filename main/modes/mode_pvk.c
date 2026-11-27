@@ -30,6 +30,12 @@ static proc_stage_t p_update(float dt) {
     float pres = hw_has_device(HW_DEV_PRESSURE) ? hal_adc_pressure_bar() : 0.0f;
     st->jacket_temp = jacket;
     st->pressure_bar = pres;
+    st->volume_guard_active = false;
+    st->volume_no_flow = false;
+    st->volume_overflow = false;
+    st->eq_lock_active = false;
+    st->eq_lock_phase = 0;
+    st->flood_active = false;
 
     if (!isfinite(jacket)) {
         st->stage = ST_ERROR;

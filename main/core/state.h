@@ -61,6 +61,32 @@ typedef struct {
     float scale_weight_g;
     float scale_flow_ml_min;
     float scale_collected_ml;
+
+    // Detector/guard statuses (exported to API/WS)
+    bool  flood_active;
+    bool  eq_lock_active;
+    uint8_t eq_lock_phase;      // eq_phase_t
+    bool  volume_guard_active;
+    bool  volume_no_flow;
+    bool  volume_overflow;
+    bool  energy_anomaly_active;
+    bool  predictive_heat_active;
+    float mpc_target_c;
+    float mpc_predicted_c;
+    float mpc_power_pct;
+
+    // Sensor fusion/confidence (0..1)
+    float fusion_cube_conf;
+    float fusion_column_conf;
+    float fusion_pressure_conf;
+    float fusion_scale_conf;
+
+    // Mass balance / quality metrics
+    float mass_balance_abv_pct;
+    float mass_balance_alcohol_ml;
+    float mass_balance_loss_pct;
+    float quality_score;        // 0..100 heuristic
+    uint32_t quality_warnings;
 } process_state_t;
 
 void             state_init(void);

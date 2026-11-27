@@ -14,6 +14,8 @@
 #include "control/ctrl_valve_control.h"
 #include "control/fraction_periodic.h"
 #include "control/reflux.h"
+#include "control/volume_feedback.h"
+#include "control/ctrl_scale.h"
 #include "esp_timer.h"
 
 #include <math.h>
@@ -24,12 +26,16 @@ static float s_total_barda;
 static float s_feed_ramp;
 static float s_run_time;
 static bool  s_stable;
+static volume_feedback_t s_fb;
 
 static proc_stage_t n_init(void) {
     s_total_feed = s_total_prod = s_total_barda = 0;
     s_feed_ramp = 0;
     s_run_time = 0;
     s_stable = false;
+    volume_feedback_begin(&s_fb);
+    volume_feedback_set_target(&s_fb, state_get()->target_body_ml,
+        state_get()->target_body_ml > 0 ? state_get()->target_body_ml * 1.20f : 0, 120000);
     ctrl_pid_init_ext(18, 0.6f, 2.5f, 96.0f, (float)PID_TIMESTEP_MS, 0);
     if (hw_has_device(HW_DEV_REFLUX)) {
         reflux_set_ratio(3.0f);
@@ -105,6 +111,22 @@ static proc_stage_t n_update(float dt) {
     float prod_lph = feed_lph * 0.1f;
     s_total_prod += prod_lph * dt / 3600.0f;
     s_total_barda = s_total_feed - s_total_prod;
+
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    volume_feedback_tick(&s_fb, s_feed_ramp > 0.01f, now_ms);
+    st->volume_guard_active = true;
+    st->volume_no_flow = volume_feedback_no_flow(&s_fb);
+    st->volume_overflow = volume_feedback_overflow(&s_fb);
+    if (volume_feedback_overflow(&s_fb)) {
+        events_log(EVENT_WARNING, "NBK: overflow guard");
+        ctrl_dose_stop();
+    }
+    if (volume_feedback_no_flow(&s_fb)) {
+        events_log(EVENT_WARNING, "NBK: no-flow detected");
+    }
+    st->flood_active = false;
+    st->eq_lock_active = false;
+    st->eq_lock_phase = 0;
 
     st->stage = ST_RUNNING;
     return ST_RUNNING;
