@@ -14,6 +14,27 @@ static nvs_handle_t nvs;
 static uint32_t s_calib_start = 0;
 static float s_calib_known_weight = 0;
 
+// ---- Multi-point calibration / linearization ----
+#define SCALE_CAL_PTS_MAX 6
+typedef struct { int32_t raw; float g; } scale_pt_t;
+static scale_pt_t s_pts[SCALE_CAL_PTS_MAX];
+static int s_pts_n = 0;
+
+static void scale_pts_save(void) {
+    nvs_set_blob(nvs, "pts_n", &s_pts_n, sizeof(s_pts_n));
+    nvs_set_blob(nvs, "pts", s_pts, sizeof(s_pts));
+    nvs_commit(nvs);
+}
+
+static void scale_pts_load(void) {
+    size_t sz = sizeof(s_pts_n);
+    if (nvs_get_blob(nvs, "pts_n", &s_pts_n, &sz) != ESP_OK) s_pts_n = 0;
+    if (s_pts_n < 0 || s_pts_n > SCALE_CAL_PTS_MAX) s_pts_n = 0;
+    sz = sizeof(s_pts);
+    if (s_pts_n > 0 && nvs_get_blob(nvs, "pts", s_pts, &sz) != ESP_OK) s_pts_n = 0;
+}
+
+
 void scale_init(int pin_dout, int pin_sck) {
     nvs_open("scale", NVS_READWRITE, &nvs);
     memset(&s, 0, sizeof(s));
@@ -179,25 +200,6 @@ void scale_task(void *arg) {
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }
-}
-// ---- Multi-point calibration / linearization ----
-#define SCALE_CAL_PTS_MAX 6
-typedef struct { int32_t raw; float g; } scale_pt_t;
-static scale_pt_t s_pts[SCALE_CAL_PTS_MAX];
-static int s_pts_n = 0;
-
-static void scale_pts_save(void) {
-    nvs_set_blob(nvs, "pts_n", &s_pts_n, sizeof(s_pts_n));
-    nvs_set_blob(nvs, "pts", s_pts, sizeof(s_pts));
-    nvs_commit(nvs);
-}
-
-static void scale_pts_load(void) {
-    size_t sz = sizeof(s_pts_n);
-    if (nvs_get_blob(nvs, "pts_n", &s_pts_n, &sz) != ESP_OK) s_pts_n = 0;
-    if (s_pts_n < 0 || s_pts_n > SCALE_CAL_PTS_MAX) s_pts_n = 0;
-    sz = sizeof(s_pts);
-    if (s_pts_n > 0 && nvs_get_blob(nvs, "pts", s_pts, &sz) != ESP_OK) s_pts_n = 0;
 }
 
 int scale_calib_points_count(void) { return s_pts_n; }
