@@ -30,6 +30,13 @@ typedef struct {
     bool pump_on;
     uint8_t mixer;
     uint8_t heater;
+    bool flood;
+    bool eq_lock;
+    uint8_t eq_phase;
+    bool vol_guard;
+    bool vol_no_flow;
+    bool vol_overflow;
+    const char *reason;
 } diag_state_t;
 
 lv_obj_t *ui_screen_diagnostics_create(void);

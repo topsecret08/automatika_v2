@@ -100,7 +100,7 @@ const char *health_level_name(void) {
 const char *health_last_reason(void) { return s_last_reason; }
 
 const char *health_json(void) {
-    static char out[1024];
+    static char out[1280];
 
     process_state_t *st = state_get();
     wifi_ap_record_t ap;
@@ -119,8 +119,9 @@ const char *health_json(void) {
         "\"safety\":%d,\"estop\":%d,\"running\":%d,\"stage\":%d,"
         "\"version\":\"%s\",\"tasks\":%d,"
         "\"contours\":{\"hx711\":%d,\"zmpt\":%d,\"pressure\":%d,"
-        "\"flood\":%d,\"eq_lock\":%d,\"vol_guard\":%d,"
-        "\"mpc\":%d,\"fusion\":%d}}",
+        "\"flood\":%d,\"eq_lock\":%d,\"eq_phase\":%u,\"vol_guard\":%d,"
+        "\"vol_no_flow\":%d,\"vol_overflow\":%d,\"mpc\":%d,\"fusion\":%d,"
+        "\"guard_reason\":\"%s\"}}",
         health_level_name(), s_last_reason,
         (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
         (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
@@ -138,9 +139,11 @@ const char *health_json(void) {
         FW_VERSION,
         wd_count(),
         scale_ok ? 1 : 0, zmpt_ok ? 1 : 0, pres_ok ? 1 : 0,
-        st->flood_active ? 1 : 0, st->eq_lock_active ? 1 : 0, st->volume_guard_active ? 1 : 0,
+        st->flood_active ? 1 : 0, st->eq_lock_active ? 1 : 0, (unsigned)st->eq_lock_phase,
+        st->volume_guard_active ? 1 : 0, st->volume_no_flow ? 1 : 0, st->volume_overflow ? 1 : 0,
         st->predictive_heat_active ? 1 : 0,
-        (st->fusion_cube_conf > 0.0f || st->fusion_column_conf > 0.0f) ? 1 : 0);
+        (st->fusion_cube_conf > 0.0f || st->fusion_column_conf > 0.0f) ? 1 : 0,
+        st->actions_block_reason[0] ? st->actions_block_reason : "");
 
     return out;
 }

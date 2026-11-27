@@ -125,6 +125,14 @@ void hmi_telemetry_from_json(const uint8_t *payload, uint16_t len)
     s_t.scale_flow   = jnum(root, "sc_flow", 0.0f);
     s_t.scale_ml     = jnum(root, "sc_ml", 0.0f);
 
+    /* guards / diagnostics */
+    s_t.flood_active        = jbool(root, "fl", false);
+    s_t.eq_lock_active      = jbool(root, "eq", false);
+    s_t.eq_lock_phase       = (uint8_t)juint(root, "eq_ph", 0);
+    s_t.volume_guard_active = jbool(root, "vg", false);
+    s_t.volume_no_flow      = jbool(root, "vnf", false);
+    s_t.volume_overflow     = jbool(root, "vof", false);
+
     cJSON_Delete(root);
 }
 
@@ -134,8 +142,27 @@ void hmi_telemetry_apply_ui(void)
 
     rect_state_t r = {0};
     r.ready      = s_t.link && s_t.sa && !s_t.actions_blocked;
-    r.stage      = s_t.bench_mode ? "СТЕНД: ДЕЙСТВИЯ ЗАБЛОКИРОВАНЫ" :
-                   (s_t.estop_active ? "E-STOP АКТИВЕН" : "ЭТАП: ТЕЛО");
+    {
+        const char *stage = "—";
+        switch (s_t.stg) {
+            case 0:  stage = "ПРОСТОЙ"; break;       /* ST_IDLE */
+            case 1:  stage = "НАГРЕВ"; break;        /* ST_HEATUP */
+            case 2:  stage = "СТАБИЛИЗАЦИЯ"; break;  /* ST_STABILIZE */
+            case 3:  stage = "ГОЛОВЫ"; break;        /* ST_HEADS */
+            case 4:  stage = "ТЕЛО"; break;          /* ST_BODY */
+            case 5:  stage = "ХВОСТЫ"; break;        /* ST_TAILS */
+            case 6:  stage = "ОХЛАЖДЕНИЕ"; break;    /* ST_COOLDOWN */
+            case 7:  stage = "ГОТОВО"; break;        /* ST_DONE */
+            case 8:  stage = "ПРОВЕРКА"; break;      /* ST_PRECHECK */
+            case 9:  stage = "ПРОГРЕВ"; break;       /* ST_WARMUP */
+            case 10: stage = "РАБОТА"; break;        /* ST_RUNNING */
+            case 11: stage = "ОШИБКА"; break;       /* ST_ERROR */
+            default: stage = "РАБОТА"; break;
+        }
+        if (s_t.pause && !s_t.bench_mode && !s_t.estop_active) stage = "ПАУЗА";
+        r.stage = s_t.bench_mode ? "СТЕНД: ДЕЙСТВИЯ ЗАБЛОКИРОВАНЫ" :
+                  (s_t.estop_active ? "E-STOP АКТИВЕН" : stage);
+    }
     r.steam      = s_t.tc;
     r.steam_set  = s_t.ts;
     r.steam_fix  = s_t.ts > 1.5f ? s_t.ts - 1.5f : s_t.ts;
@@ -171,6 +198,13 @@ void hmi_telemetry_apply_ui(void)
     d.pump_on    = s_t.r != 0;
     d.mixer      = s_t.stg;
     d.heater     = (uint8_t)s_t.p;
+    d.flood      = s_t.flood_active;
+    d.eq_lock    = s_t.eq_lock_active;
+    d.eq_phase   = s_t.eq_lock_phase;
+    d.vol_guard  = s_t.volume_guard_active;
+    d.vol_no_flow = s_t.volume_no_flow;
+    d.vol_overflow = s_t.volume_overflow;
+    d.reason     = s_t.reason;
     ui_screen_diagnostics_update(&d);
 
     sys_state_t y = {0};
