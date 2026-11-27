@@ -96,6 +96,19 @@ static bool parse_cmd_json(const char *json, can_hmi_cmd_t *out)
     return ok;
 }
 
+static void hmi_can_recover_if_bus_off(void)
+{
+    twai_status_info_t st = {0};
+    if (twai_get_status_info(&st) != ESP_OK) return;
+    if (st.state == TWAI_STATE_BUS_OFF) {
+        ESP_LOGW(TAG, "TWAI bus-off, initiating recovery");
+        twai_initiate_recovery();
+    } else if (st.state == TWAI_STATE_STOPPED) {
+        ESP_LOGW(TAG, "TWAI stopped, restarting");
+        twai_start();
+    }
+}
+
 static void hmi_can_task(void *arg)
 {
     (void)arg;
@@ -118,8 +131,12 @@ static void hmi_can_task(void *arg)
                     twai_message_t ack;
                     int64_t t0 = esp_timer_get_time();
                     while (esp_timer_get_time() - t0 < (int64_t)HMI_REPLY_TIMEOUT_MS * 1000) {
-                        if (twai_receive(&ack, pdMS_TO_TICKS(20)) == ESP_OK &&
-                            !ack.extd && !ack.rtr && ack.identifier == CAN_HMI_ID_ACK &&
+                        esp_err_t rr = twai_receive(&ack, pdMS_TO_TICKS(20));
+                        if (rr != ESP_OK) {
+                            if (rr != ESP_ERR_TIMEOUT) hmi_can_recover_if_bus_off();
+                            continue;
+                        }
+                        if (!ack.extd && !ack.rtr && ack.identifier == CAN_HMI_ID_ACK &&
                             ack.data_length_code >= 4 && ack.data[0] == cmd.seq) {
                             s_frames++;
                             break;
@@ -144,7 +161,11 @@ static void hmi_can_task(void *arg)
             twai_message_t msg;
             int64_t remain_ms = (deadline - esp_timer_get_time()) / 1000;
             if (remain_ms < 1) remain_ms = 1;
-            if (twai_receive(&msg, pdMS_TO_TICKS((uint32_t)remain_ms)) != ESP_OK) continue;
+            esp_err_t rr = twai_receive(&msg, pdMS_TO_TICKS((uint32_t)remain_ms));
+            if (rr != ESP_OK) {
+                if (rr != ESP_ERR_TIMEOUT) hmi_can_recover_if_bus_off();
+                continue;
+            }
             if (msg.extd || msg.rtr || msg.data_length_code < 2) continue;
             if (msg.data[0] != poll_seq) continue;
             uint8_t d[8] = {0};

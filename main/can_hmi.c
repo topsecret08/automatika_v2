@@ -121,7 +121,7 @@ static void send_telemetry_snapshot(uint8_t seq)
     if (actions_blocked) flags1 |= CAN_HMI_F1_ACTIONS_BLOCKED;
     if (bench_mode) flags1 |= CAN_HMI_F1_BENCH;
     if (hal_safety_relay_is_closed()) flags1 |= CAN_HMI_F1_RELAY;
-    if (ctrl_safety_ok()) flags1 |= CAN_HMI_F1_SD_READY; /* reuse: safety/sensor readiness */
+    /* Controller SD is intentionally disabled; keep F1_SD_READY false. */
 
     uint8_t flags2 = 0;
     if (s.flood_active) flags2 |= CAN_HMI_F2_FLOOD;
@@ -283,13 +283,29 @@ static void handle_cmd(const can_hmi_cmd_t *cmd)
     send_ack(cmd->seq, CAN_HMI_ACK_ACK, ok, err, NULL);
 }
 
+static void can_hmi_recover_if_bus_off(void)
+{
+    twai_status_info_t st = {0};
+    if (twai_get_status_info(&st) != ESP_OK) return;
+    if (st.state == TWAI_STATE_BUS_OFF) {
+        ESP_LOGW(TAG, "TWAI bus-off, initiating recovery");
+        twai_initiate_recovery();
+    } else if (st.state == TWAI_STATE_STOPPED) {
+        ESP_LOGW(TAG, "TWAI stopped, restarting");
+        twai_start();
+    }
+}
+
 static void can_hmi_task(void *arg)
 {
     (void)arg;
     twai_message_t msg;
     while (1) {
         esp_err_t r = twai_receive(&msg, pdMS_TO_TICKS(CAN_HMI_RX_TIMEOUT_MS));
-        if (r != ESP_OK) continue;
+        if (r != ESP_OK) {
+            if (r != ESP_ERR_TIMEOUT) can_hmi_recover_if_bus_off();
+            continue;
+        }
         if (msg.extd || msg.rtr || msg.data_length_code < 2) continue;
 
         if (msg.identifier == CAN_HMI_ID_POLL) {
