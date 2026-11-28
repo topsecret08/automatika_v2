@@ -19,6 +19,7 @@
 
 # Windows (PowerShell)
 C:\Espressif\frameworks\esp-idf-v5.3.2\export.ps1
+$env:PYTHONUTF8 = "1"
 ```
 
 ## 2. Основная сборка
