@@ -1,5 +1,6 @@
 #include "hmi_can.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "cJSON.h"
@@ -13,6 +14,7 @@
 #include "can_hmi_proto.h"
 #include "hmi_proto.h"
 #include "hmi_telemetry.h"
+#include "hmi_storage.h"
 
 static const char *TAG = "hmi_can";
 
@@ -96,6 +98,110 @@ static bool parse_cmd_json(const char *json, can_hmi_cmd_t *out)
     return ok;
 }
 
+static void hmi_can_recover_if_bus_off(void);
+
+static bool hmi_can_write_event(uint32_t ts_ms, uint8_t type, const char *msg)
+{
+    if (!hmi_storage_sd_ready()) return false;
+    char safe[96];
+    size_t j = 0;
+    for (size_t i = 0; msg && msg[i] && j < sizeof(safe) - 1; i++) {
+        char c = msg[i];
+        if (c == '\n' || c == '\r' || c == ',') c = ';';
+        safe[j++] = c;
+    }
+    safe[j] = '\0';
+    char line[160];
+    snprintf(line, sizeof(line), "%lu,%u,%s",
+             (unsigned long)ts_ms, (unsigned)type, safe);
+    return hmi_storage_append_line(HMI_SD_MOUNT_POINT "/logs/events.csv", line);
+}
+
+static uint8_t hmi_can_poll_logs(uint8_t seq, uint8_t acked)
+{
+    uint8_t d[8] = { seq, acked, 0, 0, 0, 0, 0, 0 };
+    can_send(CAN_HMI_ID_LOG_POLL, d);
+
+    struct {
+        bool active;
+        bool complete;
+        bool written;
+        uint32_t ts_ms;
+        uint8_t type;
+        char msg[96];
+        size_t len;
+    } recs[2];
+    memset(recs, 0, sizeof(recs));
+
+    int64_t deadline = esp_timer_get_time() + 250000; /* 250ms */
+    bool done = false;
+    uint8_t sent_events = 0;
+    while (esp_timer_get_time() < deadline && !done) {
+        twai_message_t msg;
+        int64_t remain_ms = (deadline - esp_timer_get_time()) / 1000;
+        if (remain_ms < 1) remain_ms = 1;
+        esp_err_t rr = twai_receive(&msg, pdMS_TO_TICKS((uint32_t)remain_ms));
+        if (rr != ESP_OK) {
+            if (rr != ESP_ERR_TIMEOUT) hmi_can_recover_if_bus_off();
+            continue;
+        }
+        if (msg.extd || msg.rtr || msg.data_length_code < 2) continue;
+        uint8_t raw[8] = {0};
+        memcpy(raw, msg.data, msg.data_length_code < 8 ? msg.data_length_code : 8);
+        if (raw[0] != seq) continue;
+
+        if (msg.identifier == CAN_HMI_ID_LOG) {
+            can_hmi_log_t lf;
+            if (!can_hmi_unpack_log(raw, &lf) || lf.rec >= 2) continue;
+            if (lf.flags & CAN_HMI_LOG_F_START) {
+                recs[lf.rec].active = true;
+                recs[lf.rec].complete = false;
+                recs[lf.rec].written = false;
+                recs[lf.rec].ts_ms = can_hmi_u32(lf.data);
+                recs[lf.rec].type = lf.type;
+                recs[lf.rec].len = 0;
+                recs[lf.rec].msg[0] = '\0';
+                if (lf.flags & CAN_HMI_LOG_F_END) {
+                    recs[lf.rec].complete = true;
+                    recs[lf.rec].active = false;
+                    recs[lf.rec].written = hmi_can_write_event(recs[lf.rec].ts_ms, recs[lf.rec].type, recs[lf.rec].msg);
+                }
+            } else if (recs[lf.rec].active) {
+                size_t space = sizeof(recs[lf.rec].msg) - 1 - recs[lf.rec].len;
+                size_t chunk = space < 4 ? space : 4;
+                for (size_t i = 0; i < chunk; i++) {
+                    char c = (char)lf.data[i];
+                    if (c == '\0') { chunk = i; break; }
+                }
+                if (chunk > 0) {
+                    memcpy(recs[lf.rec].msg + recs[lf.rec].len, lf.data, chunk);
+                    recs[lf.rec].len += chunk;
+                    recs[lf.rec].msg[recs[lf.rec].len] = '\0';
+                }
+                if (lf.flags & CAN_HMI_LOG_F_END) {
+                    recs[lf.rec].complete = true;
+                    recs[lf.rec].active = false;
+                    recs[lf.rec].written = hmi_can_write_event(recs[lf.rec].ts_ms, recs[lf.rec].type, recs[lf.rec].msg);
+                }
+            }
+        } else if (msg.identifier == CAN_HMI_ID_ACK) {
+            can_hmi_ack_t ack;
+            if (can_hmi_unpack_ack(raw, &ack) && ack.kind == CAN_HMI_ACK_LOG_END) {
+                sent_events = ack.data[0];
+                done = true;
+            }
+        }
+    }
+
+    if (!done) return 0;
+    uint8_t acked_out = 0;
+    for (uint8_t i = 0; i < sent_events && i < 2; i++) {
+        if (recs[i].complete && recs[i].written) acked_out++;
+        else break;
+    }
+    return acked_out;
+}
+
 static void hmi_can_recover_if_bus_off(void)
 {
     twai_status_info_t st = {0};
@@ -115,6 +221,8 @@ static void hmi_can_task(void *arg)
     TickType_t last_wake = xTaskGetTickCount();
     char cmd_json[HMI_CMD_STR_LEN];
     int misses = 0;
+    int log_div = 0;
+    uint8_t log_acked = 0;
 
     while (1) {
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(HMI_POLL_MS));
@@ -205,6 +313,12 @@ static void hmi_can_task(void *arg)
 
         hmi_telemetry_set_link(s_link);
         hmi_telemetry_set_stats(s_rx_err, s_frames, s_latency_ms);
+
+        if (++log_div >= 5) {
+            log_div = 0;
+            s_seq++;
+            log_acked = hmi_can_poll_logs(s_seq, log_acked);
+        }
     }
 }
 

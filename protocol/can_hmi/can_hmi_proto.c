@@ -155,3 +155,15 @@ bool can_hmi_unpack_cmd(const uint8_t d[8], can_hmi_cmd_t *s) {
     s->p0 = d[2]; s->p1 = d[3]; s->p2 = d[4]; s->p3 = d[5]; s->p4 = d[6]; s->p5 = d[7];
     return true;
 }
+bool can_hmi_pack_log(uint8_t d[8], const can_hmi_log_t *s) {
+    if (!d || !s) return false;
+    d[0] = s->seq; d[1] = s->rec; d[2] = s->type; d[3] = s->flags;
+    memcpy(&d[4], s->data, 4);
+    return true;
+}
+bool can_hmi_unpack_log(const uint8_t d[8], can_hmi_log_t *s) {
+    if (!d || !s) return false;
+    s->seq = d[0]; s->rec = d[1]; s->type = d[2]; s->flags = d[3];
+    memcpy(s->data, &d[4], 4);
+    return true;
+}

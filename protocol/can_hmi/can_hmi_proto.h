@@ -25,6 +25,7 @@
 /* Standard 11-bit CAN IDs */
 #define CAN_HMI_ID_CMD              0x100u  /* HMI -> CTRL: command */
 #define CAN_HMI_ID_POLL             0x101u  /* HMI -> CTRL: poll/request */
+#define CAN_HMI_ID_LOG_POLL         0x102u  /* HMI -> CTRL: poll event/log records */
 #define CAN_HMI_ID_TLM_A            0x180u  /* CTRL -> HMI: state/flags */
 #define CAN_HMI_ID_TLM_B            0x181u  /* CTRL -> HMI: temps */
 #define CAN_HMI_ID_TLM_C            0x182u  /* CTRL -> HMI: pressure/flow/power/volumes */
@@ -32,6 +33,7 @@
 #define CAN_HMI_ID_TLM_E            0x184u  /* CTRL -> HMI: guards/diag */
 #define CAN_HMI_ID_TLM_F            0x185u  /* CTRL -> HMI: extra/reserved sensors */
 #define CAN_HMI_ID_TLM_G            0x186u  /* CTRL -> HMI: targets/extra temps */
+#define CAN_HMI_ID_LOG              0x187u  /* CTRL -> HMI: event/log chunk */
 #define CAN_HMI_ID_ACK              0x18Fu  /* CTRL -> HMI: ack/pong/config/meta */
 
 #define CAN_HMI_TLM_FRAMES          7u      /* A..G */
@@ -51,6 +53,7 @@
 #define CAN_HMI_ACK_PONG            0x02u
 #define CAN_HMI_ACK_SNAPSHOT        0x03u  /* end of telemetry snapshot */
 #define CAN_HMI_ACK_CONFIG          0x04u
+#define CAN_HMI_ACK_LOG_END         0x05u  /* end of log poll response; data[0]=events, data[1]=more */
 
 /* ACK error codes (ACK frame byte 3) */
 #define CAN_HMI_ERR_OK              0x00u
@@ -181,6 +184,17 @@ typedef struct {
     uint8_t p0, p1, p2, p3, p4, p5;
 } can_hmi_cmd_t;
 
+#define CAN_HMI_LOG_F_START 0x01u
+#define CAN_HMI_LOG_F_END   0x02u
+
+typedef struct {
+    uint8_t seq;    /* poll seq */
+    uint8_t rec;    /* record index within response */
+    uint8_t type;   /* event_type_t */
+    uint8_t flags;  /* CAN_HMI_LOG_F_* */
+    uint8_t data[4];/* START: ts_ms LE32; else: text chunk */
+} can_hmi_log_t;
+
 static inline uint16_t can_hmi_u16(const uint8_t *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
 }
@@ -237,3 +251,5 @@ bool can_hmi_pack_tlm_g(uint8_t d[8], const can_hmi_tlm_g_t *s);
 bool can_hmi_unpack_tlm_g(const uint8_t d[8], can_hmi_tlm_g_t *s);
 bool can_hmi_pack_cmd(uint8_t d[8], const can_hmi_cmd_t *s);
 bool can_hmi_unpack_cmd(const uint8_t d[8], can_hmi_cmd_t *s);
+bool can_hmi_pack_log(uint8_t d[8], const can_hmi_log_t *s);
+bool can_hmi_unpack_log(const uint8_t d[8], can_hmi_log_t *s);
