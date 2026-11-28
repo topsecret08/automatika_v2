@@ -26,6 +26,7 @@
 #include "hal/zmpt_rms.h"
 #include "hal/hal_lsa_pwm.h"
 #include "modes/mode_base.h"
+#include "core/events.h"
 
 static const char *TAG = "CAN_HMI";
 
@@ -283,6 +284,61 @@ static void handle_cmd(const can_hmi_cmd_t *cmd)
     send_ack(cmd->seq, CAN_HMI_ACK_ACK, ok, err, NULL);
 }
 
+static size_t s_log_cursor;
+static size_t s_log_pending;
+
+static void send_log_response(uint8_t seq, uint8_t acked)
+{
+    if (acked > 0 && acked <= s_log_pending) {
+        s_log_cursor += acked;
+        s_log_pending -= acked;
+    } else if (acked > 0) {
+        s_log_cursor += s_log_pending;
+        s_log_pending = 0;
+    }
+
+    size_t peek = s_log_cursor;
+    event_t ev[2];
+    int n = events_read_after(&peek, ev, 2);
+    s_log_pending = (size_t)n;
+
+    uint8_t sent_events = 0;
+    for (int i = 0; i < n; i++) {
+        can_hmi_log_t logf = {0};
+        logf.seq = seq;
+        logf.rec = (uint8_t)i;
+        logf.type = (uint8_t)ev[i].type;
+        logf.flags = CAN_HMI_LOG_F_START;
+        can_hmi_put_u32(logf.data, ev[i].timestamp_ms);
+        uint8_t d[8];
+        if (can_hmi_pack_log(d, &logf)) can_send(CAN_HMI_ID_LOG, d);
+
+        const char *msg = ev[i].msg;
+        size_t len = strnlen(msg, sizeof(ev[i].msg));
+        size_t off = 0;
+        if (len == 0) {
+            memset(&logf, 0, sizeof(logf));
+            logf.seq = seq; logf.rec = (uint8_t)i; logf.type = (uint8_t)ev[i].type;
+            logf.flags = CAN_HMI_LOG_F_END;
+            if (can_hmi_pack_log(d, &logf)) can_send(CAN_HMI_ID_LOG, d);
+        } else {
+            while (off < len) {
+                memset(&logf, 0, sizeof(logf));
+                logf.seq = seq; logf.rec = (uint8_t)i; logf.type = (uint8_t)ev[i].type;
+                size_t chunk = len - off;
+                if (chunk > 4) chunk = 4;
+                memcpy(logf.data, msg + off, chunk);
+                off += chunk;
+                if (off >= len) logf.flags |= CAN_HMI_LOG_F_END;
+                if (can_hmi_pack_log(d, &logf)) can_send(CAN_HMI_ID_LOG, d);
+            }
+        }
+        sent_events++;
+    }
+    uint8_t ack_data[4] = { sent_events, (uint8_t)(n >= 2 ? 1 : 0), 0, 0 };
+    send_ack(seq, CAN_HMI_ACK_LOG_END, true, CAN_HMI_ERR_OK, ack_data);
+}
+
 static void can_hmi_recover_if_bus_off(void)
 {
     twai_status_info_t st = {0};
@@ -311,6 +367,10 @@ static void can_hmi_task(void *arg)
         if (msg.identifier == CAN_HMI_ID_POLL) {
             uint8_t seq = msg.data[0];
             send_telemetry_snapshot(seq);
+        } else if (msg.identifier == CAN_HMI_ID_LOG_POLL) {
+            uint8_t seq = msg.data[0];
+            uint8_t acked = (msg.data_length_code >= 2) ? msg.data[1] : 0;
+            send_log_response(seq, acked);
         } else if (msg.identifier == CAN_HMI_ID_CMD) {
             can_hmi_cmd_t cmd;
             uint8_t d[8] = {0};
@@ -347,7 +407,7 @@ esp_err_t can_hmi_init(void)
 
     twai_filter_config_t f_config = {
         .acceptance_code = (CAN_HMI_ID_CMD << 21),
-        .acceptance_mask = ~(uint32_t)((0x7FEu) << 21), /* accept 0x100-0x101 */
+        .acceptance_mask = ~(uint32_t)((0x7FCu) << 21), /* accept 0x100-0x103 */
         .single_filter = true,
     };
 
