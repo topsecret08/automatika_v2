@@ -123,6 +123,29 @@ bool hmi_storage_sd_ready(void)
     return s_sd_ready;
 }
 
+esp_err_t hmi_storage_rotate_file(const char *path, size_t max_bytes, int keep)
+{
+    if (!s_sd_ready || !path || keep < 1) return ESP_ERR_INVALID_ARG;
+    struct stat st;
+    if (stat(path, &st) != 0) return ESP_OK;
+    if ((size_t)st.st_size < max_bytes) return ESP_OK;
+
+    char oldp[192];
+    char newp[192];
+    for (int i = keep - 1; i >= 1; --i) {
+        snprintf(oldp, sizeof(oldp), "%s.%d", path, i);
+        snprintf(newp, sizeof(newp), "%s.%d", path, i + 1);
+        rename(oldp, newp);
+    }
+    snprintf(newp, sizeof(newp), "%s.1", path);
+    if (rename(path, newp) != 0) {
+        ESP_LOGW(TAG, "rotate failed: %s errno=%d", path, errno);
+        return ESP_FAIL;
+    }
+    ESP_LOGI(TAG, "rotated %s", path);
+    return ESP_OK;
+}
+
 bool hmi_storage_append_line(const char *path, const char *line)
 {
     if (!s_sd_ready || !path || !line) return false;

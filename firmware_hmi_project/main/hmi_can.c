@@ -103,6 +103,9 @@ static void hmi_can_recover_if_bus_off(void);
 static bool hmi_can_write_event(uint32_t ts_ms, uint8_t type, const char *msg)
 {
     if (!hmi_storage_sd_ready()) return false;
+    const char *path = HMI_SD_MOUNT_POINT "/logs/events.csv";
+    hmi_storage_rotate_file(path, 256 * 1024, 3);
+
     char safe[96];
     size_t j = 0;
     for (size_t i = 0; msg && msg[i] && j < sizeof(safe) - 1; i++) {
@@ -114,7 +117,7 @@ static bool hmi_can_write_event(uint32_t ts_ms, uint8_t type, const char *msg)
     char line[160];
     snprintf(line, sizeof(line), "%lu,%u,%s",
              (unsigned long)ts_ms, (unsigned)type, safe);
-    return hmi_storage_append_line(HMI_SD_MOUNT_POINT "/logs/events.csv", line);
+    return hmi_storage_append_line(path, line);
 }
 
 static uint8_t hmi_can_poll_logs(uint8_t seq, uint8_t acked)
