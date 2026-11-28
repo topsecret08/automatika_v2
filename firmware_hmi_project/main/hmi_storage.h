@@ -24,6 +24,9 @@ esp_err_t hmi_storage_ensure_dirs(void);
 /* Append a line to a file on SD, creating parent dirs as needed. */
 bool hmi_storage_append_line(const char *path, const char *line);
 
+/* Rotate file when it exceeds max_bytes: file -> .1, .1 -> .2, ... */
+esp_err_t hmi_storage_rotate_file(const char *path, size_t max_bytes, int keep);
+
 /* Read whole file into buf (NUL-terminated). Returns bytes read, 0 on error. */
 size_t hmi_storage_read_file(const char *path, char *buf, size_t max_len);
 
