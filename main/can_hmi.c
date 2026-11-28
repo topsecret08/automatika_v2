@@ -375,15 +375,15 @@ static void handle_recipe_chunk(const uint8_t d[8], uint8_t dlc)
     }
 
     if (idx != (uint8_t)(s_recipe_next_idx & 0xFFu)) {
-        uint8_t ackd[4] = { idx, CAN_HMI_ERR_BAD_ARGS, (uint8_t)(s_recipe_next_idx & 0xFFu), 0 };
-        send_ack(seq, CAN_HMI_ACK_RECIPE, false, CAN_HMI_ERR_BAD_ARGS, ackd);
+        uint8_t ackd[4] = { idx, CAN_HMI_ERR_VALUE, (uint8_t)(s_recipe_next_idx & 0xFFu), 0 };
+        send_ack(seq, CAN_HMI_ACK_RECIPE, false, CAN_HMI_ERR_VALUE, ackd);
         return;
     }
 
     if (s_recipe_len + payload_len > sizeof(s_recipe_buf)) {
         s_recipe_active = false;
-        uint8_t ackd[4] = { idx, CAN_HMI_ERR_BAD_ARGS, 0, 0 };
-        send_ack(seq, CAN_HMI_ACK_RECIPE, false, CAN_HMI_ERR_BAD_ARGS, ackd);
+        uint8_t ackd[4] = { idx, CAN_HMI_ERR_VALUE, 0, 0 };
+        send_ack(seq, CAN_HMI_ACK_RECIPE, false, CAN_HMI_ERR_VALUE, ackd);
         return;
     }
 
