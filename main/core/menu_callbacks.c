@@ -252,20 +252,30 @@ void cb_wd_test(void *c)   { (void)c; ui_toast("Тест watchdog"); }
 // DB
 // ============================================================
 void cb_db_stats(void *c)   { (void)c;
+    if (!db_is_ready()) { ui_toast("БД недоступна (SD контроллера отключена)"); return; }
     char buf[256]; db_stats(buf, sizeof(buf));
     ui_show_text_dialog("БД", buf);
 }
-void cb_db_history(void *c) { (void)c; ui_graph_history(); }
+void cb_db_history(void *c) { (void)c;
+    if (!db_is_ready()) { ui_toast("История недоступна (БД отключена)"); return; }
+    ui_graph_history();
+}
 void cb_db_export(void *c)  { (void)c;
+    if (!db_is_ready()) { ui_toast("Экспорт недоступен (БД отключена)"); return; }
     bool ok = db_export_all_csv("/sdcard");
     ui_toast(ok ? "Экспорт: /sdcard/processes.csv" : "Ошибка экспорта");
 }
 void cb_db_backup(void *c)  { (void)c;
-    db_backup("/sdcard/backups/db_auto.db");
-    ui_toast("Backup создан");
+    if (!db_is_ready()) { ui_toast("Backup недоступен (БД отключена)"); return; }
+    bool ok = db_backup("/sdcard/backups/db_auto.db");
+    ui_toast(ok ? "Backup создан" : "Ошибка backup");
 }
-void cb_db_vacuum(void *c)  { (void)c; db_vacuum(); ui_toast("VACUUM OK"); }
+void cb_db_vacuum(void *c)  { (void)c;
+    if (!db_is_ready()) { ui_toast("VACUUM недоступен (БД отключена)"); return; }
+    db_vacuum(); ui_toast("VACUUM OK");
+}
 void cb_db_clear(void *c)   { (void)c;
+    if (!db_is_ready()) { ui_toast("Очистка недоступна (БД отключена)"); return; }
     bool ok = db_exec("BEGIN; DELETE FROM measurements; DELETE FROM events;"
                       " DELETE FROM processes; COMMIT;");
     ui_toast(ok ? "История очищена" : "Ошибка очистки");
