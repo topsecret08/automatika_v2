@@ -217,6 +217,8 @@ idf.py build
 idf.py -p COM5 flash monitor
 ```
 
+> Windows PowerShell: перед сборкой/скриптами Python выполните `$env:PYTHONUTF8 = "1"`.
+
 ```bash
 # HMI-панель
 idf.py -C firmware_hmi_project set-target esp32s3
