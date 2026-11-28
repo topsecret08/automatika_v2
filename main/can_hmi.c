@@ -287,6 +287,11 @@ static void handle_cmd(const can_hmi_cmd_t *cmd)
 static size_t s_log_cursor;
 static size_t s_log_pending;
 
+static uint8_t s_recipe_buf[CAN_HMI_RECIPE_MAX_BYTES];
+static size_t s_recipe_len;
+static uint16_t s_recipe_next_idx;
+static bool s_recipe_active;
+
 static void send_log_response(uint8_t seq, uint8_t acked)
 {
     if (acked > 0 && acked <= s_log_pending) {
@@ -339,6 +344,63 @@ static void send_log_response(uint8_t seq, uint8_t acked)
     send_ack(seq, CAN_HMI_ACK_LOG_END, true, CAN_HMI_ERR_OK, ack_data);
 }
 
+static void handle_recipe_chunk(const uint8_t d[8], uint8_t dlc)
+{
+    if (dlc < 4) return;
+    uint8_t seq = d[0];
+    uint8_t idx = d[1];
+    uint8_t flags = d[2];
+    const uint8_t *payload = &d[3];
+    uint8_t payload_len = (dlc > 8 ? 8 : dlc) - 3;
+
+    if (flags & CAN_HMI_RECIPE_F_ABORT) {
+        s_recipe_active = false;
+        s_recipe_len = 0;
+        s_recipe_next_idx = 0;
+        uint8_t ackd[4] = { idx, CAN_HMI_ERR_OK, 0, 0 };
+        send_ack(seq, CAN_HMI_ACK_RECIPE, true, CAN_HMI_ERR_OK, ackd);
+        return;
+    }
+
+    if (flags & CAN_HMI_RECIPE_F_BEGIN) {
+        s_recipe_active = true;
+        s_recipe_len = 0;
+        s_recipe_next_idx = 0;
+    }
+
+    if (!s_recipe_active) {
+        uint8_t ackd[4] = { idx, CAN_HMI_ERR_GATE, 0, 0 };
+        send_ack(seq, CAN_HMI_ACK_RECIPE, false, CAN_HMI_ERR_GATE, ackd);
+        return;
+    }
+
+    if (idx != (uint8_t)(s_recipe_next_idx & 0xFFu)) {
+        uint8_t ackd[4] = { idx, CAN_HMI_ERR_VALUE, (uint8_t)(s_recipe_next_idx & 0xFFu), 0 };
+        send_ack(seq, CAN_HMI_ACK_RECIPE, false, CAN_HMI_ERR_VALUE, ackd);
+        return;
+    }
+
+    if (s_recipe_len + payload_len > sizeof(s_recipe_buf)) {
+        s_recipe_active = false;
+        uint8_t ackd[4] = { idx, CAN_HMI_ERR_VALUE, 0, 0 };
+        send_ack(seq, CAN_HMI_ACK_RECIPE, false, CAN_HMI_ERR_VALUE, ackd);
+        return;
+    }
+
+    memcpy(&s_recipe_buf[s_recipe_len], payload, payload_len);
+    s_recipe_len += payload_len;
+    s_recipe_next_idx++;
+
+    if (flags & CAN_HMI_RECIPE_F_END) {
+        if (s_recipe_len < sizeof(s_recipe_buf)) s_recipe_buf[s_recipe_len] = '\0';
+        s_recipe_active = false;
+        ESP_LOGI(TAG, "Recipe received: %u bytes", (unsigned)s_recipe_len);
+    }
+
+    uint8_t ackd[4] = { idx, CAN_HMI_ERR_OK, (uint8_t)(s_recipe_next_idx & 0xFFu), (flags & CAN_HMI_RECIPE_F_END) ? 1 : 0 };
+    send_ack(seq, CAN_HMI_ACK_RECIPE, true, CAN_HMI_ERR_OK, ackd);
+}
+
 static void can_hmi_recover_if_bus_off(void)
 {
     twai_status_info_t st = {0};
@@ -371,6 +433,11 @@ static void can_hmi_task(void *arg)
             uint8_t seq = msg.data[0];
             uint8_t acked = (msg.data_length_code >= 2) ? msg.data[1] : 0;
             send_log_response(seq, acked);
+        } else if (msg.identifier == CAN_HMI_ID_RECIPE) {
+            uint8_t d[8] = {0};
+            uint8_t dlc = msg.data_length_code < 8 ? msg.data_length_code : 8;
+            memcpy(d, msg.data, dlc);
+            handle_recipe_chunk(d, dlc);
         } else if (msg.identifier == CAN_HMI_ID_CMD) {
             can_hmi_cmd_t cmd;
             uint8_t d[8] = {0};

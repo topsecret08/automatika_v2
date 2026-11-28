@@ -20,7 +20,10 @@ const char *config_backup_info(void) { return s_info; }
 
 static bool path_ok(const char *path) {
     if (!path || !path[0]) return false;
-    return strncmp(path, "/sdcard/", 8) == 0 || strncmp(path, "/lfs/", 5) == 0;
+    return strncmp(path, "/sdcard/", 8) == 0 ||
+           strncmp(path, "/spiffs/", 8) == 0 ||
+           strncmp(path, "/spiffs", 7) == 0 ||
+           strncmp(path, "/lfs/", 5) == 0;
 }
 
 /* ------------------------------------------------------------------ */

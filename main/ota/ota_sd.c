@@ -1,6 +1,7 @@
 #include "fota.h"
 #include "ota_signature.h"
 #include "core/events.h"
+#include "core/storage.h"
 #include "esp_ota_ops.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -14,6 +15,7 @@
 extern fota_progress_t* fota_get_progress(void);
 
 esp_err_t fota_list_sd_images(char names[][64], int max) {
+    if (!storage_sd_ready()) return ESP_ERR_INVALID_STATE;
     DIR *d = opendir("/sdcard/firmware");
     if (!d) d = opendir("/sdcard");
     if (!d) return ESP_FAIL;
@@ -29,6 +31,10 @@ esp_err_t fota_list_sd_images(char names[][64], int max) {
 }
 
 esp_err_t fota_flash_from_sd(const char *path) {
+    if (!storage_sd_ready()) {
+        events_log(EVENT_WARNING, "FOTA SD: controller SD disabled (storage migrated to HMI)");
+        return ESP_ERR_INVALID_STATE;
+    }
     FILE *f = fopen(path, "rb");
     if (!f) return ESP_FAIL;
 

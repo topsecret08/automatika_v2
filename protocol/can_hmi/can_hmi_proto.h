@@ -26,6 +26,7 @@
 #define CAN_HMI_ID_CMD              0x100u  /* HMI -> CTRL: command */
 #define CAN_HMI_ID_POLL             0x101u  /* HMI -> CTRL: poll/request */
 #define CAN_HMI_ID_LOG_POLL         0x102u  /* HMI -> CTRL: poll event/log records */
+#define CAN_HMI_ID_RECIPE           0x103u  /* HMI -> CTRL: recipe/params chunk */
 #define CAN_HMI_ID_TLM_A            0x180u  /* CTRL -> HMI: state/flags */
 #define CAN_HMI_ID_TLM_B            0x181u  /* CTRL -> HMI: temps */
 #define CAN_HMI_ID_TLM_C            0x182u  /* CTRL -> HMI: pressure/flow/power/volumes */
@@ -54,6 +55,7 @@
 #define CAN_HMI_ACK_SNAPSHOT        0x03u  /* end of telemetry snapshot */
 #define CAN_HMI_ACK_CONFIG          0x04u
 #define CAN_HMI_ACK_LOG_END         0x05u  /* end of log poll response; data[0]=events, data[1]=more */
+#define CAN_HMI_ACK_RECIPE          0x06u  /* recipe chunk ack; data[0]=idx, data[1]=status */
 
 /* ACK error codes (ACK frame byte 3) */
 #define CAN_HMI_ERR_OK              0x00u
@@ -186,6 +188,11 @@ typedef struct {
 
 #define CAN_HMI_LOG_F_START 0x01u
 #define CAN_HMI_LOG_F_END   0x02u
+
+#define CAN_HMI_RECIPE_F_BEGIN 0x01u
+#define CAN_HMI_RECIPE_F_END   0x02u
+#define CAN_HMI_RECIPE_F_ABORT 0x04u
+#define CAN_HMI_RECIPE_MAX_BYTES 2048u
 
 typedef struct {
     uint8_t seq;    /* poll seq */
